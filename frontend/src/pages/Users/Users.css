@@ -1,0 +1,91 @@
+.users-container {
+  padding: 20px;
+}
+
+.logout-btn {
+  margin-bottom: 20px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.users-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.users-table th,
+.users-table td {
+  border: 1px solid #ccc;
+  padding: 8px;
+  text-align: center;
+}
+
+.users-table th {
+  background-color: #f2f2f2;
+}
+
+.error {
+  color: red;
+}
+
+.search-box {
+  margin-bottom: 15px;
+}
+
+.search-box input {
+  padding: 6px;
+  margin-right: 6px;
+}
+
+.search-box button {
+  padding: 6px 10px;
+  margin-right: 5px;
+  cursor: pointer;
+}
+
+.add-box {
+  margin-bottom: 15px;
+}
+
+.add-box input {
+  padding: 6px;
+  margin-right: 6px;
+}
+
+.add-box button {
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.delete-btn {
+  background-color: red;
+  color: white;
+  border: none;
+  padding: 5px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.delete-btn:hover {
+  opacity: 0.8;
+}
+
+.edit-box {
+  margin-bottom: 15px;
+  padding: 10px;
+  border: 1px solid #ccc;
+}
+
+.edit-btn {
+  background-color: orange;
+  color: white;
+  border: none;
+  padding: 5px 8px;
+  margin-right: 5px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.edit-btn:hover {
+  opacity: 0.8;
+}

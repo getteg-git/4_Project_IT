@@ -1,0 +1,43 @@
+.user-home-container{
+    padding:40px;
+    text-align:center;
+}
+
+.title{
+    font-size:32px;
+    margin-bottom:40px;
+}
+
+.button-group{
+    display:flex;
+    justify-content:center;
+    gap:20px;
+}
+
+.btn-primary{
+    padding:12px 24px;
+    font-size:16px;
+    background:#2563eb;
+    color:white;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+}
+
+.btn-primary:hover{
+    background:#1d4ed8;
+}
+
+.btn-secondary{
+    padding:12px 24px;
+    font-size:16px;
+    background:#6b7280;
+    color:white;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+}
+
+.btn-secondary:hover{
+    background:#4b5563;
+}
