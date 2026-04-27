@@ -10,7 +10,7 @@ import (
 
 func GetUsers(c *gin.Context) {
 
-	rows, err := database.DB.Query("SELECT id, username, password FROM users")
+	rows, err := database.DB.Query("SELECT id, username, password, role FROM users")
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -21,7 +21,7 @@ func GetUsers(c *gin.Context) {
 
 	for rows.Next() {
 		var u models.User
-		rows.Scan(&u.ID, &u.Username, &u.Password)
+		rows.Scan(&u.ID, &u.Username, &u.Password, &u.Role)
 		users = append(users, u)
 	}
 
@@ -38,9 +38,10 @@ func CreateUser(c *gin.Context) {
 	}
 
 	_, err := database.DB.Exec(
-		"INSERT INTO users (username, password) VALUES ($1,$2)",
+		"INSERT INTO users (username, password, role) VALUES ($1,$2,$3)",
 		user.Username,
 		user.Password,
+		user.Role,
 	)
 
 	if err != nil {

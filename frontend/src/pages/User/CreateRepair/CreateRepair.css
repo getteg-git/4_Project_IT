@@ -1,61 +1,139 @@
-.repair-container{
-    max-width:600px;
-    margin:auto;
-    padding:40px;
+/* ทำกล่องให้ดูมีมิติเหมือน Card และอยู่ตรงกลางจอ */
+.repair-container {
+    max-width: 600px;
+    margin: 40px auto;
+    padding: 40px;
+    background: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); /* เพิ่มเงาบางๆ */
 }
 
-.repair-container h2{
-    text-align:center;
-    margin-bottom:30px;
+.repair-container h2 {
+    text-align: center;
+    margin-bottom: 25px;
+    color: #333;
 }
 
-.repair-container form{
-    display:flex;
-    flex-direction:column;
-    gap:15px;
+/* ตกแต่งกล่องข้อความแจ้งเตือน (Error) */
+.error-message {
+    background-color: #fee2e2;
+    color: #dc2626;
+    padding: 10px;
+    border-radius: 6px;
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 14px;
+    border: 1px solid #f87171;
 }
 
-select, textarea{
-    padding:10px;
-    font-size:14px;
+.repair-container form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
 }
 
-button{
-    padding:12px;
-    background:#2563eb;
-    color:white;
-    border:none;
-    cursor:pointer;
+/* ตกแต่ง Label ให้อ่านง่ายขึ้น */
+label {
+    font-weight: 600;
+    color: #4b5563;
+    margin-bottom: -5px;
 }
 
-button:hover{
-    background:#1d4ed8;
+select, textarea, input[type="file"] {
+    padding: 12px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    outline: none;
+    transition: border-color 0.2s;
+    font-family: inherit;
 }
 
-.preview-container{
-    display:flex;
-    gap:10px;
-    flex-wrap:wrap;
+select:focus, textarea:focus {
+    border-color: #2563eb; /* เปลี่ยนสีขอบตอนกดพิมพ์ */
 }
 
-.preview-item{
-    position:relative;
+/* -------------------------
+   ส่วนของปุ่ม (Button Group)
+------------------------- */
+.button-group {
+    display: flex;
+    gap: 15px;
+    margin-top: 15px;
 }
 
-.preview-item img{
-    width:120px;
-    height:120px;
-    object-fit:cover;
-    border-radius:6px;
+button {
+    padding: 12px;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    flex: 1; /* ทำให้ปุ่มกว้างเท่ากัน */
+    transition: background 0.2s ease;
 }
 
-.preview-item button{
-    position:absolute;
-    top:0;
-    right:0;
-    background:red;
-    color:white;
-    border:none;
-    cursor:pointer;
-    padding:4px 6px;
+.submit-btn {
+    background: #2563eb;
+    color: white;
+}
+
+.submit-btn:hover {
+    background: #1d4ed8;
+}
+
+.cancel-btn {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.cancel-btn:hover {
+    background: #d1d5db;
+}
+
+/* -------------------------
+   ส่วนของรูปภาพ Preview
+------------------------- */
+.preview-container {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    margin-top: 5px;
+}
+
+.preview-item {
+    position: relative;
+}
+
+.preview-item img {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+}
+
+/* ปุ่มลบรูปภาพ (ทำเป็นปุ่มกลมๆ สีแดงมุมขวาบน) */
+.remove-btn {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ef4444;
+    color: white;
+    border: none;
+    cursor: pointer;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    padding: 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    flex: none; /* ป้องกันปุ่มเบี้ยวจาก flex: 1 ด้านบน */
+}
+
+.remove-btn:hover {
+    background: #dc2626;
 }

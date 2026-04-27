@@ -41,3 +41,36 @@
 .btn-secondary:hover{
     background:#4b5563;
 }
+
+/* -------------------------
+   ส่วน Header และปุ่ม Logout
+------------------------- */
+.user-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 40px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.user-header .title {
+    margin: 0;
+    font-size: 24px;
+}
+
+.logout-btn {
+    flex: none;
+    background: white;
+    color: #ef4444;
+    border: 1px solid #fca5a5;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.logout-btn:hover {
+    background: #fee2e2;
+}

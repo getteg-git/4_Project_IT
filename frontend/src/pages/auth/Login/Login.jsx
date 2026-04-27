@@ -4,7 +4,6 @@ import api from "../../../api/axios";
 import "./Login.css";
 
 function Login() {
-
   const navigate = useNavigate();
 
   const [username, setUsername] = useState("");
@@ -15,7 +14,6 @@ function Login() {
     e.preventDefault();
 
     try {
-
       const res = await api.post("/login", {
         username,
         password,
@@ -25,18 +23,21 @@ function Login() {
 
       setError("");
 
+      // 1. บันทึกข้อมูล User ลง localStorage เพื่อให้หน้าอื่น (เช่น หน้าช่าง) ดึงไปใช้งานได้
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+
+      // 2. เช็ค Role แล้วแยกทางไปตามหน้าของแต่ละคน
       if (res.data.user.role === "admin") {
         navigate("/admin/home");
+      } else if (res.data.user.role === "technician") {
+        navigate("/tech/home"); // พาช่างเทคนิคไปที่หน้า TechHome
       } else {
         navigate("/user/home");
       }
 
     } catch (err) {
-
       console.log("LOGIN ERROR:", err.response);
-
       setError("Username หรือ Password ไม่ถูกต้อง");
-
     }
   };
 

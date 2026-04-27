@@ -1,12 +1,14 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../../api/axios";
 import "./Register.css";
 
-function Register({ setPage }) {
+function Register() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+
+  const navigate = useNavigate();
 
   const handleRegister = async () => {
     if (!username || !password) {
@@ -20,21 +22,16 @@ function Register({ setPage }) {
         password,
       });
 
-      setSuccess("สมัครสมาชิกสำเร็จ 🎉");
       setError("");
-
       setUsername("");
       setPassword("");
 
-      // กลับไปหน้า Login หลัง 1.5 วิ
-      setTimeout(() => {
-        setPage("login");
-      }, 1500);
+      // เด้งไปหน้า login ทันทีโดยไม่ต้องรอ
+      navigate("/login");
 
     } catch (err) {
       console.error(err);
       setError("สมัครไม่สำเร็จ (username ซ้ำ?)");
-      setSuccess("");
     }
   };
 
@@ -43,7 +40,6 @@ function Register({ setPage }) {
       <h2>Register</h2>
 
       {error && <p className="error">{error}</p>}
-      {success && <p className="success">{success}</p>}
 
       <input
         type="text"
@@ -61,7 +57,7 @@ function Register({ setPage }) {
 
       <button onClick={handleRegister}>Register</button>
 
-      <p className="link" onClick={() => setPage("login")}>
+      <p className="link" onClick={() => navigate("/login")}>
         Already have account? Login
       </p>
     </div>
