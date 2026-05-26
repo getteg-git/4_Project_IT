@@ -1,6 +1,6 @@
 SET search_path TO public;
 
--- สร้างตารางผู้ใช้งาน
+-- ตารางผู้ใช้งาน
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(100) UNIQUE NOT NULL,
@@ -9,19 +9,19 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- สร้างตารางสถานที่ (ตึก/ห้อง)
+-- ตารางสถานที่ (ตึก/ห้อง)
 CREATE TABLE locations (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL
 );
 
--- สร้างตารางประเภทปัญหา
+-- ตารางประเภทปัญหา
 CREATE TABLE problem_types (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL
 );
 
--- สร้างตารางการแจ้งซ่อม (แก้ไขเพิ่ม technician_id)
+-- ตารางการแจ้งซ่อม (แก้ไขเพิ่ม technician_id)
 CREATE TABLE repairs (
     id SERIAL PRIMARY KEY,
     user_id INT REFERENCES users(id),
@@ -33,7 +33,7 @@ CREATE TABLE repairs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- สร้างตารางเก็บรูปภาพ (แก้ไขเพิ่ม image_type)
+-- ตารางเก็บรูปภาพ (แก้ไขเพิ่ม image_type)
 CREATE TABLE repair_images (
     id SERIAL PRIMARY KEY,
     repair_id INT REFERENCES repairs(id),
@@ -45,7 +45,7 @@ CREATE TABLE repair_images (
 INSERT INTO users (username, password, role) VALUES
 ('GETTEG', '1234', 'user'),
 ('admin', '1234', 'admin'),
-('tech1', '1234', 'technician'); -- [เพิ่มใหม่] สร้างแอคเคาท์ให้ช่างไว้เทสระบบ
+('tech1', '1234', 'technician'); 
 
 -- Insert ข้อมูลสถานที่
 INSERT INTO locations (name) VALUES

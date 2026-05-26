@@ -15,7 +15,6 @@ function App() {
       <Routes>
 
         {/* Auth */}
-        {/* สั่งให้ถ้าเข้ามาหน้า / (หน้าแรกสุด) ให้เด้งไปหน้า /login อัตโนมัติ */}
         <Route path="/" element={<Navigate to="/login" replace />} />
         
         {/* เพิ่ม path /login ให้เรียกหน้า Login */}
