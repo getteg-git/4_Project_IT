@@ -1,8 +1,11 @@
 package models
 
+import "time"
+
 type User struct {
-	ID       int    `json:"id"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Role     string `json:"role"`
+	ID        int       `json:"id"`
+	Username  string    `json:"username"`
+	Password  string    `json:"password"` // เวลาส่ง API กลับไปที่ React ควรระวังไม่ส่ง Password กลับไปด้วยนะครับ
+	Role      string    `json:"role"`
+	CreatedAt time.Time `json:"created_at"`
 }

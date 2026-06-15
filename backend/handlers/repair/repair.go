@@ -12,89 +12,107 @@ import (
 )
 
 // ---------------------------------------------------------
-// 1. CreateRepair: สำหรับ User แจ้งซ่อมพร้อมแนบรูป (Before)
+// 1. CreateRepair: สำหรับ User แจ้งซ่อมพร้อมแนบรูป (เพิ่ม floor_id)
 // ---------------------------------------------------------
 func CreateRepair(c *gin.Context) {
-	userID := c.PostForm("user_id")
+	reporterEmail := c.PostForm("reporter_email")
 	locationID := c.PostForm("location_id")
+	floorID := c.PostForm("floor_id") // รับค่า floor_id เพิ่มเข้ามา
 	problemTypeID := c.PostForm("problem_type_id")
 	description := c.PostForm("description")
 
 	var repairID int
+	// อัปเดต SQL ให้บันทึก floor_id ลงตาราง repairs
 	err := database.DB.QueryRow(
-		`INSERT INTO repairs (user_id, location_id, problem_type_id, description)
-		VALUES ($1,$2,$3,$4) RETURNING id`,
-		userID, locationID, problemTypeID, description,
+		`INSERT INTO repairs (reporter_email, location_id, floor_id, problem_type_id, description, status)
+		VALUES ($1, $2, $3, $4, $5, 'รอซ่อม') RETURNING id`,
+		reporterEmail, locationID, floorID, problemTypeID, description,
 	).Scan(&repairID)
 
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกข้อมูลได้: " + err.Error()})
 		return
 	}
 
 	form, _ := c.MultipartForm()
-	files := form.File["images"]
+	if form != nil && form.File != nil {
+		files := form.File["image"] // บังคับ Key ชื่อ "image" ให้ตรงกันกับฝั่ง React
+		for _, file := range files {
+			filename := fmt.Sprintf("%d_%d%s", repairID, time.Now().UnixNano(), filepath.Ext(file.Filename))
+			path := "uploads/" + filename
 
-	for _, file := range files {
-		filename := fmt.Sprintf("%d_%d%s", repairID, time.Now().UnixNano(), filepath.Ext(file.Filename))
-		path := "uploads/" + filename
+			if err := c.SaveUploadedFile(file, path); err != nil {
+				continue
+			}
 
-		if err := c.SaveUploadedFile(file, path); err != nil {
-			continue
+			imageURL := "/uploads/" + filename
+			database.DB.Exec(
+				`INSERT INTO repair_images (repair_id, image_url, image_type) VALUES ($1, $2, 'before')`,
+				repairID, imageURL,
+			)
 		}
-
-		imageURL := "/uploads/" + filename
-		database.DB.Exec(
-			`INSERT INTO repair_images (repair_id, image_url, image_type) VALUES ($1,$2, 'before')`,
-			repairID, imageURL,
-		)
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"message": "สร้างรายการแจ้งซ่อมสำเร็จ"})
 }
 
 // ---------------------------------------------------------
-// 2. GetAllRepairs: ดึงรายการแจ้งซ่อมทั้งหมด (พร้อมข้อมูลชื่อตึกและชื่อปัญหา)
+// 2. GetAllRepairs: ดึงรายการแจ้งซ่อมทั้งหมด (JOIN เอาชื่อชั้นและชื่อช่างจริงมาแสดง)
 // ---------------------------------------------------------
 func GetAllRepairs(c *gin.Context) {
-	// 1. เพิ่ม r.technician_id ใน SELECT
 	rows, err := database.DB.Query(`
-		SELECT r.id, r.description, r.status, r.created_at, r.technician_id,
-		       l.name as location_name, p.name as problem_type_name, 
-		       u.username as requester_name
+		SELECT r.id, r.description, r.status, r.created_at, r.technician_id, r.technician_note, r.reporter_email,
+		       l.name as location_name, f.floor_name, p.name as problem_type_name, u.username as technician_name
 		FROM repairs r
 		JOIN locations l ON r.location_id = l.id
+		JOIN floors f ON r.floor_id = f.id
 		JOIN problem_types p ON r.problem_type_id = p.id
-		JOIN users u ON r.user_id = u.id
+		LEFT JOIN users u ON r.technician_id = u.id
 		ORDER BY r.created_at DESC`)
 
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	defer rows.Close()
 
-	var repairs []map[string]interface{}
+	repairs := make([]map[string]interface{}, 0)
 	for rows.Next() {
-		var r map[string]interface{}
-		var id, desc, status, locName, probName, reqName string
+		var id int
+		var desc, status, locName, floorName, probName, reporterEmail string
 		var createdAt time.Time
 
-		// 2. ประกาศตัวแปรเป็น Pointer (*int) เพื่อรับค่า NULL จาก Database ได้
 		var techID *int
+		var techNote, techName *string
 
-		// 3. เอา &techID ไปใส่ใน rows.Scan ให้ตรงตำแหน่ง
-		rows.Scan(&id, &desc, &status, &createdAt, &techID, &locName, &probName, &reqName)
+		err := rows.Scan(&id, &desc, &status, &createdAt, &techID, &techNote, &reporterEmail, &locName, &floorName, &probName, &techName)
+		if err != nil {
+			continue
+		}
 
-		r = map[string]interface{}{
-			"id":            id,
-			"description":   desc,
-			"status":        status,
-			"created_at":    createdAt,
-			"location":      locName,
-			"problem_type":  probName,
-			"requester":     reqName,
-			"technician_id": techID, // 4. ใส่ลงไปใน JSON Response ตรงนี้!
+		// 🔥 [เพิ่มใหม่] ค้นหารูปภาพของงานซ่อม ID นี้
+		imgRows, _ := database.DB.Query("SELECT image_url, image_type FROM repair_images WHERE repair_id = $1", id)
+		images := make([]map[string]string, 0)
+		for imgRows.Next() {
+			var url, imgType string
+			imgRows.Scan(&url, &imgType)
+			images = append(images, map[string]string{"url": url, "type": imgType})
+		}
+		imgRows.Close() // อย่าลืมปิด connection รูปภาพ
+
+		r := map[string]interface{}{
+			"id":              id,
+			"description":     desc,
+			"status":          status,
+			"created_at":      createdAt,
+			"location":        locName,
+			"floor_name":      floorName,
+			"problem_type":    probName,
+			"reporter_email":  reporterEmail,
+			"technician_id":   techID,
+			"technician_note": techNote,
+			"technician_name": techName,
+			"images":          images,
 		}
 		repairs = append(repairs, r)
 	}
@@ -103,139 +121,138 @@ func GetAllRepairs(c *gin.Context) {
 }
 
 // ---------------------------------------------------------
-// 3. GetRepairByID: ดูรายละเอียดงานซ่อมรายตัว พร้อมรูปภาพทั้งหมด
+// 3. GetRepairByID: ดูรายละเอียดงานซ่อมเฉพาะเคส
 // ---------------------------------------------------------
 func GetRepairByID(c *gin.Context) {
 	repairID := c.Param("id")
 
-	// 1. ดึงข้อมูลงานซ่อม
-	var repair map[string]interface{}
-	var id, desc, status, locName, probName string
+	var id int
+	var desc, status, locName, floorName, probName, reporterEmail string
+	var techNote, techName *string
+
 	err := database.DB.QueryRow(`
-		SELECT r.id, r.description, r.status, l.name, p.name
+		SELECT r.id, r.description, r.status, r.reporter_email, r.technician_note, 
+		       l.name, f.floor_name, p.name, u.username
 		FROM repairs r
 		JOIN locations l ON r.location_id = l.id
+		JOIN floors f ON r.floor_id = f.id
 		JOIN problem_types p ON r.problem_type_id = p.id
-		WHERE r.id = $1`, repairID).Scan(&id, &desc, &status, &locName, &probName)
+		LEFT JOIN users u ON r.technician_id = u.id
+		WHERE r.id = $1`, repairID).Scan(&id, &desc, &status, &reporterEmail, &techNote, &locName, &floorName, &probName, &techName)
 
 	if err != nil {
-		c.JSON(404, gin.H{"error": "ไม่พบรายการแจ้งซ่อม"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบรายการแจ้งซ่อม"})
 		return
 	}
 
-	// 2. ดึงรูปภาพทั้งหมดที่เกี่ยวข้อง
 	rows, _ := database.DB.Query("SELECT image_url, image_type FROM repair_images WHERE repair_id = $1", id)
 	defer rows.Close()
 
-	var images []map[string]string
+	images := make([]map[string]string, 0)
 	for rows.Next() {
 		var url, imgType string
 		rows.Scan(&url, &imgType)
 		images = append(images, map[string]string{"url": url, "type": imgType})
 	}
 
-	repair = map[string]interface{}{
-		"id": id, "description": desc, "status": status,
-		"location": locName, "problem_type": probName, "images": images,
+	repair := map[string]interface{}{
+		"id":              id,
+		"description":     desc,
+		"status":          status,
+		"reporter_email":  reporterEmail,
+		"technician_note": techNote,
+		"technician_name": techName,
+		"location":        locName,
+		"floor_name":      floorName,
+		"problem_type":    probName,
+		"images":          images,
 	}
 
 	c.JSON(http.StatusOK, repair)
 }
 
 // ---------------------------------------------------------
-// 4. ApproveRepair: Admin อนุมัติและมอบหมายช่าง
+// 4. AssignRepair: Admin มอบหมายช่าง (เปลี่ยนเป็น 'กำลังซ่อม')
 // ---------------------------------------------------------
-func ApproveRepair(c *gin.Context) {
+func AssignRepair(c *gin.Context) {
 	repairID := c.Param("id")
-	type ApprovalRequest struct {
-		TechnicianID int `json:"technician_id"`
+	type AssignRequest struct {
+		TechnicianID int `json:"technician_id" binding:"required"`
 	}
 
-	var req ApprovalRequest
+	var req AssignRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ข้อมูลช่างไม่ถูกต้อง"})
+		return
+	}
+
+	_, err := database.DB.Exec(
+		`UPDATE repairs SET status = 'กำลังซ่อม', technician_id = $1 WHERE id = $2`,
+		req.TechnicianID, repairID,
+	)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "มอบหมายงานให้ช่างสำเร็จ"})
+}
+
+// ---------------------------------------------------------
+// 5. RevokeRepair: Admin ดึงงานกลับ
+// ---------------------------------------------------------
+func RevokeRepair(c *gin.Context) {
+	repairID := c.Param("id")
+
+	_, err := database.DB.Exec(`UPDATE repairs SET status = 'รอซ่อม', technician_id = NULL WHERE id = $1`, repairID)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "ยกเลิกการจ่ายงานสำเร็จ"})
+}
+
+// ---------------------------------------------------------
+// 6. RejectRepair: Tech ปฏิเสธงาน
+// ---------------------------------------------------------
+func RejectRepair(c *gin.Context) {
+	repairID := c.Param("id")
+
+	_, err := database.DB.Exec(`UPDATE repairs SET status = 'รอซ่อม', technician_id = NULL WHERE id = $1`, repairID)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "ปฏิเสธงานและส่งคืนระบบสำเร็จ"})
+}
+
+// ---------------------------------------------------------
+// 7. UpdateRepairStatus: Tech ปิดงาน (เสร็จเรียบร้อย / ซ่อมไม่ได้)
+// ---------------------------------------------------------
+func UpdateRepairStatus(c *gin.Context) {
+	repairID := c.Param("id")
+
+	type UpdateStatusRequest struct {
+		Status         string `json:"status" binding:"required"`
+		TechnicianNote string `json:"technician_note" binding:"required"`
+	}
+
+	var req UpdateStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "ข้อมูลไม่ถูกต้อง"})
 		return
 	}
 
 	_, err := database.DB.Exec(
-		`UPDATE repairs SET status = 'approved', technician_id = $1 WHERE id = $2`,
-		req.TechnicianID, repairID,
+		`UPDATE repairs SET status = $1, technician_note = $2 WHERE id = $3`,
+		req.Status, req.TechnicianNote, repairID,
 	)
 
 	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "อนุมัติและมอบหมายงานสำเร็จ"})
-}
-
-// ---------------------------------------------------------
-// 5. UpdateProgress: Technician รับงานและแนบรูประหว่างซ่อม (During)
-// ---------------------------------------------------------
-func UpdateProgress(c *gin.Context) {
-	repairID := c.Param("id")
-
-	_, err := database.DB.Exec(`UPDATE repairs SET status = 'in_progress' WHERE id = $1`, repairID)
-	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	form, err := c.MultipartForm()
-	if err == nil {
-		files := form.File["tech_images"]
-		for _, file := range files {
-			filename := fmt.Sprintf("tech_%s_%d%s", repairID, time.Now().UnixNano(), filepath.Ext(file.Filename))
-			path := "uploads/" + filename
-			if err := c.SaveUploadedFile(file, path); err == nil {
-				imageURL := "/uploads/" + filename
-				database.DB.Exec(
-					`INSERT INTO repair_images (repair_id, image_url, image_type) VALUES ($1, $2, 'during')`,
-					repairID, imageURL,
-				)
-			}
-		}
-	}
-	c.JSON(http.StatusOK, gin.H{"message": "อัปเดตสถานะกำลังซ่อมสำเร็จ"})
-}
-
-// ---------------------------------------------------------
-// 6. CompleteRepair: ปิดงานซ่อม (Done)
-// ---------------------------------------------------------
-// ---------------------------------------------------------
-// 6. CompleteRepair: ปิดงานซ่อม (Done) พร้อมบันทึกรูปจากช่าง
-// ---------------------------------------------------------
-func CompleteRepair(c *gin.Context) {
-	repairID := c.Param("id")
-
-	// 1. อัปเดตสถานะงานเป็น 'done'
-	_, err := database.DB.Exec(`UPDATE repairs SET status = 'done' WHERE id = $1`, repairID)
-	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	// 2. รับรูปภาพที่ช่างแนบมาตอนปิดงาน (ใช้ชื่อฟิลด์ "images" ตามที่ React ส่งมา)
-	form, err := c.MultipartForm()
-	if err == nil {
-		files := form.File["images"]
-		for _, file := range files {
-			// สร้างชื่อไฟล์ไม่ให้ซ้ำกัน
-			filename := fmt.Sprintf("tech_done_%s_%d%s", repairID, time.Now().UnixNano(), filepath.Ext(file.Filename))
-			path := "uploads/" + filename
-
-			// ถ้าเซฟไฟล์ลงโฟลเดอร์ uploads สำเร็จ
-			if err := c.SaveUploadedFile(file, path); err == nil {
-				imageURL := "/uploads/" + filename
-
-				// บันทึก Path รูปลง Database โดยระบุว่าเป็นรูปประเภท 'during' (รูปจากช่าง)
-				database.DB.Exec(
-					`INSERT INTO repair_images (repair_id, image_url, image_type) VALUES ($1, $2, 'during')`,
-					repairID, imageURL,
-				)
-			}
-		}
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "ปิดงานซ่อมและอัปโหลดรูปหลักฐานสำเร็จ"})
+	c.JSON(http.StatusOK, gin.H{"message": "บันทึกผลการปฏิบัติงานสำเร็จ"})
 }

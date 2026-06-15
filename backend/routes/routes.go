@@ -10,39 +10,45 @@ import (
 
 func SetupRoutes(r *gin.Engine) {
 
-	// Auth: ระบบเข้าสู่ระบบและสมัครสมาชิก
-	r.POST("/login", handler.Login)
-	r.POST("/register", handler.Register)
+	// สร้างกลุ่ม api ครอบทุกเส้นทาง (แนะนำให้คงไว้เพื่อความเป็นระเบียบและมาตรฐาน)
+	api := r.Group("/api")
+	{
+		// ==========================================
+		// 🟢 AUTH (เข้าสู่ระบบ Admin/Technician)
+		// ==========================================
+		api.POST("/login", handler.Login)
 
-	// User Management: ระบบจัดการข้อมูลผู้ใช้งาน (สำหรับ Admin)
-	r.GET("/users/search", handler.SearchUsers)
-	r.GET("/users", handler.GetUsers)
-	r.POST("/users", handler.CreateUser)
-	r.PUT("/users/:id", handler.UpdateUser)
-	r.DELETE("/users/:id", handler.DeleteUser)
+		// ==========================================
+		// 🟢 USER MANAGEMENT (Admin จัดการช่าง)
+		// ==========================================
+		api.GET("/users/search", handler.SearchUsers)
+		api.GET("/users", handler.GetUsers)
+		api.POST("/users", handler.CreateUser)
+		api.PUT("/users/:id", handler.UpdateUser)
+		api.DELETE("/users/:id", handler.DeleteUser)
 
-	// Repair System (Master Data): ดึงข้อมูลพื้นฐานไปแสดงใน Dropdown
-	r.GET("/locations", userHandler.GetLocations)
-	r.GET("/problem-types", userHandler.GetProblemTypes)
+		// ==========================================
+		// 🟢 MASTER DATA (ข้อมูล Dropdown)
+		// ==========================================
+		api.GET("/locations", userHandler.GetLocations)
+		api.GET("/locations/:id/floors", userHandler.GetFloorsByLocation) // 🔥 [เพิ่มใหม่] ดึงข้อมูลชั้นตามตึก
+		api.GET("/problem-types", userHandler.GetProblemTypes)
 
-	// Repairs (Transaction): ระบบจัดการงานแจ้งซ่อม
-	// ---------------------------------------------------------
+		// ==========================================
+		// 🟢 REPAIRS (Transaction แจ้งซ่อม)
+		// ==========================================
 
-	// สำหรับทุกคน: ดูรายการแจ้งซ่อมทั้งหมด หรือดูตาม ID
-	r.GET("/repairs", repairHandler.GetAllRepairs)     // ดึงรายการซ่อมทั้งหมด (Admin ดูได้หมด, User ดูของตัวเอง)
-	r.GET("/repairs/:id", repairHandler.GetRepairByID) // ดูรายละเอียดงานซ่อมเฉพาะเคส (พร้อมรูปภาพ)
+		// ฝั่ง Public (แจ้งซ่อม/ติดตาม)
+		api.GET("/repairs", repairHandler.GetAllRepairs)
+		api.GET("/repairs/:id", repairHandler.GetRepairByID)
+		api.POST("/repairs", repairHandler.CreateRepair)
 
-	// สำหรับ User: สร้างรายการแจ้งซ่อมใหม่
-	r.POST("/repairs", repairHandler.CreateRepair)
+		// ฝั่ง Admin (มอบหมายงาน / ดึงงานกลับ)
+		api.PUT("/repairs/:id/assign", repairHandler.AssignRepair)
+		api.PUT("/repairs/:id/revoke", repairHandler.RevokeRepair)
 
-	// สำหรับ Admin: อนุมัติงานและมอบหมายช่าง
-	r.PUT("/repairs/:id/approve", repairHandler.ApproveRepair)
-
-	// สำหรับ Technician: อัปเดตสถานะเป็น 'กำลังซ่อม' และอัปโหลดรูปภาพระหว่างทำงาน
-	r.PUT("/repairs/:id/progress", repairHandler.UpdateProgress)
-
-	// สำหรับ Technician/Admin: อัปเดตสถานะเป็น 'เสร็จสิ้น' เพื่อปิดงาน
-	r.PUT("/repairs/:id/complete", repairHandler.CompleteRepair)
-
-	// ---------------------------------------------------------
+		// ฝั่ง Technician (ปฏิเสธงาน / ปิดงาน)
+		api.PUT("/repairs/:id/reject", repairHandler.RejectRepair)
+		api.PUT("/repairs/:id/status", repairHandler.UpdateRepairStatus)
+	}
 }

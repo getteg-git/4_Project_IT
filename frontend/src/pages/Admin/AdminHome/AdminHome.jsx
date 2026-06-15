@@ -1,209 +1,226 @@
-import { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../../../api/axios";
 import "./AdminHome.css";
 
 function AdminHome() {
-  const [repairs, setRepairs] = useState([]);
-  const [technicians, setTechnicians] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  // State สำหรับจัดการ Modal (Popup จ่ายงาน)
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedRepair, setSelectedRepair] = useState(null);
-  const [selectedTechId, setSelectedTechId] = useState("");
-
   const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  // ข้อมูลจำลอง (Mock Data)
+  const [repairs, setRepairs] = useState([
+    { id: "REP-001", date: "10 มิ.ย. 2569", location: "อาคารวิทยาศาสตร์ 1", room: "ห้อง 1102", type: "งานไฟฟ้า", status: "รอซ่อม", desc: "หลอดไฟหน้าห้องขาด", tech: null },
+    { id: "REP-002", date: "09 มิ.ย. 2569", location: "ห้องปฏิบัติการเคมี", room: "Lab 3", type: "งานประปา", status: "กำลังซ่อม", tech: "ช่างสมชาย" },
+    { id: "REP-003", date: "08 มิ.ย. 2569", location: "อาคารวิทยาศาสตร์ 2", room: "ห้อง 2205", type: "งานอิเล็กทรอนิกส์", status: "ซ่อมไม่ได้", desc: "แอร์ไม่เย็น มีน้ำหยด", tech: "ช่างสมเกียรติ" },
+    { id: "REP-004", date: "05 มิ.ย. 2569", location: "อาคารวิทยาศาสตร์ 1", room: "ห้องน้ำชาย ชั้น 1", type: "งานประปา", status: "เสร็จเรียบร้อย", tech: "ช่างสมชาย" },
+  ]);
 
-  const fetchData = async () => {
-    try {
-      // ดึงข้อมูล 2 อย่างพร้อมกัน เพื่อความรวดเร็ว
-      const [repairsRes, usersRes] = await Promise.all([
-        api.get("/repairs"),
-        api.get("/users")
-      ]);
+  // รายชื่อช่างสำหรับดึงใส่ Dropdown
+  const technicians = ["ช่างสมชาย", "ช่างสมศักดิ์", "ช่างสมเกียรติ"];
 
-      // เก็บรายการแจ้งซ่อมทั้งหมด (สำหรับแอดมินต้องเห็นหมด)
-      setRepairs(repairsRes.data);
+  const [searchTerm, setSearchTerm] = useState("");
+  
+  // 🔥 States สำหรับจัดการ Popup Modals
+  const [selectedRepair, setSelectedRepair] = useState(null); // เก็บข้อมูลงานที่กำลังกดดู/มอบหมาย
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);   // เปิด-ปิด Popup รายละเอียด
+  const [isAssignOpen, setIsAssignOpen] = useState(false);     // เปิด-ปิด Popup มอบหมายงาน
+  const [chosenTech, setChosenTech] = useState("");            // เก็บช่างที่เลือกจาก Dropdown
 
-      // กรองเอาเฉพาะ User ที่เป็นช่างเทคนิค
-      const techList = usersRes.data.filter(user => user.role === "technician");
-      setTechnicians(techList);
+  const filteredRepairs = repairs.filter((repair) =>
+    repair.location.includes(searchTerm) ||
+    repair.room.includes(searchTerm) ||
+    repair.status.includes(searchTerm) ||
+    repair.id.includes(searchTerm)
+  );
 
-      setLoading(false);
-    } catch (err) {
-      console.error(err);
-      setError("ไม่สามารถดึงข้อมูลได้ กรุณาลองใหม่อีกครั้ง");
-      setLoading(false);
+  const getStatusClass = (status) => {
+    switch (status) {
+      case "รอซ่อม": return "status-pending";
+      case "กำลังซ่อม": return "status-progress";
+      case "เสร็จเรียบร้อย": return "status-completed";
+      case "ซ่อมไม่ได้": return "status-failed"; 
+      default: return "status-default";
     }
   };
 
-  // เปิด Popup จ่ายงาน
+  // เปิด Popup รายละเอียด
+  const openDetailsModal = (repair) => {
+    setSelectedRepair(repair);
+    setIsDetailsOpen(true);
+  };
+
+  // เปิด Popup มอบหมายงาน
   const openAssignModal = (repair) => {
     setSelectedRepair(repair);
-    setSelectedTechId(""); // รีเซ็ตค่า dropdown
-    setIsModalOpen(true);
+    setChosenTech(""); // รีเซ็ตค่าช่างที่เลือกเป็นค่าว่างก่อน
+    setIsAssignOpen(true);
   };
 
-  // ปิด Popup
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedRepair(null);
-  };
-
-  // ฟังก์ชันกดยืนยันจ่ายงาน
-  const handleAssignTask = async () => {
-    if (!selectedTechId) {
-      alert("กรุณาเลือกช่างเทคนิคก่อนกดยืนยัน");
+  // ยืนยันมอบหมายงานจาก Dropdown
+  const handleAssignSubmit = (e) => {
+    e.preventDefault();
+    if (!chosenTech) {
+      alert("กรุณาเลือกช่างก่อนครับ");
       return;
     }
 
-    try {
-      // ยิง API ไปเปลี่ยนสถานะและใส่ช่างเทคนิค
-      await api.put(`/repairs/${selectedRepair.id}/approve`, {
-        technician_id: parseInt(selectedTechId)
-      });
+    setRepairs(repairs.map(r => 
+      r.id === selectedRepair.id ? { ...r, status: "กำลังซ่อม", tech: chosenTech } : r
+    ));
 
-      // ถ้าสำเร็จ ให้ดึงข้อมูลใหม่ เพื่ออัปเดตตาราง
-      await fetchData();
-      closeModal();
-      
-    } catch (err) {
-      console.error("Assign error:", err);
-      alert("เกิดข้อผิดพลาดในการมอบหมายงาน (ช่างอาจถูกลบไปแล้ว?)");
+    setIsAssignOpen(false);
+    alert(`✅ มอบหมายงาน #${selectedRepair.id} ให้ ${chosenTech} สำเร็จ`);
+  };
+
+  const handleRevoke = (id) => {
+    const confirmRevoke = window.confirm(`คุณแน่ใจหรือไม่ที่จะ "ดึงงานกลับ/ยกเลิกการจ่ายงาน" สำหรับ Ticket: #${id} ?`);
+    if (confirmRevoke) {
+      setRepairs(repairs.map(r => r.id === id ? { ...r, status: "รอซ่อม", tech: null } : r));
     }
   };
 
-  // จัดการป้ายสถานะ
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case "pending": return <span className="badge badge-pending">รอดำเนินการ</span>;
-      case "approved": return <span className="badge badge-approved">รอช่างรับงาน</span>;
-      case "in_progress": return <span className="badge badge-progress">กำลังซ่อม</span>;
-      case "done": return <span className="badge badge-done">เสร็จสิ้น</span>;
-      default: return <span className="badge">{status}</span>;
+  const handleLogout = () => {
+    if (window.confirm("ต้องการออกจากระบบใช่หรือไม่?")) {
+      navigate("/");
     }
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return "-";
-    const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-    return new Date(dateString).toLocaleDateString('th-TH', options);
   };
 
   return (
-    <div className="admin-home-container">
-      
-      <div className="admin-header">
-        <h2>🛠️ Admin Dashboard (ระบบจัดการงานซ่อม)</h2>
-        {/* เผื่อทำระบบ Logout ในอนาคต พี่ใส่ปุ่มหลอกๆ ไว้ให้ก่อน */}
-        <button className="logout-btn" onClick={() => navigate("/login")}>ออกจากระบบ</button>
+    <div className="admin-container">
+      <div className="admin-wrapper">
+        <div className="admin-header">
+          <div>
+            <h2>แผงควบคุมผู้ดูแลระบบ (Admin Panel)</h2>
+            <p>จัดการและมอบหมายงานแจ้งซ่อม คณะวิทยาศาสตร์</p>
+          </div>
+          <button className="btn-logout" onClick={handleLogout}>ออกจากระบบ</button>
+        </div>
+
+        <div className="search-section">
+          <input 
+            type="text" 
+            placeholder="🔍 ค้นหารหัสงาน, สถานที่, หมายเลขห้อง หรือสถานะ..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="search-input"
+          />
+        </div>
+
+        <div className="repair-list">
+          {filteredRepairs.length > 0 ? (
+            filteredRepairs.map((repair) => (
+              <div className="repair-item-card" key={repair.id}>
+                <div className="card-top">
+                  <span className="repair-id">#{repair.id}</span>
+                  <span className={`status-badge ${getStatusClass(repair.status)}`}>
+                    {repair.status}
+                  </span>
+                </div>
+                
+                <h3 className="repair-title">[{repair.type}] {repair.location}</h3>
+                <p className="repair-info"><strong>ห้อง/จุดเกิดเหตุ:</strong> {repair.room}</p>
+                <p className="repair-info"><strong>รายละเอียด:</strong> {repair.desc}</p>
+                
+                {repair.tech && (
+                  <p className="repair-tech"><strong>ผู้รับผิดชอบ:</strong> 👷‍♂️ {repair.tech}</p>
+                )}
+                
+                <div className="card-actions">
+                  <span className="repair-date">📅 {repair.date}</span>
+                  
+                  <div className="action-buttons">
+                    <button className="btn-details" onClick={() => openDetailsModal(repair)}>
+                      ดูรายละเอียด
+                    </button>
+
+                    {repair.status === "รอซ่อม" && (
+                      <button className="btn-assign" onClick={() => openAssignModal(repair)}>
+                        มอบหมายงาน
+                      </button>
+                    )}
+
+                    {repair.status === "กำลังซ่อม" && (
+                      <button className="btn-revoke" onClick={() => handleRevoke(repair.id)}>
+                        ยกเลิกงาน
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="no-results">
+              <p>ไม่พบรายการที่ค้นหา</p>
+            </div>
+          )}
+        </div>
       </div>
 
-      {loading ? (
-        <p className="loading-text">กำลังโหลดข้อมูลระบบ... ⏳</p>
-      ) : error ? (
-        <p className="error-message">{error}</p>
-      ) : (
-        <div className="table-wrapper">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Ticket ID</th>
-                <th>ผู้แจ้ง</th>
-                <th>สถานที่</th>
-                <th>ปัญหา</th>
-                <th>สถานะ</th>
-                <th>วันที่แจ้ง</th>
-                <th>การจัดการ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {repairs.length === 0 ? (
-                <tr><td colSpan="7" className="empty-text">ไม่มีรายการแจ้งซ่อมในระบบ</td></tr>
-              ) : (
-                repairs.map((repair) => (
-                  <tr key={repair.id}>
-                    <td>#{repair.id}</td>
-                    <td>{repair.requester || "Unknown"}</td>
-                    <td>{repair.location}</td>
-                    <td>{repair.problem_type}</td>
-                    <td>{getStatusBadge(repair.status)}</td>
-                    <td>{formatDate(repair.created_at)}</td>
-                    <td>
-                      {/* ถ้าสถานะเป็น pending ถึงจะให้กดจ่ายงานได้ */}
-                      {repair.status === "pending" ? (
-                        <button 
-                          className="assign-btn"
-                          onClick={() => openAssignModal(repair)}
-                        >
-                          จ่ายงาน
-                        </button>
-                      ) : (
-                        <span className="assigned-text">
-                          {repair.status === "done" ? "จบงานแล้ว" : "มอบหมายแล้ว"}
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* --- Modal (Popup) สำหรับเลือกช่าง --- */}
-      {isModalOpen && selectedRepair && (
-        <div className="modal-overlay" onClick={closeModal}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>มอบหมายงานซ่อม Ticket #{selectedRepair.id}</h3>
-              <button className="close-btn" onClick={closeModal}>&times;</button>
+      {/* ==========================================
+          1. POPUP: ดูรายละเอียด (Details Modal)
+          ========================================== */}
+      {isDetailsOpen && selectedRepair && (
+        <div className="modal-overlay">
+          <div className="modal-box details-box">
+            <span className="close-btn" onClick={() => setIsDetailsOpen(false)}>&times;</span>
+            <h3>📄 รายละเอียดงานซ่อม #{selectedRepair.id}</h3>
+            <hr />
+            <div className="modal-details-content">
+              <p><strong>ประเภทปัญหา:</strong> {selectedRepair.type}</p>
+              <p><strong>สถานที่:</strong> {selectedRepair.location}</p>
+              <p><strong>ห้อง/จุดเกิดเหตุ:</strong> {selectedRepair.room}</p>
+              <p><strong>รายละเอียดเพิ่มเติม:</strong> {selectedRepair.desc}</p>
+              <p><strong>วันที่แจ้งเรื่อง:</strong> {selectedRepair.date}</p>
+              <p><strong>สถานะปัจจุบัน:</strong> <span className={`status-badge ${getStatusClass(selectedRepair.status)}`}>{selectedRepair.status}</span></p>
+              <p><strong>ช่างที่รับผิดชอบ:</strong> {selectedRepair.tech ? `👷‍♂️ ${selectedRepair.tech}` : "ยังไม่มอบหมายงาน"}</p>
             </div>
-            
-            <div className="modal-body">
-              <div className="repair-info-box">
-                <p><strong>สถานที่:</strong> {selectedRepair.location}</p>
-                <p><strong>ปัญหา:</strong> {selectedRepair.problem_type}</p>
-                <p><strong>รายละเอียด:</strong> {selectedRepair.description}</p>
-              </div>
-
-              <div className="assign-form">
-                <label>เลือกช่างเทคนิคที่ต้องการมอบหมาย:</label>
-                <select 
-                  value={selectedTechId} 
-                  onChange={(e) => setSelectedTechId(e.target.value)}
-                >
-                  <option value="">-- กรุณาเลือกช่าง --</option>
-                  {technicians.map((tech) => (
-                    <option key={tech.id} value={tech.id}>
-                      {tech.username} (ID: {tech.id})
-                    </option>
-                  ))}
-                </select>
-
-                {technicians.length === 0 && (
-                  <p className="error-message" style={{marginTop: "10px", fontSize: "12px"}}>
-                    * ไม่พบข้อมูลช่างในระบบ กรุณาไปเพิ่ม User ที่มี Role: technician ก่อน
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="modal-footer">
-              <button className="cancel-assign-btn" onClick={closeModal}>ยกเลิก</button>
-              <button className="confirm-assign-btn" onClick={handleAssignTask}>ยืนยันการจ่ายงาน</button>
+            <div className="modal-actions">
+              <button className="btn-cancel" onClick={() => setIsDetailsOpen(false)}>ปิดหน้าต่าง</button>
             </div>
           </div>
         </div>
       )}
 
+      {/* ==========================================
+          2. POPUP: มอบหมายงานพร้อม Dropdown ช่าง (Assign Modal)
+          ========================================== */}
+      {isAssignOpen && selectedRepair && (
+        <div className="modal-overlay">
+          <div className="modal-box">
+            <span className="close-btn" onClick={() => setIsAssignOpen(false)}>&times;</span>
+            <h3>👷‍♂️ มอบหมายงานซ่อม #{selectedRepair.id}</h3>
+            <p style={{ fontSize: "14px", color: "#666", marginBottom: "15px" }}>
+              งาน: [{selectedRepair.type}] {selectedRepair.location}
+            </p>
+            
+            <form onSubmit={handleAssignSubmit}>
+              <div className="input-group">
+                <label style={{ fontWeight: "bold", display: "block", marginBottom: "8px" }}>
+                  เลือกช่างเทคนิคที่รับผิดชอบ <span style={{ color: "red" }}>*</span>
+                </label>
+                <select 
+                  value={chosenTech} 
+                  onChange={(e) => setChosenTech(e.target.value)}
+                  required
+                  style={{ width: "100%", padding: "10px", borderRadius: "5px", border: "1px solid #ccc" }}
+                >
+                  <option value="">-- โปรดเลือกช่างซ่อม --</option>
+                  {technicians.map((tech, idx) => (
+                    <option key={idx} value={tech}>{tech}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="modal-actions" style={{ marginTop: "20px" }}>
+                <button type="button" className="btn-cancel" onClick={() => setIsAssignOpen(false)}>
+                  ยกเลิก
+                </button>
+                <button type="submit" className="btn-submit">
+                  ยืนยันมอบหมายงาน
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

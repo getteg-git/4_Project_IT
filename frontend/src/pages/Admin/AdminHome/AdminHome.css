@@ -1,178 +1,221 @@
-.admin-home-container {
-    max-width: 1100px; /* ขยายให้กว้างขึ้นเพราะเป็นตาราง */
-    margin: 40px auto;
-    padding: 20px;
-    font-family: inherit;
+/* โครงสร้างหลัก (เหมือนฝั่ง User) */
+.admin-container {
+  min-height: 100vh;
+  background-color: #f8f9fa;
+  display: flex;
+  justify-content: center;
+  padding: 40px 20px;
+  font-family: 'Sarabun', 'Prompt', sans-serif;
 }
 
+.admin-wrapper {
+  width: 100%;
+  max-width: 900px;
+}
+
+/* ส่วนหัวและปุ่ม Logout */
 .admin-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 25px;
-    padding-bottom: 15px;
-    border-bottom: 2px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  border-bottom: 2px solid #ddd;
+  padding-bottom: 20px;
 }
 
 .admin-header h2 {
-    margin: 0;
-    color: #1f2937;
+  color: #2b7a5d; /* สีเขียวศิลปากร */
+  font-size: 1.8rem;
+  margin-bottom: 5px;
 }
 
-.logout-btn {
-    flex: none;
-    background: white;
-    color: #ef4444;
-    border: 1px solid #fca5a5;
-    padding: 8px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
+.admin-header p {
+  color: #666;
+  font-size: 0.95rem;
 }
 
-.logout-btn:hover {
-    background: #fee2e2;
+.btn-logout {
+  background-color: transparent;
+  color: #e74c3c;
+  border: 1px solid #e74c3c;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s;
 }
 
-/* -------------------------
-   การจัดรูปแบบตาราง (Table UI)
-------------------------- */
-.table-wrapper {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    overflow: hidden; /* ให้ขอบมุมโค้งตัดขอบตารางพอดี */
-    border: 1px solid #e5e7eb;
+.btn-logout:hover {
+  background-color: #e74c3c;
+  color: white;
 }
 
-.admin-table {
+/* ช่องค้นหา */
+.search-section {
+  margin-bottom: 30px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 15px 20px;
+  font-size: 1.05rem;
+  border: 1px solid #ddd;
+  border-radius: 30px;
+  box-sizing: border-box;
+  outline: none;
+  transition: all 0.3s;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+.search-input:focus {
+  border-color: #2b7a5d;
+  box-shadow: 0 4px 15px rgba(43, 122, 93, 0.2);
+}
+
+/* =======================================
+   Card สำหรับรายการแจ้งซ่อม
+   ======================================= */
+.repair-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.repair-item-card {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  border-left: 6px solid #2b7a5d;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+
+.repair-id {
+  font-weight: bold;
+  color: #888;
+}
+
+/* ป้ายกำกับสถานะ */
+.status-badge {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: bold;
+}
+.status-pending { background-color: #ffeaa7; color: #d35400; }
+.status-progress { background-color: #74b9ff; color: #0984e3; }
+.status-completed { background-color: #55efc4; color: #00b894; }
+.status-failed { background-color: #ffcccc; color: #c0392b; }
+
+/* รายละเอียดใน Card */
+.repair-title {
+  color: #2b7a5d;
+  font-size: 1.15rem;
+  margin-bottom: 10px;
+}
+
+.repair-info {
+  font-size: 0.95rem;
+  color: #555;
+  margin-bottom: 5px;
+}
+
+.repair-tech {
+  font-size: 0.95rem;
+  color: #0984e3; /* สีฟ้าให้เด่นชัดว่ามีช่างแล้ว */
+  background: #f0f8ff;
+  padding: 6px 10px;
+  border-radius: 6px;
+  display: inline-block;
+  margin-top: 5px;
+}
+
+/* =======================================
+   แถบ Action (วันที่ และ ปุ่มต่างๆ)
+   ======================================= */
+.card-actions {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px dashed #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.repair-date {
+  font-size: 0.85rem;
+  color: #999;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+/* สไตล์ปุ่มกดต่างๆ */
+.action-buttons button {
+  padding: 8px 15px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: none;
+}
+
+/* ปุ่มดูรายละเอียด */
+.btn-details {
+  background-color: transparent;
+  color: #2b7a5d;
+  border: 1px solid #2b7a5d !important;
+}
+.btn-details:hover { background-color: #f0f9f5; }
+
+/* ปุ่มมอบหมายงาน */
+.btn-assign {
+  background-color: #2b7a5d;
+  color: white;
+}
+.btn-assign:hover { background-color: #1e5c45; }
+
+/* ปุ่มยกเลิกงาน (กรณีจ่ายงานผิด) */
+.btn-revoke {
+  background-color: transparent;
+  color: #e67e22;
+  border: 1px solid #e67e22 !important;
+}
+.btn-revoke:hover {
+  background-color: #e67e22;
+  color: white;
+}
+
+/* =======================================
+   Responsive (หน้าจอมือถือ)
+   ======================================= */
+@media (max-width: 600px) {
+  .admin-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  
+  .card-actions {
+    flex-direction: column; /* ให้วันที่กับกลุ่มปุ่มซ้อนกัน */
+    align-items: flex-start;
+    gap: 15px;
+  }
+  
+  .action-buttons {
     width: 100%;
-    border-collapse: collapse;
-    text-align: left;
+    display: flex;
+    justify-content: flex-end; /* ดันปุ่มไปขวาสุด */
+  }
 }
-
-.admin-table th, .admin-table td {
-    padding: 16px;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.admin-table th {
-    background-color: #f9fafb;
-    color: #4b5563;
-    font-weight: bold;
-    font-size: 14px;
-    text-transform: uppercase;
-}
-
-.admin-table td {
-    color: #111827;
-    font-size: 14px;
-}
-
-.admin-table tbody tr:hover {
-    background-color: #f8fafc; /* แถวเปลี่ยนสีนิดนึงตอนเอาเมาส์ชี้ */
-}
-
-.empty-text {
-    text-align: center;
-    color: #9ca3af;
-    font-style: italic;
-    padding: 40px !important;
-}
-
-/* -------------------------
-   ป้ายสถานะ (Badges) เอามาจาก User ได้เลย
-------------------------- */
-.badge {
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: bold;
-    display: inline-block;
-}
-.badge-pending { background: #fef3c7; color: #d97706; }
-.badge-approved { background: #e0e7ff; color: #4f46e5; }
-.badge-progress { background: #fae8ff; color: #a21caf; }
-.badge-done { background: #dcfce7; color: #15803d; }
-
-/* -------------------------
-   ปุ่มกดจ่ายงาน
-------------------------- */
-.assign-btn {
-    background-color: #2563eb;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: background 0.2s;
-}
-
-.assign-btn:hover { background-color: #1d4ed8; }
-
-.assigned-text {
-    color: #9ca3af;
-    font-size: 13px;
-    font-style: italic;
-}
-
-/* -------------------------
-   ระบบ Popup (Modal)
-------------------------- */
-/* ใช้โครงร่างเดียวกับ MyRepairs เลยเพื่อความสม่ำเสมอของ UI */
-.modal-overlay {
-    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    background-color: rgba(0, 0, 0, 0.5); display: flex;
-    justify-content: center; align-items: center; z-index: 1000;
-}
-
-.modal-content {
-    background: white; width: 90%; max-width: 500px;
-    border-radius: 12px; display: flex; flex-direction: column;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-}
-
-.modal-header {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 15px 20px; border-bottom: 1px solid #e5e7eb;
-}
-
-.modal-header h3 { margin: 0; font-size: 18px; }
-
-.close-btn {
-    background: transparent; border: none; font-size: 28px;
-    color: #9ca3af; cursor: pointer; display: flex; align-items: center;
-}
-.close-btn:hover { color: #ef4444; }
-
-.modal-body { padding: 20px; }
-
-.repair-info-box {
-    background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;
-    padding: 15px; margin-bottom: 20px;
-}
-.repair-info-box p { margin: 5px 0; font-size: 14px; color: #374151;}
-
-.assign-form label {
-    display: block; margin-bottom: 8px; font-weight: bold; color: #111827;
-}
-
-.assign-form select {
-    width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #d1d5db;
-    font-size: 14px; font-family: inherit; outline: none;
-}
-.assign-form select:focus { border-color: #2563eb; }
-
-.modal-footer {
-    display: flex; justify-content: flex-end; gap: 10px;
-    padding: 15px 20px; border-top: 1px solid #e5e7eb;
-}
-
-.cancel-assign-btn, .confirm-assign-btn {
-    padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; border: none;
-}
-.cancel-assign-btn { background: #f3f4f6; color: #4b5563; }
-.cancel-assign-btn:hover { background: #e5e7eb; }
-.confirm-assign-btn { background: #10b981; color: white; } /* ปุ่มสีเขียวยืนยัน */
-.confirm-assign-btn:hover { background: #059669; }

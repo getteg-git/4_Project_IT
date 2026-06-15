@@ -1,139 +1,196 @@
-/* ทำกล่องให้ดูมีมิติเหมือน Card และอยู่ตรงกลางจอ */
-.repair-container {
-    max-width: 600px;
-    margin: 40px auto;
-    padding: 40px;
-    background: #ffffff;
+/* โครงสร้างพื้นหลัง */
+.create-repair-container {
+  min-height: 100vh;
+  background-color: #f0f4f2; /* สีพื้นหลังอมเขียวอ่อนๆ ให้ดูสบายตา */
+  display: flex;
+  justify-content: center;
+  align-items: center; 
+  padding: 40px 20px;
+  font-family: 'Sarabun', 'Prompt', sans-serif;
+}
+
+/* กล่องแบบฟอร์ม (Card) */
+.repair-card {
+  background: white;
+  width: 100%;
+  max-width: 650px; /* ขยายให้กว้างขึ้นนิดนึงดูไม่อึดอัด */
+  padding: 40px;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 122, 83, 0.08); /* เงาอมสีเขียว */
+  border-top: 8px solid #007A53; /* สีเขียวศิลปากร */
+}
+
+.repair-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.repair-header h2 {
+  color: #007A53; /* สีเขียวศิลปากร */
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.repair-header p {
+  color: #555;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* สไตล์ของแต่ละช่องกรอกข้อมูล */
+.form-group {
+  margin-bottom: 22px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.required {
+  color: #d32f2f; /* ดอกจันสีแดงชัดเจน */
+  margin-left: 3px;
+}
+
+/* ตกแต่ง Input, Select, Textarea */
+.form-group input[type="email"],
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 14px 15px; /* เพิ่มพื้นที่ให้กดง่ายขึ้นบนมือถือ */
+  border: 1px solid #ccd6d1;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: inherit;
+  box-sizing: border-box; 
+  transition: all 0.3s ease;
+  background-color: #fafbfc;
+  color: #222;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder {
+  color: #999;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #007A53;
+  background-color: white;
+  box-shadow: 0 0 0 3px rgba(0, 122, 83, 0.15); /* เรืองแสงสีเขียวศิลปากร */
+}
+
+/* อนิเมชันช่องเลื่อนลงมา (สำหรับช่อง "ชั้น") */
+.slide-down {
+  animation: slideDown 0.3s ease-out forwards;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ตกแต่งปุ่มอัปโหลดไฟล์ให้กดง่ายชัดเจน */
+.file-input {
+  display: none; /* ซ่อนปุ่มเลือกไฟล์เดิมที่ดูไม่สวย */
+}
+
+.file-upload-label {
+  display: block !important;
+  width: 100%;
+  padding: 20px;
+  border: 2px dashed #007A53;
+  border-radius: 8px;
+  background-color: #f2f9f6;
+  color: #007A53 !important;
+  font-weight: 600 !important;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.file-upload-label:hover {
+  background-color: #e5f3ed;
+}
+
+.file-name-preview {
+  margin-top: 10px;
+  font-size: 0.9rem;
+  color: #007A53;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* โซนปุ่มกดยืนยัน / ยกเลิก */
+.form-actions {
+  display: flex;
+  gap: 15px;
+  margin-top: 35px;
+}
+
+.form-actions button {
+  flex: 1; 
+  padding: 16px; /* ปุ่มใหญ่ขึ้นเพื่อ UX ที่ดี ไม่กดพลาด */
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-cancel {
+  background-color: #f1f3f4;
+  color: #444;
+  border: 1px solid #dadce0;
+}
+
+.btn-cancel:hover:not(:disabled) {
+  background-color: #e8eaed;
+  color: #d32f2f; /* สื่อให้รู้ว่านี่คือการยกเลิก */
+}
+
+.btn-submit {
+  background-color: #007A53; /* สีเขียวศิลปากร */
+  color: white;
+  box-shadow: 0 4px 12px rgba(0, 122, 83, 0.25);
+}
+
+.btn-submit:hover:not(:disabled) {
+  background-color: #006343; /* เขียวเข้มขึ้นตอน Hover */
+  transform: translateY(-2px); 
+}
+
+/* =======================================
+   Responsive สำหรับมือถือ 
+   ======================================= */
+@media (max-width: 600px) {
+  .repair-card {
+    padding: 30px 20px; 
     border-radius: 10px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08); /* เพิ่มเงาบางๆ */
-}
+  }
 
-.repair-container h2 {
-    text-align: center;
-    margin-bottom: 25px;
-    color: #333;
-}
-
-/* ตกแต่งกล่องข้อความแจ้งเตือน (Error) */
-.error-message {
-    background-color: #fee2e2;
-    color: #dc2626;
-    padding: 10px;
-    border-radius: 6px;
-    text-align: center;
-    margin-bottom: 20px;
-    font-size: 14px;
-    border: 1px solid #f87171;
-}
-
-.repair-container form {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-/* ตกแต่ง Label ให้อ่านง่ายขึ้น */
-label {
-    font-weight: 600;
-    color: #4b5563;
-    margin-bottom: -5px;
-}
-
-select, textarea, input[type="file"] {
-    padding: 12px;
-    font-size: 14px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    outline: none;
-    transition: border-color 0.2s;
-    font-family: inherit;
-}
-
-select:focus, textarea:focus {
-    border-color: #2563eb; /* เปลี่ยนสีขอบตอนกดพิมพ์ */
-}
-
-/* -------------------------
-   ส่วนของปุ่ม (Button Group)
-------------------------- */
-.button-group {
-    display: flex;
-    gap: 15px;
-    margin-top: 15px;
-}
-
-button {
-    padding: 12px;
-    font-size: 16px;
-    font-weight: bold;
-    border-radius: 6px;
-    border: none;
-    cursor: pointer;
-    flex: 1; /* ทำให้ปุ่มกว้างเท่ากัน */
-    transition: background 0.2s ease;
-}
-
-.submit-btn {
-    background: #2563eb;
-    color: white;
-}
-
-.submit-btn:hover {
-    background: #1d4ed8;
-}
-
-.cancel-btn {
-    background: #e5e7eb;
-    color: #374151;
-}
-
-.cancel-btn:hover {
-    background: #d1d5db;
-}
-
-/* -------------------------
-   ส่วนของรูปภาพ Preview
-------------------------- */
-.preview-container {
-    display: flex;
-    gap: 15px;
-    flex-wrap: wrap;
-    margin-top: 5px;
-}
-
-.preview-item {
-    position: relative;
-}
-
-.preview-item img {
-    width: 120px;
-    height: 120px;
-    object-fit: cover;
-    border-radius: 6px;
-    border: 1px solid #e5e7eb;
-}
-
-/* ปุ่มลบรูปภาพ (ทำเป็นปุ่มกลมๆ สีแดงมุมขวาบน) */
-.remove-btn {
-    position: absolute;
-    top: -8px;
-    right: -8px;
-    background: #ef4444;
-    color: white;
-    border: none;
-    cursor: pointer;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    padding: 0;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    flex: none; /* ป้องกันปุ่มเบี้ยวจาก flex: 1 ด้านบน */
-}
-
-.remove-btn:hover {
-    background: #dc2626;
+  .form-actions {
+    flex-direction: column-reverse; 
+    gap: 10px;
+  }
+  
+  .repair-header h2 {
+    font-size: 1.5rem;
+  }
 }

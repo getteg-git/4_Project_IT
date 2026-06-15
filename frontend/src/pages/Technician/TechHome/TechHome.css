@@ -1,211 +1,213 @@
-.tech-home-container {
-    max-width: 1000px;
-    margin: 40px auto;
-    padding: 20px;
-    font-family: inherit;
+/* โครงสร้างหลัก (คุมโทนเขียวศิลปากร) */
+.tech-container {
+  min-height: 100vh;
+  background-color: #f8f9fa;
+  display: flex;
+  justify-content: center;
+  padding: 40px 20px;
+  font-family: 'Sarabun', 'Prompt', sans-serif;
 }
 
+.tech-wrapper {
+  width: 100%;
+  max-width: 900px;
+}
+
+/* ส่วนหัว */
 .tech-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 30px;
-    border-bottom: 2px solid #e5e7eb;
-    padding-bottom: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  border-bottom: 2px solid #ddd;
+  padding-bottom: 20px;
 }
 
 .tech-header h2 {
-    margin: 0;
-    color: #1f2937;
+  color: #2b7a5d;
+  font-size: 1.8rem;
+  margin-bottom: 5px;
 }
 
-.logout-btn {
-    flex: none;
-    background: white;
-    color: #ef4444;
-    border: 1px solid #fca5a5;
-    padding: 8px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 600;
+.tech-header p {
+  color: #666;
+  font-size: 0.95rem;
+  font-weight: bold;
 }
 
-.logout-btn:hover { background: #fee2e2; }
-
-/* -------------------------
-   ระบบ Grid สำหรับ Task Card
-------------------------- */
-.task-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 20px;
+.btn-logout {
+  background-color: transparent;
+  color: #e74c3c;
+  border: 1px solid #e74c3c;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s;
 }
 
-.task-card {
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-    display: flex;
-    flex-direction: column;
-    transition: transform 0.2s;
+.btn-logout:hover {
+  background-color: #e74c3c;
+  color: white;
 }
 
-.task-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+/* ช่องค้นหา */
+.search-section { margin-bottom: 30px; }
+.search-input {
+  width: 100%;
+  padding: 15px 20px;
+  font-size: 1.05rem;
+  border: 1px solid #ddd;
+  border-radius: 30px;
+  box-sizing: border-box;
+  outline: none;
+  transition: all 0.3s;
+}
+.search-input:focus {
+  border-color: #2b7a5d;
+  box-shadow: 0 4px 15px rgba(43, 122, 93, 0.2);
 }
 
-/* ทำให้การ์ดที่เสร็จแล้วดูจางลงนิดนึง */
-.task-done {
-    opacity: 0.7;
-    background: #f9fafb;
+/* =======================================
+   Card และสถานะ
+   ======================================= */
+.repair-list { display: flex; flex-direction: column; gap: 15px; }
+.repair-item-card {
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  border-left: 6px solid #2b7a5d;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
-.task-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 1px dashed #e5e7eb;
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
 }
 
-.task-id {
-    font-weight: bold;
-    color: #6b7280;
+.repair-id { font-weight: bold; color: #888; }
+
+.status-badge {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: bold;
+}
+.status-pending { background-color: #ffeaa7; color: #d35400; }
+.status-progress { background-color: #74b9ff; color: #0984e3; }
+.status-completed { background-color: #55efc4; color: #00b894; }
+.status-failed { background-color: #ffcccc; color: #c0392b; }
+
+.repair-title { color: #2b7a5d; font-size: 1.15rem; margin-bottom: 10px; }
+.repair-info { font-size: 0.95rem; color: #555; margin-bottom: 5px; }
+
+/* กล่องข้อความจากช่าง (หลังจากปิดงานแล้ว) */
+.tech-note {
+  margin-top: 10px;
+  background-color: #f1f8f5;
+  border-left: 4px solid #2b7a5d;
+  padding: 10px 15px;
+  font-size: 0.9rem;
+  color: #333;
+  border-radius: 4px;
 }
 
-.task-body h3 {
-    margin: 0 0 10px 0;
-    color: #111827;
-    font-size: 18px;
+/* =======================================
+   แถบ Action Buttons ของช่าง
+   ======================================= */
+.card-actions {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px dashed #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.task-body p {
-    margin: 5px 0;
-    color: #4b5563;
-    font-size: 14px;
+.repair-date { font-size: 0.85rem; color: #999; }
+
+.tech-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;}
+
+.tech-actions button {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
 }
 
-.task-footer {
-    margin-top: auto; /* ดัน Footer ไปอยู่ล่างสุดของการ์ดเสมอ */
-    padding-top: 20px;
-    text-align: center;
+/* ปุ่มปฏิเสธ (เส้นขอบส้มแดง) */
+.btn-reject {
+  background: transparent;
+  color: #e67e22;
+  border: 1px solid #e67e22;
 }
+.btn-reject:hover { background: #e67e22; color: white; }
 
-/* -------------------------
-   ปุ่ม Action ของช่าง
-------------------------- */
-.start-btn {
-    width: 100%;
-    background-color: #f59e0b; /* สีเหลืองส้ม */
-    color: white;
-    border: none;
-    padding: 12px;
-    border-radius: 8px;
-    font-weight: bold;
-    font-size: 15px;
-    cursor: pointer;
+/* ปุ่มซ่อมไม่ได้ (แดง) */
+.btn-cannot-fix {
+  background: #e74c3c;
+  color: white;
+  border: none;
 }
-.start-btn:hover { background-color: #d97706; }
+.btn-cannot-fix:hover { background: #c0392b; }
 
-.complete-btn {
-    width: 100%;
-    background-color: #10b981; /* สีเขียว */
-    color: white;
-    border: none;
-    padding: 12px;
-    border-radius: 8px;
-    font-weight: bold;
-    font-size: 15px;
-    cursor: pointer;
+/* ปุ่มปิดงานสำเร็จ (เขียว) */
+.btn-complete {
+  background: #2b7a5d;
+  color: white;
+  border: none;
 }
-.complete-btn:hover { background-color: #059669; }
+.btn-complete:hover { background: #1e5c45; }
 
-.done-text {
-    color: #10b981;
-    font-weight: bold;
-    font-size: 14px;
-}
-
-/* -------------------------
-   ป้ายสถานะ
-------------------------- */
-.badge {
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: bold;
-}
-.badge-approved { background: #e0e7ff; color: #4f46e5; }
-.badge-progress { background: #fef3c7; color: #d97706; }
-.badge-done { background: #dcfce7; color: #15803d; }
-
-/* -------------------------
-   ระบบ Modal (Popup) ปิดงาน
-------------------------- */
+/* =======================================
+   Popup Modal สำหรับพิมพ์รายละเอียด
+   ======================================= */
 .modal-overlay {
-    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    background-color: rgba(0, 0, 0, 0.5); display: flex;
-    justify-content: center; align-items: center; z-index: 1000;
+  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex; justify-content: center; align-items: center;
+  z-index: 1000;
 }
 
-.modal-content {
-    background: white; width: 90%; max-width: 500px;
-    border-radius: 12px; display: flex; flex-direction: column;
+.tech-modal {
+  background: white; padding: 25px 30px; border-radius: 8px;
+  width: 90%; max-width: 450px; position: relative;
 }
-
-.modal-header {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 15px 20px; border-bottom: 1px solid #e5e7eb;
-}
-
-.modal-header h3 { margin: 0; font-size: 18px; }
 
 .close-btn {
-    flex: none; background: transparent; border: none; font-size: 28px;
-    color: #9ca3af; cursor: pointer; padding: 0; width: 32px; height: 32px;
-}
-.close-btn:hover { color: #ef4444; }
-
-.modal-body { padding: 20px; }
-
-.instruction-text {
-    color: #6b7280; font-size: 14px; margin-bottom: 15px;
+  position: absolute; top: 15px; right: 20px; font-size: 1.5rem; color: #aaa; cursor: pointer;
 }
 
-.file-input {
-    width: 100%; padding: 10px; border: 1px dashed #d1d5db;
-    border-radius: 8px; background: #f9fafb; margin-bottom: 15px;
-}
+.text-success { color: #2b7a5d; margin-bottom: 5px; }
+.text-fail { color: #e74c3c; margin-bottom: 5px; }
+.modal-subtitle { color: #666; font-size: 0.9rem; margin-bottom: 20px; }
 
-.preview-container {
-    display: flex; gap: 10px; flex-wrap: wrap;
+.input-group label { display: block; margin-bottom: 8px; font-weight: bold; }
+.required { color: red; }
+.input-group textarea {
+  width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;
+  font-family: inherit; font-size: 1rem; box-sizing: border-box; resize: vertical;
 }
+.input-group textarea:focus { outline: none; border-color: #2b7a5d; }
 
-.preview-item { position: relative; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.btn-cancel { padding: 10px 15px; background: #f1f1f1; border: none; border-radius: 6px; cursor: pointer; }
 
-.preview-item img {
-    width: 80px; height: 80px; object-fit: cover;
-    border-radius: 6px; border: 1px solid #e5e7eb;
+.btn-submit-success { padding: 10px 20px; background: #2b7a5d; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+.btn-submit-fail { padding: 10px 20px; background: #e74c3c; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+
+/* =======================================
+   Responsive มือถือ
+   ======================================= */
+@media (max-width: 600px) {
+  .tech-header { flex-direction: column; align-items: flex-start; gap: 15px; }
+  .card-actions { flex-direction: column; align-items: flex-start; gap: 15px; }
+  .tech-actions { width: 100%; justify-content: space-between; }
+  .tech-actions button { flex: 1; text-align: center; font-size: 0.8rem; padding: 10px 5px;}
 }
-
-.remove-btn {
-    position: absolute; top: -5px; right: -5px; background: #ef4444;
-    color: white; border: none; width: 20px; height: 20px;
-    border-radius: 50%; font-size: 10px; cursor: pointer;
-}
-
-.modal-footer {
-    display: flex; justify-content: flex-end; gap: 10px;
-    padding: 15px 20px; border-top: 1px solid #e5e7eb;
-}
-
-.cancel-btn, .confirm-btn {
-    padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; border: none;
-}
-.cancel-btn { background: #f3f4f6; color: #4b5563; }
-.confirm-btn { background: #2563eb; color: white; }
-.confirm-btn:disabled { background: #9ca3af; cursor: not-allowed; }

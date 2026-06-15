@@ -1,210 +1,216 @@
-import { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../../../api/axios";
 import "./TechHome.css";
 
 function TechHome() {
-    const [repairs, setRepairs] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+  const navigate = useNavigate();
 
-    // State สำหรับ Modal ปิดงานและอัปโหลดรูป
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedRepair, setSelectedRepair] = useState(null);
-    const [images, setImages] = useState([]);
+  // ข้อมูลจำลอง (สมมติว่าล็อคอินเข้ามาเป็น ช่างสมชาย)
+  const [repairs, setRepairs] = useState([
+    { id: "REP-002", date: "09 มิ.ย. 2569", location: "ห้องปฏิบัติการเคมี", room: "Lab 3", type: "งานประปา", status: "กำลังซ่อม", desc: "ก๊อกน้ำอ่างล้างมือรั่วซึม", techDetail: "" },
+    { id: "REP-005", date: "10 มิ.ย. 2569", location: "อาคารวิทยาศาสตร์ 1", room: "ห้องน้ำหญิง ชั้น 2", type: "งานประปา", status: "กำลังซ่อม", desc: "ท่อน้ำทิ้งตัน น้ำเอ่อล้น", techDetail: "" },
+    { id: "REP-004", date: "05 มิ.ย. 2569", location: "อาคารวิทยาศาสตร์ 1", room: "ห้องน้ำชาย ชั้น 1", type: "งานประปา", status: "เสร็จเรียบร้อย", desc: "ชักโครกกดไม่ลง", techDetail: "ทำการเปลี่ยนชุดลูกลอยและยางรองใหม่เรียบร้อยแล้ว ใช้งานได้ปกติ" },
+  ]);
 
-    const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState("");
 
-    useEffect(() => {
-        fetchMyTasks();
-    }, []);
+  // State สำหรับ Modal พิมพ์รายละเอียดการปิดงาน
+  const [modalOpen, setModalOpen] = useState(false);
+  const [currentTicket, setCurrentTicket] = useState(null);
+  const [closeType, setCloseType] = useState(""); // "success" (เสร็จเรียบร้อย) หรือ "fail" (ซ่อมไม่ได้)
+  const [techDetail, setTechDetail] = useState("");
 
-    const fetchMyTasks = async () => {
-        try {
-            const res = await api.get("/repairs");
-            const currentUser = JSON.parse(localStorage.getItem("user"));
-            const currentTechId = currentUser ? currentUser.id : null;
+  // กรองข้อมูล
+  const filteredRepairs = repairs.filter((repair) =>
+    repair.location.includes(searchTerm) ||
+    repair.room.includes(searchTerm) ||
+    repair.status.includes(searchTerm) ||
+    repair.id.includes(searchTerm)
+  );
 
-            // กรองเอาเฉพาะงานที่ technician_id ตรงกับ ID ของช่างที่ล็อกอินอยู่
-            // และไม่เอางานที่ status เป็น 'pending' (เพราะแอดมินยังไม่จ่ายงาน)
-            const myTasks = res.data.filter(
-                (repair) => repair.technician_id === currentTechId && repair.status !== "pending"
-            );
+  const getStatusClass = (status) => {
+    switch (status) {
+      case "รอซ่อม": return "status-pending";
+      case "กำลังซ่อม": return "status-progress";
+      case "เสร็จเรียบร้อย": return "status-completed";
+      case "ซ่อมไม่ได้": return "status-failed";
+      default: return "status-default";
+    }
+  };
 
-            setRepairs(myTasks);
-            setLoading(false);
-        } catch (err) {
-            console.error(err);
-            setError("ไม่สามารถดึงข้อมูลงานได้");
-            setLoading(false);
-        }
-    };
+  // -----------------------------------------
+  // ฟังก์ชัน Action ของช่างเทคนิค
+  // -----------------------------------------
 
-    // ฟังก์ชันกด "รับงาน" (เปลี่ยนสถานะเป็น In Progress)
-    // ฟังก์ชันกด "รับงาน" (เปลี่ยนสถานะเป็น In Progress)
-    const handleStartWork = async (id) => {
-        try {
-            // เปลี่ยนเส้นทางให้ตรงกับ r.PUT("/repairs/:id/progress", ...) ใน Go
-            await api.put(`/repairs/${id}/progress`);
-            fetchMyTasks(); // โหลดข้อมูลใหม่
-        } catch (err) {
-            console.error(err);
-            alert("เกิดข้อผิดพลาดในการรับงาน");
-        }
-    };
+  // 1. ปฏิเสธงาน (ส่งคืน Admin)
+  const handleReject = (id) => {
+    const confirmReject = window.confirm(`คุณต้องการ "ปฏิเสธงาน" #${id} และส่งคืนแอดมิน ใช่หรือไม่? (อาจเพราะงานไม่ตรงสาย)`);
+    if (confirmReject) {
+      // ในระบบจริง จะส่ง API ไปเปลี่ยนสถานะเป็น "รอซ่อม" และลบชื่อช่างออก
+      // ส่วนในโค้ดจำลองนี้ เราจะลบออกจากหน้าของช่างสมชายไปเลย
+      setRepairs(repairs.filter(r => r.id !== id));
+      alert("ส่งงานคืนระบบให้แอดมินพิจารณาใหม่เรียบร้อยแล้ว");
+    }
+  };
 
-    // ฟังก์ชันเปิด Popup เตรียม "ปิดงาน"
-    const openCompleteModal = (repair) => {
-        setSelectedRepair(repair);
-        setImages([]); // เคลียร์รูปเก่า
-        setIsModalOpen(true);
-    };
+  // 2. เปิดหน้าต่าง Modal เพื่อพิมพ์รายละเอียดปิดงาน
+  const openCloseModal = (id, type) => {
+    setCurrentTicket(id);
+    setCloseType(type);
+    setTechDetail(""); // เคลียร์ข้อความเก่า
+    setModalOpen(true);
+  };
 
-    const closeCompleteModal = () => {
-        setIsModalOpen(false);
-        setSelectedRepair(null);
-    };
+  // 3. ยืนยันการปิดงาน (บันทึกข้อมูล)
+  const handleSubmitClose = (e) => {
+    e.preventDefault();
+    const newStatus = closeType === "success" ? "เสร็จเรียบร้อย" : "ซ่อมไม่ได้";
+    
+    setRepairs(repairs.map(r => 
+      r.id === currentTicket 
+        ? { ...r, status: newStatus, techDetail: techDetail } 
+        : r
+    ));
+    
+    setModalOpen(false);
+    alert(`บันทึกสถานะ "${newStatus}" เรียบร้อยแล้ว`);
+  };
 
-    // จัดการเลือกรูปภาพ
-    const handleImageChange = (e) => {
-        const files = Array.from(e.target.files);
-        setImages((prev) => [...prev, ...files]);
-    };
+  const handleLogout = () => {
+    if (window.confirm("ต้องการออกจากระบบใช่หรือไม่?")) {
+      navigate("/");
+    }
+  };
 
-    const removeImage = (index) => {
-        setImages(images.filter((_, i) => i !== index));
-    };
-
-    // ฟังก์ชันยืนยันการ "ปิดงาน" พร้อมส่งรูป
-    const handleCompleteWork = async () => {
-        try {
-            const formData = new FormData();
-            formData.append("status", "done"); // ส่งสถานะว่าเสร็จแล้ว
-
-            // แนบรูประหว่างซ่อม/ซ่อมเสร็จ
-            images.forEach((img) => {
-                formData.append("images", img);
-            });
-
-            // ยิง API อัปเดตงาน (ใช้ endpoint ที่รับ FormData ได้)
-            await api.put(`/repairs/${selectedRepair.id}/complete`, formData, {
-                headers: { "Content-Type": "multipart/form-data" }
-            });
-
-            closeCompleteModal();
-            fetchMyTasks(); // โหลดข้อมูลใหม่
-        } catch (err) {
-            console.error(err);
-            alert("เกิดข้อผิดพลาดในการปิดงาน");
-        }
-    };
-
-    const getStatusBadge = (status) => {
-        switch (status) {
-            case "approved": return <span className="badge badge-approved">งานใหม่ (รอรับ)</span>;
-            case "in_progress": return <span className="badge badge-progress">กำลังดำเนินการ</span>;
-            case "done": return <span className="badge badge-done">ปิดงานแล้ว</span>;
-            default: return <span className="badge">{status}</span>;
-        }
-    };
-
-    return (
-        <div className="tech-home-container">
-            <div className="tech-header">
-                <h2>🔧 Technician Dashboard</h2>
-                <button className="logout-btn" onClick={() => navigate("/login")}>ออกจากระบบ</button>
-            </div>
-
-            {loading ? (
-                <p className="loading-text">กำลังโหลดงานของคุณ... ⏳</p>
-            ) : error ? (
-                <p className="error-message">{error}</p>
-            ) : repairs.length === 0 ? (
-                <div className="empty-state">
-                    <p>ตอนนี้คุณยังไม่มีงานที่ได้รับมอบหมายครับ ไปพักผ่อนได้เลย! ☕</p>
-                </div>
-            ) : (
-                <div className="task-grid">
-                    {repairs.map((repair) => (
-                        <div className={`task-card ${repair.status === 'done' ? 'task-done' : ''}`} key={repair.id}>
-                            <div className="task-header">
-                                <span className="task-id">Ticket #{repair.id}</span>
-                                {getStatusBadge(repair.status)}
-                            </div>
-
-                            <div className="task-body">
-                                <h3>{repair.location}</h3>
-                                <p><strong>ปัญหา:</strong> {repair.problem_type}</p>
-                                <p><strong>รายละเอียด:</strong> {repair.description}</p>
-                            </div>
-
-                            <div className="task-footer">
-                                {/* ปุ่มรับงาน (โชว์ตอนแอดมินเพิ่งจ่ายงานมา) */}
-                                {repair.status === "approved" && (
-                                    <button className="start-btn" onClick={() => handleStartWork(repair.id)}>
-                                        ▶️ กดรับงาน
-                                    </button>
-                                )}
-
-                                {/* ปุ่มปิดงาน (โชว์ตอนกำลังซ่อม) */}
-                                {repair.status === "in_progress" && (
-                                    <button className="complete-btn" onClick={() => openCompleteModal(repair)}>
-                                        ✅ แจ้งซ่อมเสร็จสิ้น
-                                    </button>
-                                )}
-
-                                {/* ถ้าง่ายเสร็จแล้ว */}
-                                {repair.status === "done" && (
-                                    <span className="done-text">งานนี้เสร็จสมบูรณ์แล้ว 🎉</span>
-                                )}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            {/* --- Modal สำหรับปิดงานและอัปโหลดรูป --- */}
-            {isModalOpen && selectedRepair && (
-                <div className="modal-overlay" onClick={closeCompleteModal}>
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h3>ปิดงานซ่อม: Ticket #{selectedRepair.id}</h3>
-                            <button className="close-btn" onClick={closeCompleteModal}>&times;</button>
-                        </div>
-
-                        <div className="modal-body">
-                            <p className="instruction-text">กรุณาแนบรูปภาพหลังซ่อมเสร็จ เพื่อเป็นหลักฐานให้ผู้แจ้งและแอดมินตรวจสอบ</p>
-
-                            <input
-                                type="file"
-                                multiple
-                                accept="image/*"
-                                onChange={handleImageChange}
-                                className="file-input"
-                            />
-
-                            <div className="preview-container">
-                                {images.map((img, index) => (
-                                    <div key={index} className="preview-item">
-                                        <img src={URL.createObjectURL(img)} alt="preview" />
-                                        <button type="button" className="remove-btn" onClick={() => removeImage(index)}>ลบ</button>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="modal-footer">
-                            <button className="cancel-btn" onClick={closeCompleteModal}>ยกเลิก</button>
-                            <button className="confirm-btn" onClick={handleCompleteWork} disabled={images.length === 0}>
-                                บันทึกการปิดงาน
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
+  return (
+    <div className="tech-container">
+      <div className="tech-wrapper">
+        
+        {/* ส่วนหัวของ Tech */}
+        <div className="tech-header">
+          <div>
+            <h2>ระบบจัดการงานซ่อม (สำหรับช่าง)</h2>
+            <p>ยินดีต้อนรับ, ช่างสมชาย (แผนกประปา)</p>
+          </div>
+          <button className="btn-logout" onClick={handleLogout}>ออกจากระบบ</button>
         </div>
-    );
+
+        <div className="search-section">
+          <input 
+            type="text" 
+            placeholder="🔍 ค้นหางานซ่อมของคุณ..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="search-input"
+          />
+        </div>
+
+        {/* รายการใบงาน */}
+        <div className="repair-list">
+          {filteredRepairs.length > 0 ? (
+            filteredRepairs.map((repair) => (
+              <div className="repair-item-card" key={repair.id}>
+                
+                <div className="card-top">
+                  <span className="repair-id">#{repair.id}</span>
+                  <span className={`status-badge ${getStatusClass(repair.status)}`}>
+                    {repair.status}
+                  </span>
+                </div>
+                
+                <h3 className="repair-title">[{repair.type}] {repair.location}</h3>
+                <p className="repair-info"><strong>ห้อง/จุดเกิดเหตุ:</strong> {repair.room}</p>
+                <p className="repair-info"><strong>อาการที่แจ้ง:</strong> {repair.desc}</p>
+                
+                {/* ถ้าช่างพิมพ์รายละเอียดการซ่อมไว้ ให้แสดงตรงนี้ */}
+                {repair.techDetail && (
+                  <div className="tech-note">
+                    <strong>บันทึกจากช่าง:</strong> {repair.techDetail}
+                  </div>
+                )}
+                
+                <div className="card-actions">
+                  <span className="repair-date">📅 {repair.date}</span>
+                  
+                  {/* แสดงปุ่มเฉพาะงานที่กำลังซ่อม */}
+                  {repair.status === "กำลังซ่อม" && (
+                    <div className="action-buttons tech-actions">
+                      {/* ปุ่มปฏิเสธงาน (ขอบแดง) */}
+                      <button className="btn-reject" onClick={() => handleReject(repair.id)}>
+                        ปฏิเสธงาน
+                      </button>
+
+                      {/* ปุ่มซ่อมไม่ได้ (แดงทึบ) */}
+                      <button className="btn-cannot-fix" onClick={() => openCloseModal(repair.id, "fail")}>
+                        ซ่อมไม่ได้
+                      </button>
+
+                      {/* ปุ่มเสร็จเรียบร้อย (เขียวทึบ) */}
+                      <button className="btn-complete" onClick={() => openCloseModal(repair.id, "success")}>
+                        ปิดงาน (สำเร็จ)
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="no-results">
+              <p>ไม่มีรายการงานซ่อมในขณะนี้</p>
+            </div>
+          )}
+        </div>
+
+      </div>
+
+      {/* ==========================================
+          POPUP MODAL สำหรับพิมพ์รายละเอียดตอนปิดงาน
+          ========================================== */}
+      {modalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-box tech-modal">
+            <span className="close-btn" onClick={() => setModalOpen(false)}>&times;</span>
+            
+            <h3 className={closeType === "success" ? "text-success" : "text-fail"}>
+              {closeType === "success" ? "✅ ยืนยันการซ่อมเสร็จเรียบร้อย" : "❌ ระบุเหตุผลที่ซ่อมไม่ได้"}
+            </h3>
+            <p className="modal-subtitle">รหัสใบงาน: #{currentTicket}</p>
+
+            <form onSubmit={handleSubmitClose}>
+              <div className="input-group">
+                <label>
+                  {closeType === "success" ? "รายละเอียดการซ่อมแซม" : "เหตุผลขัดข้อง"} 
+                  <span className="required">*</span>
+                </label>
+                <textarea 
+                  rows="4"
+                  placeholder={closeType === "success" ? "เช่น เปลี่ยนอะไหล่..., ล้างแอร์..." : "เช่น อะไหล่หมด, เกินขอบเขต, ต้องจ้างช่างภายนอก..."}
+                  value={techDetail}
+                  onChange={(e) => setTechDetail(e.target.value)}
+                  required
+                ></textarea>
+              </div>
+
+              {/* ในอนาคตสามารถใส่ปุ่มแนบรูปภาพ After ตรงนี้ได้ */}
+              
+              <div className="modal-actions">
+                <button type="button" className="btn-cancel" onClick={() => setModalOpen(false)}>
+                  ยกเลิก
+                </button>
+                <button 
+                  type="submit" 
+                  className={closeType === "success" ? "btn-submit-success" : "btn-submit-fail"}
+                >
+                  บันทึกข้อมูล
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
 }
 
 export default TechHome;
