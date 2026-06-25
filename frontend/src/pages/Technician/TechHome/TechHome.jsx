@@ -1,32 +1,69 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "./TechHome.css";
 
 function TechHome() {
   const navigate = useNavigate();
 
-  // ข้อมูลจำลอง (สมมติว่าล็อคอินเข้ามาเป็น ช่างสมชาย)
-  const [repairs, setRepairs] = useState([
-    { id: "REP-002", date: "09 มิ.ย. 2569", location: "ห้องปฏิบัติการเคมี", room: "Lab 3", type: "งานประปา", status: "กำลังซ่อม", desc: "ก๊อกน้ำอ่างล้างมือรั่วซึม", techDetail: "" },
-    { id: "REP-005", date: "10 มิ.ย. 2569", location: "อาคารวิทยาศาสตร์ 1", room: "ห้องน้ำหญิง ชั้น 2", type: "งานประปา", status: "กำลังซ่อม", desc: "ท่อน้ำทิ้งตัน น้ำเอ่อล้น", techDetail: "" },
-    { id: "REP-004", date: "05 มิ.ย. 2569", location: "อาคารวิทยาศาสตร์ 1", room: "ห้องน้ำชาย ชั้น 1", type: "งานประปา", status: "เสร็จเรียบร้อย", desc: "ชักโครกกดไม่ลง", techDetail: "ทำการเปลี่ยนชุดลูกลอยและยางรองใหม่เรียบร้อยแล้ว ใช้งานได้ปกติ" },
-  ]);
-
+  // State เก็บข้อมูลผู้ใช้งานปัจจุบัน (ช่างเทคนิค)
+  const [currentUser, setCurrentUser] = useState(null);
+  
+  // State เก็บข้อมูลงานซ่อม
+  const [repairs, setRepairs] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
   // State สำหรับ Modal พิมพ์รายละเอียดการปิดงาน
   const [modalOpen, setModalOpen] = useState(false);
   const [currentTicket, setCurrentTicket] = useState(null);
-  const [closeType, setCloseType] = useState(""); // "success" (เสร็จเรียบร้อย) หรือ "fail" (ซ่อมไม่ได้)
+  const [closeType, setCloseType] = useState(""); // "success" หรือ "fail"
   const [techDetail, setTechDetail] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // กรองข้อมูล
-  const filteredRepairs = repairs.filter((repair) =>
-    repair.location.includes(searchTerm) ||
-    repair.room.includes(searchTerm) ||
-    repair.status.includes(searchTerm) ||
-    repair.id.includes(searchTerm)
-  );
+  // 1. โหลดข้อมูลช่างจาก LocalStorage และดึงข้อมูลงานจาก API
+  const fetchMyJobs = async (user) => {
+    try {
+      setIsLoading(true);
+      const response = await fetch("http://localhost:8080/api/repairs");
+      if (response.ok) {
+        const allRepairs = await response.json();
+        // กรองเอาเฉพาะงานที่ assigned ให้ช่างคนนี้
+        const myJobs = allRepairs.filter(r => r.technician_id === user.id);
+        setRepairs(myJobs);
+      }
+    } catch (error) {
+      console.error("ดึงข้อมูลงานซ่อมไม่สำเร็จ:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      const parsedUser = JSON.parse(storedUser);
+      setCurrentUser(parsedUser);
+      fetchMyJobs(parsedUser);
+    } else {
+      // ถ้าไม่มีการล็อกอิน ให้เด้งกลับหน้าแรก
+      navigate("/");
+    }
+  }, [navigate]);
+
+  // Smart Search แบบอัจฉริยะ
+  const normalizedSearch = searchTerm.replace(/\s+/g, '').replace(/วิทย์/g, 'วิทยาศาสตร์').toLowerCase();
+  
+  const filteredRepairs = repairs.filter((repair) => {
+    if (!normalizedSearch) return true;
+    const loc = (repair.location || "").replace(/\s+/g, '').toLowerCase();
+    const room = (repair.floor_name || "").replace(/\s+/g, '').toLowerCase();
+    const status = (repair.status || "").replace(/\s+/g, '').toLowerCase();
+    const ticketId = String(repair.id);
+    return (
+      loc.includes(normalizedSearch) || room.includes(normalizedSearch) ||
+      status.includes(normalizedSearch) || ticketId.includes(normalizedSearch)
+    );
+  });
 
   const getStatusClass = (status) => {
     switch (status) {
@@ -38,18 +75,33 @@ function TechHome() {
     }
   };
 
+  const formatDate = (dateString) => {
+    const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+    return new Date(dateString).toLocaleDateString('th-TH', options);
+  };
+
   // -----------------------------------------
   // ฟังก์ชัน Action ของช่างเทคนิค
   // -----------------------------------------
 
-  // 1. ปฏิเสธงาน (ส่งคืน Admin)
-  const handleReject = (id) => {
-    const confirmReject = window.confirm(`คุณต้องการ "ปฏิเสธงาน" #${id} และส่งคืนแอดมิน ใช่หรือไม่? (อาจเพราะงานไม่ตรงสาย)`);
-    if (confirmReject) {
-      // ในระบบจริง จะส่ง API ไปเปลี่ยนสถานะเป็น "รอซ่อม" และลบชื่อช่างออก
-      // ส่วนในโค้ดจำลองนี้ เราจะลบออกจากหน้าของช่างสมชายไปเลย
-      setRepairs(repairs.filter(r => r.id !== id));
-      alert("ส่งงานคืนระบบให้แอดมินพิจารณาใหม่เรียบร้อยแล้ว");
+  // 1. ปฏิเสธงาน (ยิง API Revoke ส่งคืน Admin)
+  const handleReject = async (id) => {
+    const confirmReject = window.confirm(`⚠️ คุณต้องการ "ปฏิเสธงาน" Ticket #${id} และส่งคืนให้แอดมิน ใช่หรือไม่?`);
+    if (!confirmReject) return;
+
+    try {
+      const response = await fetch(`http://localhost:8080/api/repairs/${id}/revoke`, {
+        method: "PUT"
+      });
+
+      if (response.ok) {
+        alert("✅ ส่งงานคืนระบบให้แอดมินพิจารณาใหม่เรียบร้อยแล้ว");
+        fetchMyJobs(currentUser); // รีเฟรชหน้าจอ
+      } else {
+        alert("❌ เกิดข้อผิดพลาด ไม่สามารถปฏิเสธงานได้");
+      }
+    } catch (error) {
+      console.error("Reject Error:", error);
     }
   };
 
@@ -57,27 +109,46 @@ function TechHome() {
   const openCloseModal = (id, type) => {
     setCurrentTicket(id);
     setCloseType(type);
-    setTechDetail(""); // เคลียร์ข้อความเก่า
+    setTechDetail("");
     setModalOpen(true);
   };
 
-  // 3. ยืนยันการปิดงาน (บันทึกข้อมูล)
-  const handleSubmitClose = (e) => {
+  // 3. ยืนยันการปิดงาน (ยิง API อัปเดตสถานะและบันทึกของช่าง)
+  const handleSubmitClose = async (e) => {
     e.preventDefault();
+    setIsSubmitting(true);
     const newStatus = closeType === "success" ? "เสร็จเรียบร้อย" : "ซ่อมไม่ได้";
     
-    setRepairs(repairs.map(r => 
-      r.id === currentTicket 
-        ? { ...r, status: newStatus, techDetail: techDetail } 
-        : r
-    ));
-    
-    setModalOpen(false);
-    alert(`บันทึกสถานะ "${newStatus}" เรียบร้อยแล้ว`);
+    try {
+      // หมายเหตุ: ต้องตรวจสอบให้แน่ใจว่าใน Backend (routes.go และ repair.go) มีการสร้าง API สำหรับอัปเดตสถานะไว้ด้วย
+      const response = await fetch(`http://localhost:8080/api/repairs/${currentTicket}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          status: newStatus,
+          technician_note: techDetail
+        })
+      });
+
+      if (response.ok) {
+        alert(`✅ บันทึกสถานะ "${newStatus}" เรียบร้อยแล้ว`);
+        setModalOpen(false);
+        fetchMyJobs(currentUser); // รีเฟรชข้อมูล
+      } else {
+        const errorData = await response.json();
+        alert(`❌ เกิดข้อผิดพลาด: ${errorData.error}`);
+      }
+    } catch (error) {
+      console.error("Close Job Error:", error);
+      alert("❌ ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleLogout = () => {
     if (window.confirm("ต้องการออกจากระบบใช่หรือไม่?")) {
+      localStorage.removeItem("user");
       navigate("/");
     }
   };
@@ -89,16 +160,16 @@ function TechHome() {
         {/* ส่วนหัวของ Tech */}
         <div className="tech-header">
           <div>
-            <h2>ระบบจัดการงานซ่อม (สำหรับช่าง)</h2>
-            <p>ยินดีต้อนรับ, ช่างสมชาย (แผนกประปา)</p>
+            <h2>🛠️ ระบบจัดการงานซ่อม (Technician Panel)</h2>
+            <p>ยินดีต้อนรับ, {currentUser ? currentUser.username : "กำลังโหลด..."}</p>
           </div>
-          <button className="btn-logout" onClick={handleLogout}>ออกจากระบบ</button>
+          <button className="btn-logout" onClick={handleLogout}>🚪 ออกจากระบบ</button>
         </div>
 
         <div className="search-section">
           <input 
             type="text" 
-            placeholder="🔍 ค้นหางานซ่อมของคุณ..." 
+            placeholder="🔍 ค้นหารหัสงาน, สถานที่, หรือสถานะ..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
@@ -107,47 +178,46 @@ function TechHome() {
 
         {/* รายการใบงาน */}
         <div className="repair-list">
-          {filteredRepairs.length > 0 ? (
+          {isLoading ? (
+            <div className="loading-state">⏳ กำลังโหลดรายการงานของคุณ...</div>
+          ) : filteredRepairs.length > 0 ? (
             filteredRepairs.map((repair) => (
               <div className="repair-item-card" key={repair.id}>
                 
                 <div className="card-top">
-                  <span className="repair-id">#{repair.id}</span>
+                  <span className="repair-id">Ticket #{repair.id}</span>
                   <span className={`status-badge ${getStatusClass(repair.status)}`}>
                     {repair.status}
                   </span>
                 </div>
                 
-                <h3 className="repair-title">[{repair.type}] {repair.location}</h3>
-                <p className="repair-info"><strong>ห้อง/จุดเกิดเหตุ:</strong> {repair.room}</p>
-                <p className="repair-info"><strong>อาการที่แจ้ง:</strong> {repair.desc}</p>
+                <h3 className="repair-title">[{repair.problem_type}] {repair.location}</h3>
+                <p className="repair-info"><strong>ชั้น / พิกัด:</strong> {repair.floor_name}</p>
+                <p className="repair-info"><strong>อาการที่แจ้ง:</strong> {repair.description}</p>
                 
                 {/* ถ้าช่างพิมพ์รายละเอียดการซ่อมไว้ ให้แสดงตรงนี้ */}
-                {repair.techDetail && (
-                  <div className="tech-note">
-                    <strong>บันทึกจากช่าง:</strong> {repair.techDetail}
+                {repair.technician_note && (
+                  <div className="tech-note-display">
+                    <strong>📝 บันทึกจากคุณ:</strong> {repair.technician_note}
                   </div>
                 )}
                 
-                <div className="card-actions">
-                  <span className="repair-date">📅 {repair.date}</span>
+                <div className="card-actions-row">
+                  <span className="repair-date">📅 แจ้งเมื่อ: {formatDate(repair.created_at)}</span>
                   
-                  {/* แสดงปุ่มเฉพาะงานที่กำลังซ่อม */}
+                  {/* แสดงปุ่มเฉพาะงานที่ "กำลังซ่อม" เท่านั้น (งานเสร็จแล้วจะกดไม่ได้) */}
                   {repair.status === "กำลังซ่อม" && (
                     <div className="action-buttons tech-actions">
-                      {/* ปุ่มปฏิเสธงาน (ขอบแดง) */}
                       <button className="btn-reject" onClick={() => handleReject(repair.id)}>
-                        ปฏิเสธงาน
+                        ↩️ ปฏิเสธงาน (ส่งคืน)
                       </button>
 
-                      {/* ปุ่มซ่อมไม่ได้ (แดงทึบ) */}
                       <button className="btn-cannot-fix" onClick={() => openCloseModal(repair.id, "fail")}>
-                        ซ่อมไม่ได้
+                        ❌ ปิดงาน (ซ่อมไม่ได้)
                       </button>
 
-                      {/* ปุ่มเสร็จเรียบร้อย (เขียวทึบ) */}
                       <button className="btn-complete" onClick={() => openCloseModal(repair.id, "success")}>
-                        ปิดงาน (สำเร็จ)
+                        ✅ ปิดงาน (สำเร็จ)
                       </button>
                     </div>
                   )}
@@ -156,7 +226,7 @@ function TechHome() {
             ))
           ) : (
             <div className="no-results">
-              <p>ไม่มีรายการงานซ่อมในขณะนี้</p>
+              <p>🎉 ไม่มีรายการงานซ่อมที่ต้องดำเนินการในขณะนี้</p>
             </div>
           )}
         </div>
@@ -174,34 +244,33 @@ function TechHome() {
             <h3 className={closeType === "success" ? "text-success" : "text-fail"}>
               {closeType === "success" ? "✅ ยืนยันการซ่อมเสร็จเรียบร้อย" : "❌ ระบุเหตุผลที่ซ่อมไม่ได้"}
             </h3>
-            <p className="modal-subtitle">รหัสใบงาน: #{currentTicket}</p>
+            <p className="modal-subtitle">รหัสใบงาน: Ticket #{currentTicket}</p>
 
             <form onSubmit={handleSubmitClose}>
               <div className="input-group">
                 <label>
-                  {closeType === "success" ? "รายละเอียดการซ่อมแซม" : "เหตุผลขัดข้อง"} 
+                  {closeType === "success" ? "📝 ระบุรายละเอียดการซ่อมแซม" : "📝 ระบุเหตุผลขัดข้อง"} 
                   <span className="required">*</span>
                 </label>
                 <textarea 
                   rows="4"
-                  placeholder={closeType === "success" ? "เช่น เปลี่ยนอะไหล่..., ล้างแอร์..." : "เช่น อะไหล่หมด, เกินขอบเขต, ต้องจ้างช่างภายนอก..."}
+                  placeholder={closeType === "success" ? "เช่น เปลี่ยนอะไหล่ชุดลูกลอยใหม่, ล้างแอร์และเติมน้ำยา..." : "เช่น อะไหล่ในสต็อกหมด, อาการหนักเกินขอบเขตต้องจ้างช่างภายนอก..."}
                   value={techDetail}
                   onChange={(e) => setTechDetail(e.target.value)}
                   required
                 ></textarea>
               </div>
-
-              {/* ในอนาคตสามารถใส่ปุ่มแนบรูปภาพ After ตรงนี้ได้ */}
               
-              <div className="modal-actions">
-                <button type="button" className="btn-cancel" onClick={() => setModalOpen(false)}>
-                  ยกเลิก
+              <div className="modal-actions" style={{ marginTop: "25px" }}>
+                <button type="button" className="btn-cancel" onClick={() => setModalOpen(false)} disabled={isSubmitting}>
+                  ❌ ยกเลิก
                 </button>
                 <button 
                   type="submit" 
                   className={closeType === "success" ? "btn-submit-success" : "btn-submit-fail"}
+                  disabled={isSubmitting}
                 >
-                  บันทึกข้อมูล
+                  {isSubmitting ? "⏳ กำลังบันทึก..." : "💾 บันทึกและปิดงาน"}
                 </button>
               </div>
             </form>

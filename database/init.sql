@@ -5,6 +5,7 @@ CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(100) UNIQUE NOT NULL,
     password TEXT NOT NULL,
+    full_name VARCHAR(255) NOT NULL, -- [เพิ่มใหม่] ชื่อแสดงผลจริงบนหน้าเว็บ
     role VARCHAR(20) NOT NULL, -- 'admin' หรือ 'technician'
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -15,7 +16,7 @@ CREATE TABLE locations (
     name VARCHAR(255) NOT NULL
 );
 
--- [เพิ่มใหม่] 2.1 ตารางชั้น (ผูกกับตึกด้วย location_id)
+-- 2.1 ตารางชั้น (ผูกกับตึกด้วย location_id)
 CREATE TABLE floors (
     id SERIAL PRIMARY KEY,
     location_id INT REFERENCES locations(id) ON DELETE CASCADE,
@@ -28,13 +29,21 @@ CREATE TABLE problem_types (
     name VARCHAR(255) NOT NULL
 );
 
+-- [เพิ่มใหม่] 3.1 ตารางเชื่อมความถนัดของช่าง (Junction Table)
+CREATE TABLE technician_specialties (
+    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    problem_type_id INT REFERENCES problem_types(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, problem_type_id)
+);
+
 -- 4. ตารางการแจ้งซ่อม 
 CREATE TABLE repairs (
     id SERIAL PRIMARY KEY,
     reporter_email VARCHAR(255) NOT NULL, 
-    technician_id INT REFERENCES users(id), 
+    technician_id INT REFERENCES users(id) ON DELETE SET NULL, -- เปลี่ยนเป็น SET NULL เพื่อไม่ให้ใบงานหายหากเผลอลบช่างออก
     location_id INT REFERENCES locations(id),
-    floor_id INT REFERENCES floors(id), -- [เพิ่มใหม่] เก็บข้อมูลชั้น
+    floor_id INT REFERENCES floors(id),
+    room VARCHAR(100), -- [เพิ่มใหม่] เก็บข้อมูลเลขห้อง หรือพิกัดจุดเกิดเหตุ
     problem_type_id INT REFERENCES problem_types(id),
     description TEXT NOT NULL,
     technician_note TEXT, 
@@ -54,9 +63,10 @@ CREATE TABLE repair_images (
 -- ข้อมูลเริ่มต้น (Master Data)
 -- ==========================================
 
-INSERT INTO users (username, password, role) VALUES
-('admin', '1234', 'admin'),
-('tech1', '1234', 'technician'); 
+-- [แก้ไข] เพิ่ม full_name ให้กับบัญชีเริ่มต้น
+INSERT INTO users (username, password, full_name, role) VALUES
+('admin', '1234', 'ผู้ดูแลระบบสูงสุด', 'admin'),
+('tech1', '1234', 'นายสมชาย ยอดช่าง', 'technician'); 
 
 INSERT INTO locations (name) VALUES
 ('อาคารวิทยาศาสตร์ 1'),
@@ -65,7 +75,6 @@ INSERT INTO locations (name) VALUES
 ('อาคารวิทยาศาสตร์ 4'),
 ('อื่นๆ');
 
--- [เพิ่มใหม่] Insert ข้อมูล 4 ชั้น (วิทย์ 1 มีชั้น 1-2, วิทย์ 2 มีชั้น 1-2)
 INSERT INTO floors (location_id, floor_name) VALUES
 (1, 'ชั้น 1'),
 (1, 'ชั้น 2'),

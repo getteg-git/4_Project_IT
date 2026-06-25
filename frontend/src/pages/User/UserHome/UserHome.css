@@ -1,114 +1,137 @@
-/* โครงสร้างพื้นหลังและเลย์เอาต์ */
+/* =======================================
+   โครงสร้างพื้นหลังและเลย์เอาต์หลัก
+   ======================================= */
 .home-container {
   min-height: 100vh;
-  background-color: #f0f4f2; /* สีพื้นหลังอมเขียวสะอาดตา */
+  background-color: #f0f4f2; 
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px 20px;
+  padding: 20px; 
+  box-sizing: border-box;
   font-family: 'Sarabun', 'Prompt', sans-serif;
+  position: relative; /* สำคัญ: เพื่อให้ยึด Top Nav ไว้ด้านบนได้ */
 }
 
+/* แถบเมนูด้านบน (สำหรับปุ่มล็อกอินเจ้าหน้าที่) */
+.top-nav {
+  position: absolute;
+  top: 25px;
+  right: 30px;
+}
+
+.btn-staff-login {
+  background-color: transparent;
+  color: #007A53;
+  border: 2px solid #007A53;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-staff-login:hover {
+  background-color: #007A53;
+  color: white;
+  box-shadow: 0 4px 12px rgba(0, 122, 83, 0.15);
+}
+
+/* =======================================
+   ส่วนหัวและข้อความ
+   ======================================= */
 .home-header {
   text-align: center;
-  margin-bottom: 50px;
+  margin-bottom: 30px; 
 }
 
 .home-header h1 {
-  color: #007A53; /* สีเขียวศิลปากร */
-  font-size: 2.5rem;
+  color: #007A53; 
+  font-size: 2.5rem; /* ปรับให้ใหญ่ขึ้นนิดนึงเพราะเหลือ 2 กล่อง */
   font-weight: 700;
-  margin-bottom: 10px;
+  margin-bottom: 5px;
 }
 
 .home-header p {
   color: #555;
   font-size: 1.2rem;
   font-weight: 500;
+  margin: 0;
 }
 
-/* ส่วนของ Grid การ์ดเมนู */
+/* =======================================
+   ส่วนของ Grid การ์ดเมนู (ปรับสำหรับ 2 กล่อง)
+   ======================================= */
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 25px;
-  max-width: 900px;
+  gap: 30px; 
+  max-width: 900px; 
   width: 100%;
 }
 
-/* สไตล์พื้นฐานของการ์ด */
+/* สั่งให้เหลือ 2 คอลัมน์ และขยายความกว้างกล่องให้สมดุล */
+.user-only-grid {
+  grid-template-columns: repeat(2, 1fr);
+}
+
 .menu-card {
   background: white;
-  padding: 40px 25px;
+  padding: 40px 30px; /* เพิ่ม Padding ให้กล่องดูอวบอิ่มขึ้น */
   border-radius: 12px;
   text-align: center;
   cursor: pointer;
   box-shadow: 0 6px 15px rgba(0, 122, 83, 0.08);
   transition: all 0.3s ease;
   border: 1px solid #e0e8e4;
-  position: relative;
-  overflow: hidden;
 }
 
-/* แบ่งสีเส้นขอบบนให้รู้ว่าอันไหนของผู้ใช้ทั่วไป อันไหนของเจ้าหน้าที่ */
-.card-user {
-  border-top: 6px solid #007A53; 
-}
+.card-user { border-top: 6px solid #007A53; }
 
-.card-staff {
-  border-top: 6px solid #f39c12; /* ใช้สีส้มตัดให้เจ้าหน้าที่แยกออกชัดเจน */
-}
-
-/* เอฟเฟกต์ตอนเอาเมาส์ชี้ เพื่อให้รู้สึกว่า "มันคือกดได้นะ" */
 .menu-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 12px 25px rgba(0, 122, 83, 0.15);
   border-color: #007A53;
 }
 
-.card-icon {
-  font-size: 3rem;
-  margin-bottom: 15px;
+.card-icon img, .card-icon {
+  font-size: 3.5rem; /* ขยายไอคอนให้ใหญ่ขึ้น */
+  margin-bottom: 15px; 
 }
 
 .menu-card h2 {
   color: #333;
-  font-size: 1.3rem;
+  font-size: 1.4rem;
   margin-bottom: 10px;
 }
 
 .card-desc {
   display: block;
-  font-size: 0.95rem;
+  font-size: 1rem;
   color: #666;
   background-color: #f8f9fa;
-  padding: 8px;
+  padding: 8px 10px;
   border-radius: 6px;
-  margin-top: 15px;
+  margin-top: 15px; 
 }
 
 /* =======================================
    ส่วนของ POPUP LOGIN (Modal)
    ======================================= */
 .modal-overlay {
-  position: fixed;
-  top: 0; left: 0; width: 100%; height: 100%;
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
   background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-  backdrop-filter: blur(4px); /* ทำฉากหลังเบลอให้ Modal เด่นขึ้น */
+  display: flex; justify-content: center; align-items: center;
+  z-index: 1000; backdrop-filter: blur(4px);
 }
 
 .modal-box {
-  background: white;
-  padding: 40px;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 450px;
-  position: relative;
+  background: white; padding: 40px; border-radius: 12px;
+  width: 90%; max-width: 450px; position: relative;
   box-shadow: 0 10px 30px rgba(0,0,0,0.2);
   border-top: 6px solid #007A53;
   animation: fadeIn 0.3s ease-out;
@@ -119,123 +142,71 @@
   to { opacity: 1; transform: scale(1); }
 }
 
-.close-btn {
-  position: absolute;
-  top: 15px; right: 20px;
-  font-size: 28px;
-  cursor: pointer;
-  color: #aaa;
-  transition: color 0.2s;
+.close-btn { position: absolute; top: 15px; right: 20px; font-size: 28px; cursor: pointer; color: #aaa; transition: color 0.2s; }
+.close-btn:hover { color: #d32f2f; }
+
+.modal-box h3 { color: #007A53; font-size: 1.5rem; margin-bottom: 5px; text-align: center; }
+.modal-subtitle { text-align: center; color: #666; font-size: 0.9rem; margin-bottom: 25px; }
+
+.input-group { margin-bottom: 20px; }
+.input-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #333; }
+.required { color: #d32f2f; }
+
+/* ปรับแต่ง Dropdown และ Input ให้เข้าตีม */
+.input-group input, .role-select { 
+  width: 100%; 
+  padding: 14px 15px; 
+  border: 1px solid #ccd6d1; 
+  border-radius: 8px; 
+  font-size: 1rem; 
+  box-sizing: border-box; 
+  background-color: #fafbfc; 
+  transition: all 0.3s ease; 
+  font-family: inherit;
+}
+.input-group input:focus, .role-select:focus { 
+  outline: none; 
+  border-color: #007A53; 
+  background-color: white; 
+  box-shadow: 0 0 0 3px rgba(0, 122, 83, 0.15); 
 }
 
-.close-btn:hover {
-  color: #d32f2f;
-}
+.modal-actions { display: flex; gap: 15px; margin-top: 30px; }
+.modal-actions button { flex: 1; padding: 14px; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer; border: none; transition: all 0.2s ease; }
+.modal-actions button:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-cancel { background-color: #f1f3f4; color: #444; }
+.btn-cancel:hover:not(:disabled) { background-color: #e8eaed; color: #d32f2f; }
+.btn-submit { background-color: #007A53; color: white; box-shadow: 0 4px 10px rgba(0, 122, 83, 0.2); }
+.btn-submit:hover:not(:disabled) { background-color: #006343; transform: translateY(-2px); }
 
-.modal-box h3 {
-  color: #007A53;
-  font-size: 1.5rem;
-  margin-bottom: 5px;
-  text-align: center;
-}
-
-.modal-subtitle {
-  text-align: center;
-  color: #666;
-  font-size: 0.9rem;
-  margin-bottom: 25px;
-}
-
-.input-group {
-  margin-bottom: 20px;
-}
-
-.input-group label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 600;
-  color: #333;
-}
-
-.required {
-  color: #d32f2f;
-}
-
-.input-group input {
-  width: 100%;
-  padding: 14px 15px;
-  border: 1px solid #ccd6d1;
-  border-radius: 8px;
-  font-size: 1rem;
-  box-sizing: border-box;
-  background-color: #fafbfc;
-  transition: all 0.3s ease;
-}
-
-.input-group input:focus {
-  outline: none;
-  border-color: #007A53;
-  background-color: white;
-  box-shadow: 0 0 0 3px rgba(0, 122, 83, 0.15);
-}
-
-.modal-actions {
-  display: flex;
-  gap: 15px;
-  margin-top: 30px;
-}
-
-.modal-actions button {
-  flex: 1;
-  padding: 14px;
-  font-size: 1rem;
-  font-weight: bold;
-  border-radius: 8px;
-  cursor: pointer;
-  border: none;
-  transition: all 0.2s ease;
-}
-
-.modal-actions button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-cancel {
-  background-color: #f1f3f4;
-  color: #444;
-}
-
-.btn-cancel:hover:not(:disabled) {
-  background-color: #e8eaed;
-  color: #d32f2f;
-}
-
-.btn-submit {
-  background-color: #007A53;
-  color: white;
-  box-shadow: 0 4px 10px rgba(0, 122, 83, 0.2);
-}
-
-.btn-submit:hover:not(:disabled) {
-  background-color: #006343;
-  transform: translateY(-2px);
+/* =======================================
+   📱 Responsive 1: สำหรับ Notebook (จอเตี้ย)
+   ======================================= */
+@media (max-height: 800px) {
+  .home-header { margin-bottom: 20px; }
+  .home-header h1 { font-size: 2.2rem; }
+  .menu-card { padding: 30px 20px; }
+  .card-icon img, .card-icon { font-size: 2.8rem; margin-bottom: 10px; }
 }
 
 /* =======================================
-   Responsive สำหรับมือถือ (หน้าจอเล็ก)
+   📱 Responsive 2: สำหรับ Mobile/Tablet (จอแคบ)
    ======================================= */
 @media (max-width: 768px) {
+  .top-nav {
+    position: static; /* ปลดล็อกปุ่มล็อกอินให้ไหลไปตามปกติบนมือถือ */
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 20px;
+  }
   .cards-grid {
-    grid-template-columns: 1fr; /* ปรับให้เรียงลงมา 1 แถวบนมือถือ */
+    grid-template-columns: 1fr; /* บนมือถือเรียงเป็น 1 แถว */
     gap: 20px;
   }
-  
-  .home-header h1 {
-    font-size: 1.8rem;
-  }
-  
-  .menu-card {
-    padding: 25px 20px;
+  .home-header h1 { font-size: 1.8rem; }
+  .home-container {
+    height: auto; 
+    padding: 20px;
   }
 }

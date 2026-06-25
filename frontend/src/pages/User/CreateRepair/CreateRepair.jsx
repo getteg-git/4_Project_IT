@@ -9,15 +9,23 @@ function CreateRepair() {
   const [email, setEmail] = useState("");
   const [location, setLocation] = useState("");
   const [floor, setFloor] = useState("");
+  const [room, setRoom] = useState(""); // 🔥 State ใหม่สำหรับเก็บเลขห้อง
+  const [customLocationName, setCustomLocationName] = useState(""); 
   const [problemType, setProblemType] = useState("");
   const [details, setDetails] = useState("");
   const [image, setImage] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // State สำหรับเก็บข้อมูลจาก Backend (ห้าม Mockup)
+  // State สำหรับเก็บข้อมูลจาก Backend
   const [locations, setLocations] = useState([]);
   const [floors, setFloors] = useState([]);
   const [problemTypes, setProblemTypes] = useState([]);
+
+  // ตรวจสอบว่าตึกที่เลือกอยู่ปัจจุบันคือตัวเลือก "อื่นๆ" หรือไม่
+  const isOtherLocation = () => {
+    const selectedLoc = locations.find(loc => String(loc.id) === String(location));
+    return selectedLoc && (selectedLoc.name.includes("อื่นๆ") || selectedLoc.name.toLowerCase() === "other");
+  };
 
   // 1. ดึงข้อมูลตึกและประเภทปัญหา เมื่อเปิดหน้าเว็บครั้งแรก
   useEffect(() => {
@@ -39,9 +47,10 @@ function CreateRepair() {
 
   // 2. ดึงข้อมูล "ชั้น" เมื่อผู้ใช้ทำการเลือก "สถานที่ (ตึก)"
   useEffect(() => {
-    if (!location) {
+    if (!location || isOtherLocation()) {
       setFloors([]);
       setFloor("");
+      setRoom(""); // เคลียร์ค่าห้องทิ้งด้วย
       return;
     }
 
@@ -68,14 +77,28 @@ function CreateRepair() {
       return;
     }
 
+    if (isOtherLocation() && !customLocationName.trim()) {
+      alert("⚠️ กรุณาระบุรายละเอียดอาคาร/สถานที่ ที่คุณต้องการแจ้งด้วยครับ");
+      return;
+    }
+
     setIsSubmitting(true);
 
     const formData = new FormData();
-    formData.append("reporter_email", email); // ชื่อ key ต้องตรงกับ backend (reporter_email)
+    formData.append("reporter_email", email);
     formData.append("location_id", location);
-    formData.append("floor_id", floor);
+    formData.append("floor_id", isOtherLocation() ? "" : floor);
+    
+    // 🔥 รวม "เลขห้อง" หรือ "สถานที่อื่นๆ" เข้าไปใน Description ให้อัตโนมัติ
+    let finalDescription = details;
+    if (isOtherLocation()) {
+      finalDescription = `📍 [สถานที่: ${customLocationName}] \n📝 รายละเอียด: ${details}`;
+    } else if (room.trim()) {
+      finalDescription = `📍 [ห้อง/พิกัด: ${room}] \n📝 รายละเอียด: ${details}`;
+    }
+      
+    formData.append("description", finalDescription);
     formData.append("problem_type_id", problemType);
-    formData.append("description", details); // ชื่อ key ต้องตรงกับ backend (description)
     
     if (image) {
       formData.append("image", image);
@@ -89,7 +112,7 @@ function CreateRepair() {
 
       if (response.ok) {
         alert("✅ ระบบได้รับเรื่องแจ้งซ่อมของคุณเรียบร้อยแล้ว");
-        navigate("/repair/history"); // ส่งไปหน้าติดตามสถานะ
+        navigate("/repair/history");
       } else {
         const errorData = await response.json();
         alert(`❌ เกิดข้อผิดพลาด: ${errorData.error || "ไม่สามารถส่งข้อมูลได้"}`);
@@ -138,21 +161,52 @@ function CreateRepair() {
             </select>
           </div>
 
-          {/* ซ่อนช่องเลือกชั้นจนกว่าจะมีการเลือกอาคาร */}
+          {/* ส่วนเงื่อนไขอัจฉริยะ (Conditional Rendering) */}
           {location && (
-            <div className="form-group slide-down">
-              <label>ชั้น <span className="required">*</span></label>
-              <select value={floor} onChange={(e) => setFloor(e.target.value)} required>
-                <option value="">-- กรุณาเลือกชั้น --</option>
-                {floors.length > 0 ? (
-                  floors.map((f) => (
-                    <option key={f.id} value={f.id}>{f.floor_name}</option>
-                  ))
-                ) : (
-                  <option value="" disabled>ไม่มีข้อมูลชั้นสำหรับอาคารนี้</option>
+            isOtherLocation() ? (
+              // เงื่อนไข A: ถ้าเลือกตึกอื่นๆ -> แสดงกล่องพิมพ์ข้อความระบุพิกัดเอง
+              <div className="form-group slide-down">
+                <label>ระบุสถานที่/ อาคารเพิ่มเติม <span className="required">*</span></label>
+                <input
+                  type="text"
+                  placeholder="เช่น โรงอาหารกลาง, หน้าคณะวิทยาศาสตร์, ทางเดินเชื่อมตึก"
+                  value={customLocationName}
+                  onChange={(e) => setCustomLocationName(e.target.value)}
+                  required
+                />
+              </div>
+            ) : (
+              // เงื่อนไข B: ถ้าเลือกอาคารปกติ
+              <>
+                <div className="form-group slide-down">
+                  <label>ชั้น <span className="required">*</span></label>
+                  <select value={floor} onChange={(e) => setFloor(e.target.value)} required>
+                    <option value="">-- กรุณาเลือกชั้น --</option>
+                    {floors.length > 0 ? (
+                      floors.map((f) => (
+                        <option key={f.id} value={f.id}>{f.floor_name}</option>
+                      ))
+                    ) : (
+                      <option value="" disabled>ไม่มีข้อมูลชั้นสำหรับอาคารนี้</option>
+                    )}
+                  </select>
+                </div>
+
+                {/* 🔥 เงื่อนไข C: แสดงช่องกรอกเลขห้อง เมื่อเลือกชั้นเสร็จแล้ว */}
+                {floor && (
+                  <div className="form-group slide-down">
+                    <label>ห้อง / จุดเกิดเหตุ <span className="required">*</span></label>
+                    <input
+                      type="text"
+                      placeholder="เช่น ห้อง 1102, หน้าลิฟต์, ห้องน้ำชาย"
+                      value={room}
+                      onChange={(e) => setRoom(e.target.value)}
+                      required
+                    />
+                  </div>
                 )}
-              </select>
-            </div>
+              </>
+            )
           )}
 
           <div className="form-group">
@@ -168,7 +222,7 @@ function CreateRepair() {
           <div className="form-group">
             <label>อธิบายรายละเอียดของปัญหา <span className="required">*</span></label>
             <textarea
-              placeholder="เช่น แอร์น้ำหยดตรงมุมห้อง, หลอดไฟกะพริบ, หรือพิกัดจุดเกิดเหตุที่ชัดเจน"
+              placeholder="เช่น แอร์น้ำหยดตรงมุมห้อง, หลอดไฟกะพริบ, หรือรายละเอียดเพิ่มเติม"
               rows="4"
               value={details}
               onChange={(e) => setDetails(e.target.value)}

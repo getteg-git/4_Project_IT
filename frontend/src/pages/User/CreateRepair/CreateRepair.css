@@ -1,7 +1,7 @@
 /* โครงสร้างพื้นหลัง */
 .create-repair-container {
   min-height: 100vh;
-  background-color: #f0f4f2; /* สีพื้นหลังอมเขียวอ่อนๆ ให้ดูสบายตา */
+  background-color: #f0f4f2; 
   display: flex;
   justify-content: center;
   align-items: center; 
@@ -13,11 +13,11 @@
 .repair-card {
   background: white;
   width: 100%;
-  max-width: 650px; /* ขยายให้กว้างขึ้นนิดนึงดูไม่อึดอัด */
+  max-width: 650px; 
   padding: 40px;
   border-radius: 12px;
-  box-shadow: 0 8px 30px rgba(0, 122, 83, 0.08); /* เงาอมสีเขียว */
-  border-top: 8px solid #007A53; /* สีเขียวศิลปากร */
+  box-shadow: 0 8px 30px rgba(0, 122, 83, 0.08); 
+  border-top: 8px solid #007A53; 
 }
 
 .repair-header {
@@ -26,7 +26,7 @@
 }
 
 .repair-header h2 {
-  color: #007A53; /* สีเขียวศิลปากร */
+  color: #007A53; 
   font-size: 1.8rem;
   font-weight: 700;
   margin-bottom: 8px;
@@ -52,16 +52,17 @@
 }
 
 .required {
-  color: #d32f2f; /* ดอกจันสีแดงชัดเจน */
+  color: #d32f2f; 
   margin-left: 3px;
 }
 
-/* ตกแต่ง Input, Select, Textarea */
+/* 🔥 แก้ไขจุดที่ 1: เพิ่ม input[type="text"] ให้ครอบคลุมช่องระบุสถานที่อื่นๆ ด้วย */
 .form-group input[type="email"],
+.form-group input[type="text"],
 .form-group select,
 .form-group textarea {
   width: 100%;
-  padding: 14px 15px; /* เพิ่มพื้นที่ให้กดง่ายขึ้นบนมือถือ */
+  padding: 14px 15px; 
   border: 1px solid #ccd6d1;
   border-radius: 8px;
   font-size: 1rem;
@@ -83,10 +84,10 @@
   outline: none;
   border-color: #007A53;
   background-color: white;
-  box-shadow: 0 0 0 3px rgba(0, 122, 83, 0.15); /* เรืองแสงสีเขียวศิลปากร */
+  box-shadow: 0 0 0 3px rgba(0, 122, 83, 0.15); 
 }
 
-/* อนิเมชันช่องเลื่อนลงมา (สำหรับช่อง "ชั้น") */
+/* อนิเมชันช่องเลื่อนลงมา (สำหรับช่อง "ชั้น" และ "พิมพ์สถานที่เอง") */
 .slide-down {
   animation: slideDown 0.3s ease-out forwards;
 }
@@ -96,14 +97,15 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* ตกแต่งปุ่มอัปโหลดไฟล์ให้กดง่ายชัดเจน */
+/* 🔥 แก้ไขจุดที่ 2: ปรับสมดุลกล่องอัปโหลดรูปภาพให้พอดีกับช่องอื่นๆ */
 .file-input {
-  display: none; /* ซ่อนปุ่มเลือกไฟล์เดิมที่ดูไม่สวย */
+  display: none; 
 }
 
 .file-upload-label {
   display: block !important;
-  width: 100%;
+  width: 100%; /* เปลี่ยนเป็น 100% ให้เต็มกล่อง */
+  box-sizing: border-box; /* สำคัญ: ป้องกัน Padding ดันจนล้น */
   padding: 20px;
   border: 2px dashed #007A53;
   border-radius: 8px;
@@ -136,7 +138,7 @@
 
 .form-actions button {
   flex: 1; 
-  padding: 16px; /* ปุ่มใหญ่ขึ้นเพื่อ UX ที่ดี ไม่กดพลาด */
+  padding: 16px; 
   font-size: 1rem;
   font-weight: 700;
   border-radius: 8px;
@@ -162,17 +164,17 @@
 
 .btn-cancel:hover:not(:disabled) {
   background-color: #e8eaed;
-  color: #d32f2f; /* สื่อให้รู้ว่านี่คือการยกเลิก */
+  color: #d32f2f; 
 }
 
 .btn-submit {
-  background-color: #007A53; /* สีเขียวศิลปากร */
+  background-color: #007A53; 
   color: white;
   box-shadow: 0 4px 12px rgba(0, 122, 83, 0.25);
 }
 
 .btn-submit:hover:not(:disabled) {
-  background-color: #006343; /* เขียวเข้มขึ้นตอน Hover */
+  background-color: #006343; 
   transform: translateY(-2px); 
 }
 

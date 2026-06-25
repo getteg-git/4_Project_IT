@@ -1,4 +1,4 @@
-package repair
+package handlers // เปลี่ยนกลับไปเป็น package repair หรือ package ของคุณเก็ตได้เลยครับ
 
 import (
 	"fmt"
@@ -12,22 +12,33 @@ import (
 )
 
 // ---------------------------------------------------------
-// 1. CreateRepair: สำหรับ User แจ้งซ่อมพร้อมแนบรูป (เพิ่ม floor_id)
+// 1. CreateRepair: สำหรับ User แจ้งซ่อมพร้อมแนบรูป (เพิ่ม room)
 // ---------------------------------------------------------
 func CreateRepair(c *gin.Context) {
 	reporterEmail := c.PostForm("reporter_email")
 	locationID := c.PostForm("location_id")
-	floorID := c.PostForm("floor_id") // รับค่า floor_id เพิ่มเข้ามา
+	floorID := c.PostForm("floor_id") // หากเลือกสถานที่ "อื่นๆ" ค่านี้อาจส่งมาเป็น ""
+	room := c.PostForm("room")        // [เพิ่มใหม่] รับค่าเลขห้อง
 	problemTypeID := c.PostForm("problem_type_id")
 	description := c.PostForm("description")
 
 	var repairID int
-	// อัปเดต SQL ให้บันทึก floor_id ลงตาราง repairs
-	err := database.DB.QueryRow(
-		`INSERT INTO repairs (reporter_email, location_id, floor_id, problem_type_id, description, status)
-		VALUES ($1, $2, $3, $4, $5, 'รอซ่อม') RETURNING id`,
-		reporterEmail, locationID, floorID, problemTypeID, description,
-	).Scan(&repairID)
+	var err error
+
+	// ตรวจสอบ floorID หากส่งมาเป็นค่าว่าง (กรณีกดเลือกตึก 'อื่นๆ') ให้แปลงเป็น NULL เพื่อกัน Error Database
+	if floorID == "" {
+		err = database.DB.QueryRow(
+			`INSERT INTO repairs (reporter_email, location_id, floor_id, room, problem_type_id, description, status)
+			VALUES ($1, $2, NULL, $3, $4, $5, 'รอซ่อม') RETURNING id`,
+			reporterEmail, locationID, room, problemTypeID, description,
+		).Scan(&repairID)
+	} else {
+		err = database.DB.QueryRow(
+			`INSERT INTO repairs (reporter_email, location_id, floor_id, room, problem_type_id, description, status)
+			VALUES ($1, $2, $3, $4, $5, $6, 'รอซ่อม') RETURNING id`,
+			reporterEmail, locationID, floorID, room, problemTypeID, description,
+		).Scan(&repairID)
+	}
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกข้อมูลได้: " + err.Error()})
@@ -57,15 +68,15 @@ func CreateRepair(c *gin.Context) {
 }
 
 // ---------------------------------------------------------
-// 2. GetAllRepairs: ดึงรายการแจ้งซ่อมทั้งหมด (JOIN เอาชื่อชั้นและชื่อช่างจริงมาแสดง)
+// 2. GetAllRepairs: ดึงรายการแจ้งซ่อมทั้งหมด (JOIN เอาชื่อชั้น เลขห้อง และ full_name ของช่างมาแสดง)
 // ---------------------------------------------------------
 func GetAllRepairs(c *gin.Context) {
 	rows, err := database.DB.Query(`
-		SELECT r.id, r.description, r.status, r.created_at, r.technician_id, r.technician_note, r.reporter_email,
-		       l.name as location_name, f.floor_name, p.name as problem_type_name, u.username as technician_name
+		SELECT r.id, r.description, r.status, r.created_at, r.technician_id, r.technician_note, r.reporter_email, r.room,
+			   l.name as location_name, f.floor_name, p.name as problem_type_name, u.full_name as technician_name
 		FROM repairs r
 		JOIN locations l ON r.location_id = l.id
-		JOIN floors f ON r.floor_id = f.id
+		LEFT JOIN floors f ON r.floor_id = f.id
 		JOIN problem_types p ON r.problem_type_id = p.id
 		LEFT JOIN users u ON r.technician_id = u.id
 		ORDER BY r.created_at DESC`)
@@ -79,18 +90,19 @@ func GetAllRepairs(c *gin.Context) {
 	repairs := make([]map[string]interface{}, 0)
 	for rows.Next() {
 		var id int
-		var desc, status, locName, floorName, probName, reporterEmail string
+		var desc, status, locName, probName, reporterEmail string
+		var room, floorName *string // ใช้ Pointer เผื่อบางแถวเป็น Null
 		var createdAt time.Time
 
 		var techID *int
 		var techNote, techName *string
 
-		err := rows.Scan(&id, &desc, &status, &createdAt, &techID, &techNote, &reporterEmail, &locName, &floorName, &probName, &techName)
+		err := rows.Scan(&id, &desc, &status, &createdAt, &techID, &techNote, &reporterEmail, &room, &locName, &floorName, &probName, &techName)
 		if err != nil {
 			continue
 		}
 
-		// 🔥 [เพิ่มใหม่] ค้นหารูปภาพของงานซ่อม ID นี้
+		// ค้นหารูปภาพของงานซ่อม ID นี้
 		imgRows, _ := database.DB.Query("SELECT image_url, image_type FROM repair_images WHERE repair_id = $1", id)
 		images := make([]map[string]string, 0)
 		for imgRows.Next() {
@@ -98,7 +110,18 @@ func GetAllRepairs(c *gin.Context) {
 			imgRows.Scan(&url, &imgType)
 			images = append(images, map[string]string{"url": url, "type": imgType})
 		}
-		imgRows.Close() // อย่าลืมปิด connection รูปภาพ
+		imgRows.Close()
+
+		// คลีนข้อมูลก่อนส่ง (แปลง Null pointer เป็น String เปล่า)
+		safeRoom := ""
+		if room != nil {
+			safeRoom = *room
+		}
+
+		safeFloorName := ""
+		if floorName != nil {
+			safeFloorName = *floorName
+		}
 
 		r := map[string]interface{}{
 			"id":              id,
@@ -106,7 +129,8 @@ func GetAllRepairs(c *gin.Context) {
 			"status":          status,
 			"created_at":      createdAt,
 			"location":        locName,
-			"floor_name":      floorName,
+			"floor_name":      safeFloorName,
+			"room":            safeRoom,
 			"problem_type":    probName,
 			"reporter_email":  reporterEmail,
 			"technician_id":   techID,
@@ -127,18 +151,19 @@ func GetRepairByID(c *gin.Context) {
 	repairID := c.Param("id")
 
 	var id int
-	var desc, status, locName, floorName, probName, reporterEmail string
+	var desc, status, locName, probName, reporterEmail string
+	var room, floorName *string
 	var techNote, techName *string
 
 	err := database.DB.QueryRow(`
-		SELECT r.id, r.description, r.status, r.reporter_email, r.technician_note, 
-		       l.name, f.floor_name, p.name, u.username
+		SELECT r.id, r.description, r.status, r.reporter_email, r.technician_note, r.room,
+			   l.name, f.floor_name, p.name, u.full_name
 		FROM repairs r
 		JOIN locations l ON r.location_id = l.id
-		JOIN floors f ON r.floor_id = f.id
+		LEFT JOIN floors f ON r.floor_id = f.id
 		JOIN problem_types p ON r.problem_type_id = p.id
 		LEFT JOIN users u ON r.technician_id = u.id
-		WHERE r.id = $1`, repairID).Scan(&id, &desc, &status, &reporterEmail, &techNote, &locName, &floorName, &probName, &techName)
+		WHERE r.id = $1`, repairID).Scan(&id, &desc, &status, &reporterEmail, &techNote, &room, &locName, &floorName, &probName, &techName)
 
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบรายการแจ้งซ่อม"})
@@ -155,6 +180,16 @@ func GetRepairByID(c *gin.Context) {
 		images = append(images, map[string]string{"url": url, "type": imgType})
 	}
 
+	safeRoom := ""
+	if room != nil {
+		safeRoom = *room
+	}
+
+	safeFloorName := ""
+	if floorName != nil {
+		safeFloorName = *floorName
+	}
+
 	repair := map[string]interface{}{
 		"id":              id,
 		"description":     desc,
@@ -163,7 +198,8 @@ func GetRepairByID(c *gin.Context) {
 		"technician_note": techNote,
 		"technician_name": techName,
 		"location":        locName,
-		"floor_name":      floorName,
+		"floor_name":      safeFloorName,
+		"room":            safeRoom,
 		"problem_type":    probName,
 		"images":          images,
 	}

@@ -1,18 +1,18 @@
 /* โครงสร้างพื้นฐาน */
-.tech-container {
+.admin-manage-container {
   min-height: 100vh;
   background-color: #f0f4f2;
   padding: 30px 40px;
   font-family: 'Sarabun', 'Prompt', sans-serif;
 }
 
-.tech-wrapper {
+.admin-wrapper {
   max-width: 1000px;
   margin: 0 auto;
 }
 
 /* ส่วนหัว Header */
-.tech-header {
+.admin-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -24,32 +24,37 @@
   border-left: 8px solid #007A53;
 }
 
-.tech-header h2 {
+.admin-header h2 {
   color: #007A53;
   font-size: 1.8rem;
   margin-bottom: 5px;
 }
 
-.tech-header p {
+.admin-header p {
   color: #666;
   font-size: 1rem;
 }
 
-.btn-logout {
-  background-color: transparent;
-  color: #d32f2f;
-  padding: 10px 20px;
-  border: 2px solid #d32f2f;
+.btn-back-dashboard {
+  background-color: transparent; /* พื้นหลังใส */
+  color: #007A53; /* ตัวหนังสือสีเขียวศิลปากร */
+  padding: 10px 20px; /* ปรับลดความหนาของปุ่มลงนิดนึงให้พอดีกับข้อความ */
+  border: 2px solid #007A53; /* ขอบสีเขียว */
   border-radius: 8px;
   font-size: 0.95rem;
   font-weight: bold;
   cursor: pointer;
   transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px; /* เว้นระยะระหว่างไอคอนกับตัวหนังสือ */
 }
 
-.btn-logout:hover {
-  background-color: #d32f2f;
+.btn-back-dashboard:hover {
+  background-color: #007A53;
   color: white;
+  box-shadow: 0 4px 12px rgba(0, 122, 83, 0.15);
+  transform: translateY(-2px);
 }
 
 /* ช่องค้นหา */
@@ -69,7 +74,7 @@
   box-shadow: 0 0 0 4px rgba(0, 122, 83, 0.15);
 }
 
-/* รายการแจ้งซ่อม */
+/* รายการแจ้งซ่อม (Card Style) */
 .repair-list {
   display: flex;
   flex-direction: column;
@@ -130,15 +135,15 @@
   margin-bottom: 8px;
 }
 
-/* บันทึกจากช่าง */
-.tech-note-display {
-  background-color: #f8f9fa;
-  color: #333;
-  padding: 12px 15px;
+.repair-tech-box {
+  display: inline-block;
+  background-color: #f2f9f6;
+  color: #007A53;
+  padding: 8px 15px;
   border-radius: 8px;
   font-size: 0.95rem;
-  margin-top: 15px;
-  border-left: 4px solid #f39c12;
+  margin-top: 10px;
+  border: 1px solid #cce4db;
 }
 
 .card-actions-row {
@@ -152,13 +157,13 @@
 
 .repair-date { color: #888; font-size: 0.9rem; }
 
-/* ปุ่ม Actions ของช่าง */
-.tech-actions {
+.action-buttons {
   display: flex;
   gap: 10px;
 }
 
-.tech-actions button {
+/* ปุ่มกดต่างๆ เน้น "สี" ช่วยให้เดาการทำงานง่ายขึ้น */
+.action-buttons button {
   padding: 10px 18px;
   border-radius: 8px;
   font-weight: bold;
@@ -168,28 +173,28 @@
   transition: all 0.2s;
 }
 
-.btn-reject {
-  background-color: white;
-  color: #d32f2f;
-  border: 1px solid #d32f2f !important;
+.btn-details {
+  background-color: #f1f3f4;
+  color: #444;
 }
-.btn-reject:hover { background-color: #ffebee; }
+.btn-details:hover { background-color: #e2e6e9; }
 
-.btn-cannot-fix {
-  background-color: #e74c3c;
-  color: white;
-}
-.btn-cannot-fix:hover { background-color: #c0392b; transform: translateY(-2px); }
-
-.btn-complete {
+.btn-assign {
   background-color: #007A53;
   color: white;
   box-shadow: 0 4px 10px rgba(0, 122, 83, 0.2);
 }
-.btn-complete:hover { background-color: #006343; transform: translateY(-2px); }
+.btn-assign:hover { background-color: #006343; transform: translateY(-2px); }
+
+.btn-revoke {
+  background-color: #fff0f0;
+  color: #d32f2f;
+  border: 1px solid #ffcdd2 !important;
+}
+.btn-revoke:hover { background-color: #ffebee; }
 
 /* =======================================
-   Modal Popups
+   Modal Popups (เอามาจาก CSS เดิมปรับปรุงให้เข้าธีม)
    ======================================= */
 .modal-overlay {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -199,7 +204,7 @@
   padding: 20px; box-sizing: border-box;
 }
 
-.tech-modal {
+.modal-box {
   background: white;
   width: 100%; max-width: 500px;
   padding: 35px; border-radius: 12px;
@@ -208,38 +213,43 @@
   border-top: 6px solid #007A53;
 }
 
+.details-box { max-width: 600px; max-height: 90vh; overflow-y: auto; }
+
 .close-btn {
   position: absolute; top: 15px; right: 20px;
   font-size: 30px; cursor: pointer; color: #aaa;
 }
 .close-btn:hover { color: #d32f2f; }
 
-.tech-modal h3 { font-size: 1.4rem; margin-bottom: 5px; }
-.text-success { color: #007A53; }
-.text-fail { color: #e74c3c; }
-.modal-subtitle { color: #666; font-size: 0.95rem; margin-bottom: 20px; }
+.image-gallery { text-align: center; margin-bottom: 20px; }
+.repair-image { max-width: 100%; max-height: 250px; border-radius: 8px; border: 1px solid #ddd; }
+.no-image-box { padding: 30px; background: #f8f9fa; border-radius: 8px; color: #999; border: 2px dashed #ddd; }
+
+.info-grid { display: grid; gap: 10px; margin-bottom: 20px; color: #444; }
+.issue-desc-box { background: #fafbfc; padding: 15px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px; }
+.tech-info-box { background: #f2f9f6; padding: 15px; border-radius: 8px; border-left: 5px solid #007A53; }
 
 .input-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #333; }
-.input-group textarea {
+.input-group select {
   width: 100%; padding: 14px; border: 1px solid #ccd6d1; border-radius: 8px;
-  font-size: 1rem; background-color: #fafbfc; font-family: inherit; box-sizing: border-box;
+  font-size: 1rem; background-color: #fafbfc;
 }
-.input-group textarea:focus { outline: none; border-color: #007A53; background-color: white; box-shadow: 0 0 0 3px rgba(0, 122, 83, 0.15); }
+.input-group select:focus { outline: none; border-color: #007A53; background-color: white; box-shadow: 0 0 0 3px rgba(0, 122, 83, 0.15); }
 
 .modal-actions { display: flex; gap: 15px; }
 .modal-actions button { flex: 1; padding: 14px; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer; border: none; }
-.btn-cancel { background-color: #f1f3f4; color: #444; border: 1px solid #ddd !important; }
+.btn-cancel { background-color: #f1f3f4; color: #444; }
 .btn-cancel:hover { background-color: #e8eaed; color: #d32f2f; }
-.btn-submit-success { background-color: #007A53; color: white; }
-.btn-submit-success:hover { background-color: #006343; }
-.btn-submit-fail { background-color: #e74c3c; color: white; }
-.btn-submit-fail:hover { background-color: #c0392b; }
+.btn-submit { background-color: #007A53; color: white; }
+.btn-submit:hover { background-color: #006343; }
+.btn-close-modal { width: 100%; background-color: #f1f3f4; color: #444; padding: 14px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+.btn-close-modal:hover { background-color: #e2e6e9; color: #d32f2f; }
 
 /* Responsive */
 @media (max-width: 768px) {
-  .tech-container { padding: 20px 15px; }
-  .tech-header { flex-direction: column; text-align: center; gap: 15px; }
+  .admin-manage-container { padding: 20px 15px; }
+  .admin-header { flex-direction: column; text-align: center; gap: 15px; }
   .card-actions-row { flex-direction: column; align-items: flex-start; gap: 15px; }
-  .tech-actions { width: 100%; flex-direction: column; }
-  .tech-actions button { width: 100%; }
+  .action-buttons { width: 100%; flex-wrap: wrap; }
+  .action-buttons button { flex: 1; text-align: center; }
 }

@@ -7,14 +7,13 @@ function UserHome() {
   
   // State สำหรับจัดการ Popup Login
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loginRole, setLoginRole] = useState(""); 
+  const [loginRole, setLoginRole] = useState("admin"); // ค่าเริ่มต้นให้เป็น admin
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // ฟังก์ชันเปิด Popup ล็อคอิน (ปรับให้เซต role เป็น "technician" หรือ "admin")
-  const openLoginModal = (role) => {
-    setLoginRole(role === "tech" ? "technician" : "admin");
+  // ฟังก์ชันเปิด Popup ล็อคอินสำหรับเจ้าหน้าที่
+  const openLoginModal = () => {
     setIsModalOpen(true);
   };
 
@@ -22,6 +21,7 @@ function UserHome() {
     setIsModalOpen(false);
     setUsername("");
     setPassword("");
+    setLoginRole("admin"); // รีเซ็ตค่าเมื่อปิด
   };
 
   // ฟังก์ชันยิง API Login ไปเช็คที่ Backend
@@ -30,26 +30,21 @@ function UserHome() {
     setIsLoading(true);
     
     try {
-      // 🔥 แก้ไข URL ให้ชี้ไปที่ /api/login ให้ตรงกับ routes.go
       const response = await fetch("http://localhost:8080/api/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           username: username, 
           password: password,
-          expected_role: loginRole // 🔥 แก้คีย์ให้ตรงกับ ExpectedRole ใน Go
+          expected_role: loginRole 
         }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        // เก็บข้อมูล User ลง LocalStorage
         localStorage.setItem("user", JSON.stringify(data.user));
 
-        // นำทางไปยังหน้าของแต่ละ Role
         if (data.user.role === "admin") {
           navigate("/admin/home");
         } else if (data.user.role === "technician") {
@@ -70,14 +65,22 @@ function UserHome() {
 
   return (
     <div className="home-container">
+      
+      {/* แถบ Navigation ด้านบน */}
+      <nav className="top-nav">
+        <button className="btn-staff-login" onClick={openLoginModal}>
+          🔐 เข้าสู่ระบบ (สำหรับเจ้าหน้าที่)
+        </button>
+      </nav>
+
       {/* ส่วนหัวของหน้า */}
       <div className="home-header">
         <h1>ระบบแจ้งซ่อมและติดตามงาน</h1>
         <p>คณะวิทยาศาสตร์ มหาวิทยาลัยศิลปากร</p>
       </div>
 
-      {/* ส่วนการ์ดเมนู 4 ปุ่ม (ปรับ UX ให้สื่อความหมายชัดเจนที่สุด) */}
-      <div className="cards-grid">
+      {/* ส่วนการ์ดเมนูสำหรับคนแจ้งซ่อม (เหลือแค่ 2 กล่อง) */}
+      <div className="cards-grid user-only-grid">
         <div className="menu-card card-user" onClick={() => navigate("/repair/create")}>
           <div className="card-icon">📝</div>
           <h2>แจ้งซ่อมอุปกรณ์ / แจ้งปัญหาพื้นที่</h2>
@@ -89,30 +92,32 @@ function UserHome() {
           <h2>ติดตามสถานะงานแจ้งซ่อม</h2>
           <span className="card-desc">คลิกเพื่อดูความคืบหน้าของงานที่คุณแจ้งไว้</span>
         </div>
-
-        <div className="menu-card card-staff" onClick={() => openLoginModal("admin")}>
-          <div className="card-icon">⚙️</div>
-          <h2>เข้าสู่ระบบแอดมิน (Admin)</h2>
-          <span className="card-desc">คลิกเพื่อล็อกอิน (สำหรับเจ้าหน้าที่ดูแลระบบ)</span>
-        </div>
-
-        <div className="menu-card card-staff" onClick={() => openLoginModal("tech")}>
-          <div className="card-icon">🛠️</div>
-          <h2>เข้าสู่ระบบช่างเทคนิค (Technician)</h2>
-          <span className="card-desc">คลิกเพื่อล็อกอิน (สำหรับช่างรับงาน/ปิดงาน)</span>
-        </div>
       </div>
 
-      {/* ส่วนของ POPUP LOGIN */}
+      {/* ส่วนของ POPUP LOGIN สำหรับเจ้าหน้าที่ */}
       {isModalOpen && (
         <div className="modal-overlay">
           <div className="modal-box">
             <span className="close-btn" onClick={closeLoginModal}>&times;</span>
             
-            <h3>{loginRole === "admin" ? "⚙️ ล็อกอินสำหรับ แอดมิน" : "🛠️ ล็อกอินสำหรับ ช่างเทคนิค"}</h3>
-            <p className="modal-subtitle">กรุณากรอกชื่อผู้ใช้งานและรหัสผ่านเพื่อเข้าสู่ระบบ</p>
+            <h3>🔐 ล็อกอินสำหรับเจ้าหน้าที่</h3>
+            <p className="modal-subtitle">กรุณาระบุสิทธิ์และข้อมูลเพื่อเข้าสู่ระบบ</p>
 
             <form onSubmit={handleLoginSubmit}>
+              
+              {/* Dropdown เลือก Role */}
+              <div className="input-group">
+                <label>เข้าสู่ระบบในฐานะ <span className="required">*</span></label>
+                <select 
+                  value={loginRole} 
+                  onChange={(e) => setLoginRole(e.target.value)}
+                  className="role-select"
+                >
+                  <option value="admin">⚙️ แอดมิน (ดูแลระบบและจ่ายงาน)</option>
+                  <option value="technician">🛠️ ช่างเทคนิค (รับงานและปิดงาน)</option>
+                </select>
+              </div>
+
               <div className="input-group">
                 <label>ชื่อผู้ใช้งาน <span className="required">*</span></label>
                 <input 
