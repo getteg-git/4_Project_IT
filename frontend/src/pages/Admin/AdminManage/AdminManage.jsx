@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import "./AdminManage.css"; // อย่าลืมเปลี่ยนชื่อไฟล์ CSS ให้ตรงกันนะครับ
+import "./AdminManage.css"; 
 
 function AdminManage() {
   const navigate = useNavigate();
@@ -23,7 +23,7 @@ function AdminManage() {
       setIsLoading(true);
       const [repairsRes, usersRes] = await Promise.all([
         fetch("http://localhost:8080/api/repairs"),
-        fetch("http://localhost:8080/api/users") // ดึง User มาเพื่อหากรองเอาเฉพาะช่าง
+        fetch("http://localhost:8080/api/users") 
       ]);
 
       if (repairsRes.ok) {
@@ -33,7 +33,7 @@ function AdminManage() {
 
       if (usersRes.ok) {
         const usersData = await usersRes.json();
-        // กรองเอาเฉพาะ User ที่มี Role เป็น technician
+        // กรองเอาเฉพาะ User ที่มี Role เป็น technician และเก็บข้อมูลความถนัดมาด้วย
         const techList = usersData.filter(user => user.role === "technician");
         setTechnicians(techList);
       }
@@ -48,20 +48,21 @@ function AdminManage() {
     fetchData();
   }, []);
 
-  // ฟังก์ชัน Smart Search (อัจฉริยะแบบเดียวกับหน้า Tracking)
+  // ฟังก์ชัน Smart Search (ค้นหาจาก ชื่อช่างจริง เลขห้อง สถานที่ ฯลฯ)
   const normalizedSearch = searchTerm.replace(/\s+/g, '').replace(/วิทย์/g, 'วิทยาศาสตร์').toLowerCase();
   
   const filteredRepairs = repairs.filter((repair) => {
     if (!normalizedSearch) return true;
     const loc = (repair.location || "").replace(/\s+/g, '').toLowerCase();
     const floor = (repair.floor_name || "").replace(/\s+/g, '').toLowerCase();
+    const room = (repair.room || "").replace(/\s+/g, '').toLowerCase();
     const type = (repair.problem_type || "").replace(/\s+/g, '').toLowerCase();
     const status = (repair.status || "").replace(/\s+/g, '').toLowerCase();
     const ticketId = String(repair.id);
     const techName = (repair.technician_name || "").replace(/\s+/g, '').toLowerCase();
 
     return (
-      loc.includes(normalizedSearch) || floor.includes(normalizedSearch) ||
+      loc.includes(normalizedSearch) || floor.includes(normalizedSearch) || room.includes(normalizedSearch) ||
       type.includes(normalizedSearch) || status.includes(normalizedSearch) ||
       ticketId.includes(normalizedSearch) || techName.includes(normalizedSearch)
     );
@@ -168,7 +169,7 @@ function AdminManage() {
         <div className="search-section">
           <input 
             type="text" 
-            placeholder="🔍 ค้นหารหัสงาน, สถานที่, หรือชื่อช่าง..." 
+            placeholder="🔍 ค้นหารหัสงาน, สถานที่, เลขห้อง หรือชื่อช่าง..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
@@ -190,10 +191,14 @@ function AdminManage() {
                 </div>
                 
                 <h3 className="repair-title">[{repair.problem_type}] {repair.location}</h3>
-                <p className="repair-info"><strong>ชั้น / พิกัด:</strong> {repair.floor_name}</p>
+                
+                {/* 🔥 เพิ่มการแสดงผลเลขห้อง/พิกัด */}
+                <p className="repair-info">
+                  <strong>ชั้น / พิกัด:</strong> {repair.floor_name || "-"} {repair.room ? `(ห้อง ${repair.room})` : ""}
+                </p>
                 <p className="repair-info"><strong>รายละเอียด:</strong> {repair.description}</p>
                 
-                {/* แสดงชื่อช่างถ้ามีการมอบหมายงานแล้ว */}
+                {/* แสดงชื่อจริงของช่างถ้ามีการมอบหมายงานแล้ว */}
                 {repair.technician_name && (
                   <div className="repair-tech-box">
                     <strong>👷‍♂️ ผู้รับผิดชอบ:</strong> {repair.technician_name}
@@ -255,7 +260,12 @@ function AdminManage() {
 
               <div className="info-grid">
                 <p><strong>ประเภทปัญหา:</strong> {selectedRepair.problem_type}</p>
-                <p><strong>สถานที่:</strong> {selectedRepair.location} ({selectedRepair.floor_name})</p>
+                {/* 🔥 เพิ่มการโชว์เลขห้องในหน้าดูรายละเอียด */}
+                <p>
+                  <strong>สถานที่:</strong> {selectedRepair.location} 
+                  {selectedRepair.floor_name ? ` (${selectedRepair.floor_name})` : ""}
+                  {selectedRepair.room ? ` ห้อง ${selectedRepair.room}` : ""}
+                </p>
                 <p><strong>วันที่แจ้งเรื่อง:</strong> {formatDate(selectedRepair.created_at)}</p>
                 <p><strong>อีเมลผู้แจ้ง:</strong> {selectedRepair.reporter_email}</p>
                 <p><strong>สถานะปัจจุบัน:</strong> <span className={`status-badge ${getStatusClass(selectedRepair.status)}`}>{selectedRepair.status}</span></p>
@@ -284,7 +294,7 @@ function AdminManage() {
       )}
 
       {/* ==========================================
-          2. POPUP: มอบหมายงาน (Assign Modal)
+          2. POPUP: มอบหมายงาน (Assign Modal) พร้อมแสดงความถนัดช่าง
           ========================================== */}
       {isAssignOpen && selectedRepair && (
         <div className="modal-overlay">
@@ -292,7 +302,7 @@ function AdminManage() {
             <span className="close-btn" onClick={() => setIsAssignOpen(false)}>&times;</span>
             <h3 style={{ color: "#007A53" }}>👷‍♂️ มอบหมายงานให้ช่าง</h3>
             <p style={{ fontSize: "14px", color: "#666", marginBottom: "20px" }}>
-              Ticket: #{selectedRepair.id} | {selectedRepair.location}
+              Ticket: #{selectedRepair.id} | {selectedRepair.problem_type}
             </p>
             
             <form onSubmit={handleAssignSubmit}>
@@ -302,14 +312,25 @@ function AdminManage() {
                   value={chosenTechId} 
                   onChange={(e) => setChosenTechId(e.target.value)}
                   required
+                  style={{ height: "auto", minHeight: "50px" }} // ขยายกล่องนิดนึงเพราะชื่อยาว
                 >
                   <option value="">-- โปรดเลือกช่างจากรายชื่อ --</option>
-                  {technicians.map((tech) => (
-                    <option key={tech.id} value={tech.id}>
-                      {tech.username} (ID: {tech.id})
-                    </option>
-                  ))}
+                  {technicians.map((tech) => {
+                    // จัดรูปแบบการแสดงผล: ช่างสมชาย (ความถนัด: ประปา, ไฟฟ้า)
+                    const specialtiesText = tech.specialty_names && tech.specialty_names.length > 0 
+                      ? `[ถนัด: ${tech.specialty_names.join(", ")}]` 
+                      : "[ยังไม่ระบุความถนัด]";
+                      
+                    return (
+                      <option key={tech.id} value={tech.id}>
+                        {tech.full_name} {specialtiesText}
+                      </option>
+                    );
+                  })}
                 </select>
+                <small style={{ display: "block", marginTop: "8px", color: "#666" }}>
+                  💡 ระบบแสดงรายชื่อช่างพร้อมหมวดหมู่งานที่ถนัด เพื่อให้ท่านจ่ายงานได้ตรงสาย
+                </small>
               </div>
 
               <div className="modal-actions" style={{ marginTop: "30px" }}>

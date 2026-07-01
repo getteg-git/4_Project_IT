@@ -50,17 +50,19 @@ function TechHome() {
     }
   }, [navigate]);
 
-  // Smart Search แบบอัจฉริยะ
+  // Smart Search แบบอัจฉริยะ (เพิ่มการหาเลขห้อง)
   const normalizedSearch = searchTerm.replace(/\s+/g, '').replace(/วิทย์/g, 'วิทยาศาสตร์').toLowerCase();
   
   const filteredRepairs = repairs.filter((repair) => {
     if (!normalizedSearch) return true;
     const loc = (repair.location || "").replace(/\s+/g, '').toLowerCase();
-    const room = (repair.floor_name || "").replace(/\s+/g, '').toLowerCase();
+    const floor = (repair.floor_name || "").replace(/\s+/g, '').toLowerCase();
+    const room = (repair.room || "").replace(/\s+/g, '').toLowerCase(); // 🔥 ค้นหาด้วยเลขห้องได้
     const status = (repair.status || "").replace(/\s+/g, '').toLowerCase();
     const ticketId = String(repair.id);
+    
     return (
-      loc.includes(normalizedSearch) || room.includes(normalizedSearch) ||
+      loc.includes(normalizedSearch) || floor.includes(normalizedSearch) || room.includes(normalizedSearch) ||
       status.includes(normalizedSearch) || ticketId.includes(normalizedSearch)
     );
   });
@@ -90,7 +92,7 @@ function TechHome() {
     if (!confirmReject) return;
 
     try {
-      const response = await fetch(`http://localhost:8080/api/repairs/${id}/revoke`, {
+      const response = await fetch(`http://localhost:8080/api/repairs/${id}/reject`, { // 🔥 เปลี่ยนปลายทางให้ถูก
         method: "PUT"
       });
 
@@ -120,7 +122,6 @@ function TechHome() {
     const newStatus = closeType === "success" ? "เสร็จเรียบร้อย" : "ซ่อมไม่ได้";
     
     try {
-      // หมายเหตุ: ต้องตรวจสอบให้แน่ใจว่าใน Backend (routes.go และ repair.go) มีการสร้าง API สำหรับอัปเดตสถานะไว้ด้วย
       const response = await fetch(`http://localhost:8080/api/repairs/${currentTicket}/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -161,7 +162,8 @@ function TechHome() {
         <div className="tech-header">
           <div>
             <h2>🛠️ ระบบจัดการงานซ่อม (Technician Panel)</h2>
-            <p>ยินดีต้อนรับ, {currentUser ? currentUser.username : "กำลังโหลด..."}</p>
+            {/* 🔥 ดึง full_name มาโชว์ ถ้าไม่มีให้ดึง username โชว์แทน */}
+            <p>ยินดีต้อนรับ, {currentUser ? (currentUser.full_name || currentUser.username) : "กำลังโหลด..."}</p>
           </div>
           <button className="btn-logout" onClick={handleLogout}>🚪 ออกจากระบบ</button>
         </div>
@@ -169,7 +171,7 @@ function TechHome() {
         <div className="search-section">
           <input 
             type="text" 
-            placeholder="🔍 ค้นหารหัสงาน, สถานที่, หรือสถานะ..." 
+            placeholder="🔍 ค้นหารหัสงาน, สถานที่, เลขห้อง หรือสถานะ..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
@@ -192,7 +194,11 @@ function TechHome() {
                 </div>
                 
                 <h3 className="repair-title">[{repair.problem_type}] {repair.location}</h3>
-                <p className="repair-info"><strong>ชั้น / พิกัด:</strong> {repair.floor_name}</p>
+                
+                {/* 🔥 เพิ่มการแสดงผลเลขห้อง/พิกัด ให้ช่างเห็น */}
+                <p className="repair-info">
+                  <strong>ชั้น / พิกัด:</strong> {repair.floor_name || "-"} {repair.room ? `(ห้อง ${repair.room})` : ""}
+                </p>
                 <p className="repair-info"><strong>อาการที่แจ้ง:</strong> {repair.description}</p>
                 
                 {/* ถ้าช่างพิมพ์รายละเอียดการซ่อมไว้ ให้แสดงตรงนี้ */}
@@ -209,15 +215,15 @@ function TechHome() {
                   {repair.status === "กำลังซ่อม" && (
                     <div className="action-buttons tech-actions">
                       <button className="btn-reject" onClick={() => handleReject(repair.id)}>
-                        ↩️ ปฏิเสธงาน (ส่งคืน)
+                        ↩️ ปฏิเสธงาน
                       </button>
 
                       <button className="btn-cannot-fix" onClick={() => openCloseModal(repair.id, "fail")}>
-                        ❌ ปิดงาน (ซ่อมไม่ได้)
+                        ❌ ซ่อมไม่ได้
                       </button>
 
                       <button className="btn-complete" onClick={() => openCloseModal(repair.id, "success")}>
-                        ✅ ปิดงาน (สำเร็จ)
+                        ✅ ซ่อมสำเร็จ
                       </button>
                     </div>
                   )}

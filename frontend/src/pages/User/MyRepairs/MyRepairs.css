@@ -116,6 +116,19 @@
   line-height: 1.4;
 }
 
+/* 🔥 ป้ายชื่อช่างหน้าการ์ด (เพิ่มใหม่) */
+.repair-tech-badge {
+  display: inline-block;
+  background-color: #f2f9f6;
+  color: #007A53;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  margin-top: 10px;
+  margin-bottom: 0;
+  border: 1px solid #cce4db;
+}
+
 .card-bottom {
   display: flex;
   justify-content: space-between;

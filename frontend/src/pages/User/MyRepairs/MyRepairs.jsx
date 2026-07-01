@@ -33,7 +33,7 @@ function MyRepairs() {
     fetchRepairs();
   }, []);
 
-  // ฟังก์ชัน Smart Search (แปลงคำว่า "วิทย์" เป็น "วิทยาศาสตร์" และตัดช่องว่างทิ้ง เพื่อให้ค้นหาได้แม่นยำ)
+  // ฟังก์ชัน Smart Search (รวมการค้นหาเลขห้อง และชื่อช่างเทคนิคจริงด้วย)
   const normalizedSearch = searchTerm.replace(/\s+/g, '').replace(/วิทย์/g, 'วิทยาศาสตร์').toLowerCase();
 
   const filteredRepairs = repairs.filter((repair) => {
@@ -42,18 +42,22 @@ function MyRepairs() {
     // นำข้อมูลแต่ละฟิลด์มาตัดช่องว่างและทำตัวพิมพ์เล็กให้หมดก่อนนำไปเทียบ
     const loc = (repair.location || "").replace(/\s+/g, '').toLowerCase();
     const floor = (repair.floor_name || "").replace(/\s+/g, '').toLowerCase();
+    const room = (repair.room || "").replace(/\s+/g, '').toLowerCase(); // 🔥 ค้นหาด้วยเลขห้อง
     const type = (repair.problem_type || "").replace(/\s+/g, '').toLowerCase();
     const desc = (repair.description || "").replace(/\s+/g, '').toLowerCase();
     const status = (repair.status || "").replace(/\s+/g, '').toLowerCase();
     const ticketId = String(repair.id);
+    const techName = (repair.technician_name || "").replace(/\s+/g, '').toLowerCase(); // 🔥 ค้นหาด้วยชื่อช่าง
 
     return (
       loc.includes(normalizedSearch) ||
       floor.includes(normalizedSearch) ||
+      room.includes(normalizedSearch) ||
       type.includes(normalizedSearch) ||
       desc.includes(normalizedSearch) ||
       status.includes(normalizedSearch) ||
-      ticketId.includes(normalizedSearch)
+      ticketId.includes(normalizedSearch) ||
+      techName.includes(normalizedSearch)
     );
   });
 
@@ -95,7 +99,7 @@ function MyRepairs() {
         <div className="search-section">
           <input 
             type="text" 
-            placeholder="🔍 พิมพ์เพื่อค้นหา (เช่น วิทย์ 1, งานไฟฟ้า, รอซ่อม, รหัส #123)..." 
+            placeholder="🔍 พิมพ์เพื่อค้นหา (เช่น ห้อง 1102, งานไฟฟ้า, รอซ่อม, รหัส #123)..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input"
@@ -116,9 +120,19 @@ function MyRepairs() {
                 </div>
                 
                 <h3 className="repair-title">[{repair.problem_type}] {repair.location}</h3>
-                <p className="repair-room"><strong>ชั้น / พิกัด:</strong> {repair.floor_name}</p>
+                
+                {/* 🔥 เพิ่มการแสดงผลเลขห้อง/พิกัด ให้ผู้ใช้เห็นว่าระบบบันทึกถูกห้อง */}
+                <p className="repair-room">
+                  <strong>ชั้น / พิกัด:</strong> {repair.floor_name || "-"} {repair.room ? `(ห้อง ${repair.room})` : ""}
+                </p>
+                
                 <p className="repair-desc"><strong>รายละเอียด:</strong> {repair.description}</p>
                 
+                {/* 🔥 โชว์ชื่อช่างผู้รับผิดชอบตรงหน้าการ์ดเลย ถ้ารับงานแล้ว */}
+                {repair.technician_name && (
+                  <p className="repair-tech-badge"><strong>👷‍♂️ ช่าง:</strong> {repair.technician_name}</p>
+                )}
+
                 <div className="card-bottom">
                   <span className="repair-date">📅 {formatDate(repair.created_at)}</span>
                   <button 
@@ -174,7 +188,12 @@ function MyRepairs() {
                 <p><strong>สถานะปัจจุบัน:</strong> <span className={`status-badge ${getStatusClass(selectedRepair.status)}`}>{selectedRepair.status}</span></p>
                 <p><strong>หมวดหมู่งาน:</strong> {selectedRepair.problem_type}</p>
                 <p><strong>สถานที่:</strong> {selectedRepair.location}</p>
-                <p><strong>ชั้น / พิกัด:</strong> {selectedRepair.floor_name}</p>
+                
+                {/* 🔥 เพิ่มการโชว์เลขห้องในหน้าดูรายละเอียดด้วย */}
+                <p>
+                  <strong>ชั้น / พิกัด:</strong> {selectedRepair.floor_name || "-"} {selectedRepair.room ? `ห้อง ${selectedRepair.room}` : ""}
+                </p>
+                
                 <p><strong>อีเมลผู้แจ้ง:</strong> {selectedRepair.reporter_email}</p>
                 <p><strong>วันที่แจ้งเรื่อง:</strong> {formatDate(selectedRepair.created_at)}</p>
               </div>

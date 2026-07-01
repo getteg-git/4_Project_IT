@@ -11,9 +11,9 @@ function AdminDashboard() {
   const [repairs, setRepairs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // ดึงข้อมูลจริงจาก Backend
+  // ดึงข้อมูลจริงจาก Backend แบบ Dynamic Data 100%
   useEffect(() => {
-    const fetchRepairs = async () => {
+    const fetchDashboardData = async () => {
       try {
         const response = await fetch("http://localhost:8080/api/repairs");
         if (response.ok) {
@@ -26,7 +26,7 @@ function AdminDashboard() {
         setIsLoading(false);
       }
     };
-    fetchRepairs();
+    fetchDashboardData();
   }, []);
 
   // ==========================================
@@ -64,8 +64,11 @@ function AdminDashboard() {
 
   // ฟังก์ชันออกจากระบบ
   const handleLogout = () => {
-    localStorage.removeItem("user");
-    navigate("/");
+    const confirmLogout = window.confirm("คุณต้องการออกจากระบบใช่หรือไม่?");
+    if (confirmLogout) {
+      localStorage.removeItem("user");
+      navigate("/");
+    }
   };
 
   return (
@@ -77,7 +80,6 @@ function AdminDashboard() {
           <p>สรุปภาพรวมระบบแจ้งซ่อมบำรุง คณะวิทยาศาสตร์ มหาวิทยาลัยศิลปากร</p>
         </div>
         
-        {/* 🔥 เพิ่มปุ่ม จัดการบัญชีผู้ใช้ ตรงนี้ครับ */}
         <div className="header-actions">
           <button className="btn-users" onClick={() => navigate("/admin/users")}>
             👥 จัดการบัญชีผู้ใช้

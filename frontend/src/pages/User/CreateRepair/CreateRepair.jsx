@@ -9,14 +9,14 @@ function CreateRepair() {
   const [email, setEmail] = useState("");
   const [location, setLocation] = useState("");
   const [floor, setFloor] = useState("");
-  const [room, setRoom] = useState(""); // 🔥 State ใหม่สำหรับเก็บเลขห้อง
+  const [room, setRoom] = useState(""); 
   const [customLocationName, setCustomLocationName] = useState(""); 
   const [problemType, setProblemType] = useState("");
   const [details, setDetails] = useState("");
   const [image, setImage] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // State สำหรับเก็บข้อมูลจาก Backend
+  // State สำหรับเก็บข้อมูลจาก Backend (Dynamic Data ไร้ Mockup)
   const [locations, setLocations] = useState([]);
   const [floors, setFloors] = useState([]);
   const [problemTypes, setProblemTypes] = useState([]);
@@ -45,12 +45,12 @@ function CreateRepair() {
     fetchMasterData();
   }, []);
 
-  // 2. ดึงข้อมูล "ชั้น" เมื่อผู้ใช้ทำการเลือก "สถานที่ (ตึก)"
+  // 2. ดึงข้อมูล "ชั้น" แบบ Dynamic เมื่อผู้ใช้ทำการเลือก "สถานที่ (ตึก)"
   useEffect(() => {
     if (!location || isOtherLocation()) {
       setFloors([]);
       setFloor("");
-      setRoom(""); // เคลียร์ค่าห้องทิ้งด้วย
+      setRoom(""); 
       return;
     }
 
@@ -87,19 +87,18 @@ function CreateRepair() {
     const formData = new FormData();
     formData.append("reporter_email", email);
     formData.append("location_id", location);
-    formData.append("floor_id", isOtherLocation() ? "" : floor);
+    formData.append("problem_type_id", problemType);
+    formData.append("description", details);
     
-    // 🔥 รวม "เลขห้อง" หรือ "สถานที่อื่นๆ" เข้าไปใน Description ให้อัตโนมัติ
-    let finalDescription = details;
+    // 🔥 ส่งค่า Floor และ Room แยกกันตามโครงสร้าง Database ใหม่
     if (isOtherLocation()) {
-      finalDescription = `📍 [สถานที่: ${customLocationName}] \n📝 รายละเอียด: ${details}`;
-    } else if (room.trim()) {
-      finalDescription = `📍 [ห้อง/พิกัด: ${room}] \n📝 รายละเอียด: ${details}`;
+      formData.append("floor_id", ""); // ส่งค่าว่างไปให้ Backend ตีเป็น NULL
+      formData.append("room", customLocationName); // เอาสถานที่อื่นๆ ยัดลงช่อง Room แทน
+    } else {
+      formData.append("floor_id", floor);
+      formData.append("room", room); // ส่งเลขห้องไปตรงๆ ไม่เอาไปปนกับ Description
     }
       
-    formData.append("description", finalDescription);
-    formData.append("problem_type_id", problemType);
-    
     if (image) {
       formData.append("image", image);
     }
