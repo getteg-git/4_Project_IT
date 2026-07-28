@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	handler "backend/handlers"
+	dashboardHandler "backend/handlers/dashboard" // 🔥 [เพิ่มใหม่] นำเข้า dashboard handler
 	repairHandler "backend/handlers/repair"
 	userHandler "backend/handlers/user"
 )
@@ -31,7 +32,9 @@ func SetupRoutes(r *gin.Engine) {
 		// 🟢 MASTER DATA (ข้อมูล Dropdown)
 		// ==========================================
 		api.GET("/locations", userHandler.GetLocations)
-		api.GET("/locations/:id/floors", userHandler.GetFloorsByLocation) // 🔥 [เพิ่มใหม่] ดึงข้อมูลชั้นตามตึก
+		api.GET("/locations/:id/floors", userHandler.GetFloorsByLocation) // 🔥 ดึงข้อมูลชั้นตามตึก
+		api.GET("/floors/:id/rooms", userHandler.GetRoomsByFloor)         // 🔥 [เพิ่มใหม่] ดึงข้อมูลห้องตามชั้น
+		api.GET("/rooms/:id/equipments", userHandler.GetEquipmentsByRoom) // 🔥 [เพิ่มใหม่] ดึงข้อมูลอุปกรณ์ตามห้อง
 		api.GET("/problem-types", userHandler.GetProblemTypes)
 
 		// ==========================================
@@ -50,5 +53,18 @@ func SetupRoutes(r *gin.Engine) {
 		// ฝั่ง Technician (ปฏิเสธงาน / ปิดงาน)
 		api.PUT("/repairs/:id/reject", repairHandler.RejectRepair)
 		api.PUT("/repairs/:id/status", repairHandler.UpdateRepairStatus)
+
+		// ==========================================
+		// 🟢 ADMIN DASHBOARD (สถิติและรายงาน)
+		// ==========================================
+		dashboard := api.Group("/admin/dashboard")
+		{
+			// สถิติภาพรวม
+			dashboard.GET("/overview", dashboardHandler.GetDashboardOverview)
+			// รายงานการซ่อม
+			dashboard.GET("/performance", dashboardHandler.GetTechnicianPerformance)
+			// จุดคุ้มทุน
+			dashboard.GET("/breakeven", dashboardHandler.GetBreakEvenAnalysis)
+		}
 	}
 }

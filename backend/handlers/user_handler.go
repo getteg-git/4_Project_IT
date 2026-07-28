@@ -47,7 +47,8 @@ func GetUsers(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	var users []models.User
+	// [ปรับปรุง] ใช้ make เพื่อส่ง [] แทน null
+	users := make([]models.User, 0)
 
 	for rows.Next() {
 		var u models.User
@@ -64,10 +65,10 @@ func GetUsers(c *gin.Context) {
 		// ถ้าเป็นช่างเทคนิค ให้ไป Query ดึงข้อมูลความถนัดจริงจาก Junction Table ออกมาด้วย
 		if u.Role == "technician" {
 			specRows, err := database.DB.Query(`
-				SELECT ts.problem_type_id, pt.name 
-				FROM technician_specialties ts
-				JOIN problem_types pt ON ts.problem_type_id = pt.id
-				WHERE ts.user_id = $1`, u.ID)
+                SELECT ts.problem_type_id, pt.name 
+                FROM technician_specialties ts
+                JOIN problem_types pt ON ts.problem_type_id = pt.id
+                WHERE ts.user_id = $1`, u.ID)
 
 			if err == nil {
 				for specRows.Next() {
@@ -346,7 +347,8 @@ func SearchUsers(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	var users []models.User
+	// [ปรับปรุง] ใช้ make เพื่อส่ง [] แทน null
+	users := make([]models.User, 0)
 
 	for rows.Next() {
 		var u models.User
@@ -361,10 +363,10 @@ func SearchUsers(c *gin.Context) {
 
 		if u.Role == "technician" {
 			specRows, err := database.DB.Query(`
-				SELECT ts.problem_type_id, pt.name 
-				FROM technician_specialties ts
-				JOIN problem_types pt ON ts.problem_type_id = pt.id
-				WHERE ts.user_id = $1`, u.ID)
+                SELECT ts.problem_type_id, pt.name 
+                FROM technician_specialties ts
+                JOIN problem_types pt ON ts.problem_type_id = pt.id
+                WHERE ts.user_id = $1`, u.ID)
 
 			if err == nil {
 				for specRows.Next() {

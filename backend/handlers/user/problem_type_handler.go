@@ -9,7 +9,6 @@ import (
 )
 
 func GetProblemTypes(c *gin.Context) {
-
 	rows, err := database.DB.Query(
 		"SELECT id, name FROM problem_types ORDER BY id",
 	)
@@ -23,10 +22,10 @@ func GetProblemTypes(c *gin.Context) {
 
 	defer rows.Close()
 
-	var types []models.ProblemType
+	// ปรับเป็น make() เพื่อให้ส่งกลับเป็น [] แทน null กรณีไม่มีข้อมูล
+	types := make([]models.ProblemType, 0)
 
 	for rows.Next() {
-
 		var t models.ProblemType
 
 		err := rows.Scan(

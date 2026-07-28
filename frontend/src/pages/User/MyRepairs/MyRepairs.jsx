@@ -33,27 +33,33 @@ function MyRepairs() {
     fetchRepairs();
   }, []);
 
-  // ฟังก์ชัน Smart Search (รวมการค้นหาเลขห้อง และชื่อช่างเทคนิคจริงด้วย)
+  // ฟังก์ชัน Smart Search 
   const normalizedSearch = searchTerm.replace(/\s+/g, '').replace(/วิทย์/g, 'วิทยาศาสตร์').toLowerCase();
 
   const filteredRepairs = repairs.filter((repair) => {
     if (!normalizedSearch) return true;
 
-    // นำข้อมูลแต่ละฟิลด์มาตัดช่องว่างและทำตัวพิมพ์เล็กให้หมดก่อนนำไปเทียบ
-    const loc = (repair.location || "").replace(/\s+/g, '').toLowerCase();
+    // 🔥 ปรับแก้ฟิลด์ให้ตรงกับ JSON จาก Backend และเพิ่มการค้นหา Other Location/Problem, อุปกรณ์
+    const loc = (repair.location_name || "").replace(/\s+/g, '').toLowerCase();
+    const otherLoc = (repair.other_location || "").replace(/\s+/g, '').toLowerCase();
     const floor = (repair.floor_name || "").replace(/\s+/g, '').toLowerCase();
-    const room = (repair.room || "").replace(/\s+/g, '').toLowerCase(); // 🔥 ค้นหาด้วยเลขห้อง
+    const room = (repair.room_number || "").replace(/\s+/g, '').toLowerCase(); 
+    const equip = (repair.equipment_name || "").replace(/\s+/g, '').toLowerCase(); 
     const type = (repair.problem_type || "").replace(/\s+/g, '').toLowerCase();
+    const otherType = (repair.other_problem_type || "").replace(/\s+/g, '').toLowerCase();
     const desc = (repair.description || "").replace(/\s+/g, '').toLowerCase();
     const status = (repair.status || "").replace(/\s+/g, '').toLowerCase();
     const ticketId = String(repair.id);
-    const techName = (repair.technician_name || "").replace(/\s+/g, '').toLowerCase(); // 🔥 ค้นหาด้วยชื่อช่าง
+    const techName = (repair.technician_name || "").replace(/\s+/g, '').toLowerCase(); 
 
     return (
       loc.includes(normalizedSearch) ||
+      otherLoc.includes(normalizedSearch) ||
       floor.includes(normalizedSearch) ||
       room.includes(normalizedSearch) ||
+      equip.includes(normalizedSearch) ||
       type.includes(normalizedSearch) ||
+      otherType.includes(normalizedSearch) ||
       desc.includes(normalizedSearch) ||
       status.includes(normalizedSearch) ||
       ticketId.includes(normalizedSearch) ||
@@ -110,40 +116,51 @@ function MyRepairs() {
           {isLoading ? (
             <div className="loading-state">⏳ กำลังโหลดข้อมูล...</div>
           ) : filteredRepairs.length > 0 ? (
-            filteredRepairs.map((repair) => (
-              <div className="repair-item-card" key={repair.id}>
-                <div className="card-top">
-                  <span className="repair-id">Ticket #{repair.id}</span>
-                  <span className={`status-badge ${getStatusClass(repair.status)}`}>
-                    {repair.status}
-                  </span>
-                </div>
-                
-                <h3 className="repair-title">[{repair.problem_type}] {repair.location}</h3>
-                
-                {/* 🔥 เพิ่มการแสดงผลเลขห้อง/พิกัด ให้ผู้ใช้เห็นว่าระบบบันทึกถูกห้อง */}
-                <p className="repair-room">
-                  <strong>ชั้น / พิกัด:</strong> {repair.floor_name || "-"} {repair.room ? `(ห้อง ${repair.room})` : ""}
-                </p>
-                
-                <p className="repair-desc"><strong>รายละเอียด:</strong> {repair.description}</p>
-                
-                {/* 🔥 โชว์ชื่อช่างผู้รับผิดชอบตรงหน้าการ์ดเลย ถ้ารับงานแล้ว */}
-                {repair.technician_name && (
-                  <p className="repair-tech-badge"><strong>👷‍♂️ ช่าง:</strong> {repair.technician_name}</p>
-                )}
+            filteredRepairs.map((repair) => {
+              // 🔥 ตรรกะแสดงผล Location และ Problem Type (ถ้าระบุ 'อื่นๆ' มา ให้แสดงค่า Other แทน)
+              const displayLocation = repair.other_location || repair.location_name;
+              const displayProblemType = repair.other_problem_type || repair.problem_type;
 
-                <div className="card-bottom">
-                  <span className="repair-date">📅 {formatDate(repair.created_at)}</span>
-                  <button 
-                    className="btn-details"
-                    onClick={() => openDetailsModal(repair)}
-                  >
-                    👁️ กดดูรายละเอียดงานนี้
-                  </button>
+              return (
+                <div className="repair-item-card" key={repair.id}>
+                  <div className="card-top">
+                    <span className="repair-id">Ticket #{repair.id}</span>
+                    <span className={`status-badge ${getStatusClass(repair.status)}`}>
+                      {repair.status}
+                    </span>
+                  </div>
+                  
+                  <h3 className="repair-title">[{displayProblemType}] {displayLocation}</h3>
+                  
+                  <p className="repair-room">
+                    <strong>ชั้น / พิกัด:</strong> {repair.floor_name || "-"} {repair.room_number ? `(${repair.room_number})` : ""}
+                  </p>
+
+                  {/* 🔥 แสดงอุปกรณ์ชำรุด (ถ้ามี) */}
+                  {repair.equipment_name && (
+                    <p className="repair-equipment" style={{ margin: "4px 0", fontSize: "0.9rem", color: "#e67e22" }}>
+                      <strong>⚙️ อุปกรณ์:</strong> {repair.equipment_name} {repair.asset_code ? `(${repair.asset_code})` : ""}
+                    </p>
+                  )}
+                  
+                  <p className="repair-desc"><strong>รายละเอียด:</strong> {repair.description}</p>
+                  
+                  {repair.technician_name && (
+                    <p className="repair-tech-badge"><strong>👷‍♂️ ช่าง:</strong> {repair.technician_name}</p>
+                  )}
+
+                  <div className="card-bottom">
+                    <span className="repair-date">📅 {formatDate(repair.created_at)}</span>
+                    <button 
+                      className="btn-details"
+                      onClick={() => openDetailsModal(repair)}
+                    >
+                      👁️ กดดูรายละเอียดงานนี้
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="no-results">
               <p>❌ ไม่พบรายการแจ้งซ่อมที่ตรงกับคำค้นหาของคุณ</p>
@@ -168,32 +185,38 @@ function MyRepairs() {
             <hr />
             
             <div className="modal-details-content">
-              {/* โชว์รูปภาพจาก Backend */}
               <div className="image-gallery">
                 {selectedRepair.images && selectedRepair.images.length > 0 ? (
                   selectedRepair.images.map((img, index) => (
-                    <img 
-                      key={index}
-                      src={`http://localhost:8080${img.url}`} 
-                      alt="รูปปัญหาหน้างาน" 
-                      className="repair-image"
-                    />
+                    <div key={index} className="image-container" style={{ position: 'relative', display: 'inline-block' }}>
+                      <img 
+                        src={`http://localhost:8080${img.url}`} 
+                        alt="รูปปัญหาหน้างาน" 
+                        className="repair-image"
+                      />
+                      {/* 🔥 เพิ่ม Label เพื่อแยกรูปก่อน-หลังซ่อม */}
+                      <span style={{ position: 'absolute', top: 5, left: 5, background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontSize: '0.8rem' }}>
+                        {img.type === 'after' ? '📸 หลังซ่อม' : '📸 ก่อนซ่อม'}
+                      </span>
+                    </div>
                   ))
                 ) : (
-                  <div className="no-image-box">ไม่มีรูปภาพประกอบจากผู้แจ้ง</div>
+                  <div className="no-image-box">ไม่มีรูปภาพประกอบ</div>
                 )}
               </div>
 
               <div className="info-grid">
                 <p><strong>สถานะปัจจุบัน:</strong> <span className={`status-badge ${getStatusClass(selectedRepair.status)}`}>{selectedRepair.status}</span></p>
-                <p><strong>หมวดหมู่งาน:</strong> {selectedRepair.problem_type}</p>
-                <p><strong>สถานที่:</strong> {selectedRepair.location}</p>
-                
-                {/* 🔥 เพิ่มการโชว์เลขห้องในหน้าดูรายละเอียดด้วย */}
+                <p><strong>หมวดหมู่งาน:</strong> {selectedRepair.other_problem_type || selectedRepair.problem_type}</p>
+                <p><strong>สถานที่:</strong> {selectedRepair.other_location || selectedRepair.location_name}</p>
                 <p>
-                  <strong>ชั้น / พิกัด:</strong> {selectedRepair.floor_name || "-"} {selectedRepair.room ? `ห้อง ${selectedRepair.room}` : ""}
+                  <strong>ชั้น / พิกัด:</strong> {selectedRepair.floor_name || "-"} {selectedRepair.room_number ? `(${selectedRepair.room_number})` : ""}
                 </p>
-                
+                {selectedRepair.equipment_name && (
+                  <p>
+                    <strong>อุปกรณ์ชำรุด:</strong> {selectedRepair.equipment_name} {selectedRepair.asset_code ? `(${selectedRepair.asset_code})` : ""}
+                  </p>
+                )}
                 <p><strong>อีเมลผู้แจ้ง:</strong> {selectedRepair.reporter_email}</p>
                 <p><strong>วันที่แจ้งเรื่อง:</strong> {formatDate(selectedRepair.created_at)}</p>
               </div>
@@ -203,7 +226,6 @@ function MyRepairs() {
                 <p>{selectedRepair.description}</p>
               </div>
               
-              {/* โชว์ข้อมูลช่างถ้ามีการรับงานแล้ว */}
               {selectedRepair.status !== "รอซ่อม" && (
                 <div className="tech-info-box">
                   <p><strong>👷‍♂️ ช่างผู้รับผิดชอบ:</strong> {selectedRepair.technician_name || "อยู่ระหว่างดำเนินการ"}</p>
@@ -220,7 +242,6 @@ function MyRepairs() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
