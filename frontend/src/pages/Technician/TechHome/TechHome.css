@@ -28,11 +28,18 @@
   color: #007A53;
   font-size: 1.8rem;
   margin-bottom: 5px;
+  margin-top: 0;
 }
 
 .tech-header p {
   color: #666;
   font-size: 1rem;
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
 }
 
 .btn-logout {
@@ -62,6 +69,7 @@
   font-size: 1.1rem;
   box-shadow: 0 4px 10px rgba(0,0,0,0.03);
   transition: all 0.3s;
+  box-sizing: border-box;
 }
 .search-input:focus {
   outline: none;
@@ -94,15 +102,15 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
-.repair-id {
+.repair-ticket-id {
   font-weight: bold;
-  color: #555;
-  background-color: #f1f3f4;
-  padding: 6px 12px;
-  border-radius: 6px;
+  color: #495057;
+  background-color: #f1f3f5;
+  padding: 4px 12px;
+  border-radius: 12px;
   font-size: 0.9rem;
 }
 
@@ -122,44 +130,46 @@
 .repair-title {
   font-size: 1.3rem;
   color: #222;
-  margin-bottom: 12px;
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.repair-details-text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .repair-info {
   color: #555;
-  margin-bottom: 8px;
+  margin: 0;
 }
 
-/* บันทึกจากช่าง */
-.tech-note-display {
-  background-color: #f8f9fa;
-  color: #333;
-  padding: 12px 15px;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  margin-top: 15px;
-  border-left: 4px solid #f39c12;
+.equipment-info {
+  color: #e67e22; 
+}
+
+.card-divider {
+  border-top: 1px dashed #d1d5db;
+  margin: 20px 0 16px 0;
 }
 
 .card-actions-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px dashed #eee;
 }
 
 .repair-date { color: #888; font-size: 0.9rem; }
 
 /* ปุ่ม Actions ของช่าง */
-.tech-actions {
+.action-buttons {
   display: flex;
   gap: 10px;
 }
 
-.tech-actions button {
-  padding: 10px 18px;
+.action-buttons button {
+  padding: 8px 16px;
   border-radius: 8px;
   font-weight: bold;
   font-size: 0.95rem;
@@ -168,6 +178,20 @@
   transition: all 0.2s;
 }
 
+.btn-details {
+  background-color: white;
+  color: #374151;
+  border: 1px solid #10b981 !important;
+}
+.btn-details:hover { background-color: #f0fdf4; color: #007A53; }
+
+.btn-accept {
+  background-color: #10b981;
+  color: white;
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
+}
+.btn-accept:hover { background-color: #059669; transform: translateY(-2px); }
+
 .btn-reject {
   background-color: white;
   color: #d32f2f;
@@ -175,10 +199,7 @@
 }
 .btn-reject:hover { background-color: #ffebee; }
 
-.btn-cannot-fix {
-  background-color: #e74c3c;
-  color: white;
-}
+.btn-cannot-fix { background-color: #e74c3c; color: white; }
 .btn-cannot-fix:hover { background-color: #c0392b; transform: translateY(-2px); }
 
 .btn-complete {
@@ -199,7 +220,7 @@
   padding: 20px; box-sizing: border-box;
 }
 
-.tech-modal {
+.modal-box {
   background: white;
   width: 100%; max-width: 500px;
   padding: 35px; border-radius: 12px;
@@ -208,25 +229,58 @@
   border-top: 6px solid #007A53;
 }
 
+.details-box { max-width: 600px; max-height: 90vh; overflow-y: auto; }
+
 .close-btn {
   position: absolute; top: 15px; right: 20px;
   font-size: 30px; cursor: pointer; color: #aaa;
 }
 .close-btn:hover { color: #d32f2f; }
 
-.tech-modal h3 { font-size: 1.4rem; margin-bottom: 5px; }
-.text-success { color: #007A53; }
-.text-fail { color: #e74c3c; }
-.modal-subtitle { color: #666; font-size: 0.95rem; margin-bottom: 20px; }
+/* Modal Header & Content */
+.modal-header-center { text-align: center; margin-bottom: 20px; }
+.modal-title-primary { color: #007A53; margin-bottom: 5px; margin-top: 0; font-size: 1.4rem; }
+.modal-title-success { color: #007A53; margin: 0 0 5px 0; font-size: 1.4rem; }
+.modal-title-fail { color: #e74c3c; margin: 0 0 5px 0; font-size: 1.4rem; }
+.modal-subtitle { color: #666; font-size: 0.95rem; margin: 0 0 20px 0; }
 
+/* Image Gallery */
+.image-gallery { text-align: center; margin-bottom: 20px; }
+.repair-image { max-width: 100%; max-height: 250px; border-radius: 8px; border: 1px solid #ddd; }
+.no-image-box { padding: 30px; background: #f8f9fa; border-radius: 8px; color: #999; border: 2px dashed #ddd; }
+
+/* Details Info List */
+.info-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.repair-info-item { margin: 0; color: #444; }
+
+.issue-desc-box { background: #fafbfc; padding: 15px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px; }
+.issue-desc-text { margin-top: 8px; margin-bottom: 0; color: #444; }
+
+/* Form Inputs */
+.input-group { margin-bottom: 15px; }
 .input-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #333; }
-.input-group textarea {
+.required { color: red; }
+
+.cost-input {
+  width: 100%; padding: 14px; border: 1px solid #ccd6d1; border-radius: 8px;
+  font-size: 1rem; background-color: #fafbfc; box-sizing: border-box;
+}
+.cost-input:focus { outline: none; border-color: #007A53; background-color: white; box-shadow: 0 0 0 3px rgba(0, 122, 83, 0.15); }
+.cost-hint { color: #666; font-size: 0.85rem; margin-top: 5px; display: block; }
+
+.textarea-input {
   width: 100%; padding: 14px; border: 1px solid #ccd6d1; border-radius: 8px;
   font-size: 1rem; background-color: #fafbfc; font-family: inherit; box-sizing: border-box;
 }
-.input-group textarea:focus { outline: none; border-color: #007A53; background-color: white; box-shadow: 0 0 0 3px rgba(0, 122, 83, 0.15); }
+.textarea-input:focus { outline: none; border-color: #007A53; background-color: white; box-shadow: 0 0 0 3px rgba(0, 122, 83, 0.15); }
 
-.modal-actions { display: flex; gap: 15px; }
+/* Modal Actions */
+.modal-actions { display: flex; gap: 15px; margin-top: 25px; }
 .modal-actions button { flex: 1; padding: 14px; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer; border: none; }
 .btn-cancel { background-color: #f1f3f4; color: #444; border: 1px solid #ddd !important; }
 .btn-cancel:hover { background-color: #e8eaed; color: #d32f2f; }
@@ -235,11 +289,24 @@
 .btn-submit-fail { background-color: #e74c3c; color: white; }
 .btn-submit-fail:hover { background-color: #c0392b; }
 
+.btn-close-modal { 
+  width: 100%; 
+  background-color: #f1f3f4; 
+  color: #d32f2f; 
+  padding: 14px; 
+  border: none; 
+  border-radius: 8px; 
+  font-weight: bold; 
+  cursor: pointer; 
+}
+.btn-close-modal:hover { background-color: #ffebee; }
+
 /* Responsive */
 @media (max-width: 768px) {
   .tech-container { padding: 20px 15px; }
   .tech-header { flex-direction: column; text-align: center; gap: 15px; }
   .card-actions-row { flex-direction: column; align-items: flex-start; gap: 15px; }
-  .tech-actions { width: 100%; flex-direction: column; }
-  .tech-actions button { width: 100%; }
+  .action-buttons { width: 100%; flex-wrap: wrap; }
+  .action-buttons button { flex: 1; text-align: center; min-width: 120px; }
+  .modal-actions { flex-direction: column; }
 }

@@ -1,10 +1,11 @@
 package models
 
 type DashboardOverview struct {
-	TotalRepairs int `json:"total_repairs"`
-	Pending      int `json:"pending"`
-	InProgress   int `json:"in_progress"`
-	Completed    int `json:"completed"`
+	TotalRepairs int `json:"total_repairs"` // ยอดแจ้งซ่อมทั้งหมด
+	Pending      int `json:"pending"`       // รอซ่อม
+	InProgress   int `json:"in_progress"`   // กำลังซ่อม
+	CannotRepair int `json:"cannot_repair"` // 🔥 ซ่อมไม่ได้ (เพิ่มให้ครบ 4 สถานะเป๊ะๆ ตามลอจิก)
+	Completed    int `json:"completed"`     // เสร็จสิ้น / เสร็จเรียบร้อย
 }
 
 type TechnicianPerformance struct {
@@ -22,5 +23,10 @@ type BreakEvenAnalysis struct {
 	BasePrice       float64 `json:"base_price"`
 	TotalRepairCost float64 `json:"total_repair_cost"`
 	RepairRatio     float64 `json:"repair_ratio_percent"` // เปอร์เซ็นต์เทียบกับราคาต้นทุน
-	IsExceeded      bool    `json:"is_exceeded"`          // เกิน 50% หรือยัง (true/false)
+	IsExceeded      bool    `json:"is_exceeded"`          // เกินเกณฑ์แจ้งเตือน (Hybrid Logic) หรือยัง (true/false)
+}
+
+type ProblemTypeStat struct {
+	CategoryName string `json:"category_name"`
+	RepairCount  int    `json:"repair_count"`
 }

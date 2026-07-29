@@ -64,16 +64,18 @@ CREATE TABLE repairs (
     reporter_email VARCHAR(255) NOT NULL, 
     technician_id INT REFERENCES users(id) ON DELETE SET NULL,
     location_id INT REFERENCES locations(id),
-    other_location VARCHAR(255),                 -- 🔥 [เพิ่มใหม่] ระบุสถานที่/อาคารเพิ่มเติม
+    other_location VARCHAR(255),                 -- ระบุสถานที่/อาคารเพิ่มเติม
     floor_id INT REFERENCES floors(id),
     room_id INT REFERENCES rooms(id),            
     equipment_id INT REFERENCES equipments(id),  
     problem_type_id INT REFERENCES problem_types(id),
-    other_problem_type VARCHAR(255),             -- 🔥 [เพิ่มใหม่] ระบุหมวดหมู่งานซ่อมเพิ่มเติม
+    other_problem_type VARCHAR(255),             -- ระบุหมวดหมู่งานซ่อมเพิ่มเติม
     description TEXT NOT NULL,
     technician_note TEXT, 
+    admin_note TEXT,                             -- หมายเหตุจากแอดมิน (เช่น เหตุผลที่ยกเลิกงาน)
     status VARCHAR(50) DEFAULT 'รอซ่อม', 
-    repair_cost DECIMAL(10, 2) DEFAULT 0.00,     
+    estimated_cost DECIMAL(10, 2) DEFAULT 0.00,  -- 🔥 [เพิ่มใหม่] ราคาประเมินเบื้องต้นจากช่าง
+    actual_cost DECIMAL(10, 2) DEFAULT 0.00,     -- 🔥 [ปรับปรุง] ค่าใช้จ่ายจริงเมื่อซ่อมเสร็จ
     accepted_at TIMESTAMP,                       
     completed_at TIMESTAMP,                      
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

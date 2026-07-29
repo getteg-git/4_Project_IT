@@ -16,7 +16,6 @@ import (
 // Helper function สำหรับจัดการค่าว่างให้เป็น NULL ใน Database
 // ---------------------------------------------------------
 func nullIfEmpty(value string) interface{} {
-	// 🔥 [แก้ Bug 2] ดักจับค่า "null" และ "undefined" ที่อาจหลุดมาจาก Frontend (React)
 	if value == "" || value == "null" || value == "undefined" {
 		return nil
 	}
@@ -29,19 +28,18 @@ func nullIfEmpty(value string) interface{} {
 func CreateRepair(c *gin.Context) {
 	reporterEmail := c.PostForm("reporter_email")
 	locationID := nullIfEmpty(c.PostForm("location_id"))
-	otherLocation := nullIfEmpty(c.PostForm("other_location")) // 🔥 [เพิ่มใหม่]
+	otherLocation := nullIfEmpty(c.PostForm("other_location"))
 	floorID := nullIfEmpty(c.PostForm("floor_id"))
 	roomID := nullIfEmpty(c.PostForm("room_id"))
 	equipmentID := nullIfEmpty(c.PostForm("equipment_id"))
 	problemTypeID := nullIfEmpty(c.PostForm("problem_type_id"))
-	otherProblemType := nullIfEmpty(c.PostForm("other_problem_type")) // 🔥 [เพิ่มใหม่]
+	otherProblemType := nullIfEmpty(c.PostForm("other_problem_type"))
 	description := c.PostForm("description")
 
 	var repairID int
-	// 🔥 [แก้ไข] อัปเดต SQL ให้ INSERT ฟิลด์ other_location และ other_problem_type
 	err := database.DB.QueryRow(
 		`INSERT INTO repairs (reporter_email, location_id, other_location, floor_id, room_id, equipment_id, problem_type_id, other_problem_type, description, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'รอซ่อม') RETURNING id`,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'รอซ่อม') RETURNING id`,
 		reporterEmail, locationID, otherLocation, floorID, roomID, equipmentID, problemTypeID, otherProblemType, description,
 	).Scan(&repairID)
 
@@ -76,20 +74,20 @@ func CreateRepair(c *gin.Context) {
 // 2. GetAllRepairs: ดึงรายการแจ้งซ่อมทั้งหมด (JOIN ข้อมูลใหม่)
 // ---------------------------------------------------------
 func GetAllRepairs(c *gin.Context) {
-	// 🔥 [แก้ไข] เพิ่มการ Select r.other_location, r.other_problem_type
+	// 🔥 [แก้ไข] เปลี่ยนจาก r.repair_cost เป็น r.estimated_cost และ r.actual_cost
 	rows, err := database.DB.Query(`
-        SELECT r.id, r.description, r.status, r.created_at, r.technician_id, r.technician_note, r.reporter_email,
-               r.repair_cost, r.accepted_at, r.completed_at, r.other_location, r.other_problem_type,
-               l.name as location_name, f.floor_name, ro.room_number,
-               eq.name as equipment_name, eq.asset_code, p.name as problem_type_name, u.full_name as technician_name
-        FROM repairs r
-        LEFT JOIN locations l ON r.location_id = l.id
-        LEFT JOIN floors f ON r.floor_id = f.id
-        LEFT JOIN rooms ro ON r.room_id = ro.id
-        LEFT JOIN equipments eq ON r.equipment_id = eq.id
-        LEFT JOIN problem_types p ON r.problem_type_id = p.id
-        LEFT JOIN users u ON r.technician_id = u.id
-        ORDER BY r.created_at DESC`)
+		SELECT r.id, r.description, r.status, r.created_at, r.technician_id, r.technician_note, r.admin_note, r.reporter_email,
+			   r.estimated_cost, r.actual_cost, r.accepted_at, r.completed_at, r.other_location, r.other_problem_type,
+			   l.name as location_name, f.floor_name, ro.room_number,
+			   eq.name as equipment_name, eq.asset_code, p.name as problem_type_name, u.full_name as technician_name
+		FROM repairs r
+		LEFT JOIN locations l ON r.location_id = l.id
+		LEFT JOIN floors f ON r.floor_id = f.id
+		LEFT JOIN rooms ro ON r.room_id = ro.id
+		LEFT JOIN equipments eq ON r.equipment_id = eq.id
+		LEFT JOIN problem_types p ON r.problem_type_id = p.id
+		LEFT JOIN users u ON r.technician_id = u.id
+		ORDER BY r.created_at DESC`)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -101,15 +99,14 @@ func GetAllRepairs(c *gin.Context) {
 	for rows.Next() {
 		var id int
 		var desc, status, reporterEmail string
-		// 🔥 [แก้ไข] เพิ่มตัวแปรมารับค่า other_location, other_problem_type
-		var locName, otherLoc, floorName, roomNumber, eqName, assetCode, probName, otherProb, techName, techNote *string
-		var repairCost float64
+		var locName, otherLoc, floorName, roomNumber, eqName, assetCode, probName, otherProb, techName, techNote, adminNote *string
+		var estimatedCost, actualCost float64
 		var createdAt time.Time
 		var acceptedAt, completedAt *time.Time
 		var techID *int
 
-		err := rows.Scan(&id, &desc, &status, &createdAt, &techID, &techNote, &reporterEmail,
-			&repairCost, &acceptedAt, &completedAt, &otherLoc, &otherProb,
+		err := rows.Scan(&id, &desc, &status, &createdAt, &techID, &techNote, &adminNote, &reporterEmail,
+			&estimatedCost, &actualCost, &acceptedAt, &completedAt, &otherLoc, &otherProb,
 			&locName, &floorName, &roomNumber, &eqName, &assetCode, &probName, &techName)
 		if err != nil {
 			continue
@@ -137,18 +134,20 @@ func GetAllRepairs(c *gin.Context) {
 			"status":             status,
 			"created_at":         createdAt,
 			"location_name":      getString(locName),
-			"other_location":     getString(otherLoc), // 🔥
+			"other_location":     getString(otherLoc),
 			"floor_name":         getString(floorName),
 			"room_number":        getString(roomNumber),
 			"equipment_name":     getString(eqName),
 			"asset_code":         getString(assetCode),
 			"problem_type":       getString(probName),
-			"other_problem_type": getString(otherProb), // 🔥
+			"other_problem_type": getString(otherProb),
 			"reporter_email":     reporterEmail,
 			"technician_id":      techID,
 			"technician_note":    getString(techNote),
+			"admin_note":         getString(adminNote),
 			"technician_name":    getString(techName),
-			"repair_cost":        repairCost,
+			"estimated_cost":     estimatedCost,
+			"actual_cost":        actualCost,
 			"accepted_at":        acceptedAt,
 			"completed_at":       completedAt,
 			"images":             images,
@@ -167,27 +166,26 @@ func GetRepairByID(c *gin.Context) {
 
 	var id int
 	var desc, status, reporterEmail string
-	// 🔥 เพิ่มตัวแปร
-	var locName, otherLoc, floorName, roomNumber, eqName, assetCode, probName, otherProb, techName, techNote *string
-	var repairCost float64
+	var locName, otherLoc, floorName, roomNumber, eqName, assetCode, probName, otherProb, techName, techNote, adminNote *string
+	var estimatedCost, actualCost float64
 	var createdAt time.Time
 	var acceptedAt, completedAt *time.Time
 
-	// 🔥 แก้ Query
+	// 🔥 [แก้ไข] อัปเดต Query เป็น estimated_cost, actual_cost
 	err := database.DB.QueryRow(`
-        SELECT r.id, r.description, r.status, r.reporter_email, r.technician_note, r.created_at,
-               r.repair_cost, r.accepted_at, r.completed_at, r.other_location, r.other_problem_type,
-               l.name, f.floor_name, ro.room_number, eq.name, eq.asset_code, p.name, u.full_name
-        FROM repairs r
-        LEFT JOIN locations l ON r.location_id = l.id
-        LEFT JOIN floors f ON r.floor_id = f.id
-        LEFT JOIN rooms ro ON r.room_id = ro.id
-        LEFT JOIN equipments eq ON r.equipment_id = eq.id
-        LEFT JOIN problem_types p ON r.problem_type_id = p.id
-        LEFT JOIN users u ON r.technician_id = u.id
-        WHERE r.id = $1`, repairID).Scan(
-		&id, &desc, &status, &reporterEmail, &techNote, &createdAt,
-		&repairCost, &acceptedAt, &completedAt, &otherLoc, &otherProb,
+		SELECT r.id, r.description, r.status, r.reporter_email, r.technician_note, r.admin_note, r.created_at,
+			   r.estimated_cost, r.actual_cost, r.accepted_at, r.completed_at, r.other_location, r.other_problem_type,
+			   l.name, f.floor_name, ro.room_number, eq.name, eq.asset_code, p.name, u.full_name
+		FROM repairs r
+		LEFT JOIN locations l ON r.location_id = l.id
+		LEFT JOIN floors f ON r.floor_id = f.id
+		LEFT JOIN rooms ro ON r.room_id = ro.id
+		LEFT JOIN equipments eq ON r.equipment_id = eq.id
+		LEFT JOIN problem_types p ON r.problem_type_id = p.id
+		LEFT JOIN users u ON r.technician_id = u.id
+		WHERE r.id = $1`, repairID).Scan(
+		&id, &desc, &status, &reporterEmail, &techNote, &adminNote, &createdAt,
+		&estimatedCost, &actualCost, &acceptedAt, &completedAt, &otherLoc, &otherProb,
 		&locName, &floorName, &roomNumber, &eqName, &assetCode, &probName, &techName)
 
 	if err != nil {
@@ -218,16 +216,18 @@ func GetRepairByID(c *gin.Context) {
 		"status":             status,
 		"reporter_email":     reporterEmail,
 		"technician_note":    getString(techNote),
+		"admin_note":         getString(adminNote),
 		"technician_name":    getString(techName),
 		"location_name":      getString(locName),
-		"other_location":     getString(otherLoc), // 🔥
+		"other_location":     getString(otherLoc),
 		"floor_name":         getString(floorName),
 		"room_number":        getString(roomNumber),
 		"equipment_name":     getString(eqName),
 		"asset_code":         getString(assetCode),
 		"problem_type":       getString(probName),
-		"other_problem_type": getString(otherProb), // 🔥
-		"repair_cost":        repairCost,
+		"other_problem_type": getString(otherProb),
+		"estimated_cost":     estimatedCost,
+		"actual_cost":        actualCost,
 		"accepted_at":        acceptedAt,
 		"completed_at":       completedAt,
 		"created_at":         createdAt,
@@ -238,7 +238,7 @@ func GetRepairByID(c *gin.Context) {
 }
 
 // ---------------------------------------------------------
-// 4. AssignRepair: Admin มอบหมายช่าง (แค่ระบุตัวช่าง ยังไม่เริ่มจับเวลา)
+// 4. AssignRepair: Admin มอบหมายช่าง
 // ---------------------------------------------------------
 func AssignRepair(c *gin.Context) {
 	repairID := c.Param("id")
@@ -252,7 +252,6 @@ func AssignRepair(c *gin.Context) {
 		return
 	}
 
-	// [แก้ไข] เปลี่ยนแค่ technician_id แต่ให้สถานะเป็น 'รอซ่อม' เหมือนเดิม และเคลียร์เวลา accepted_at เผื่อไว้
 	_, err := database.DB.Exec(
 		`UPDATE repairs SET status = 'รอซ่อม', technician_id = $1, accepted_at = NULL WHERE id = $2`,
 		req.TechnicianID, repairID,
@@ -270,10 +269,7 @@ func AssignRepair(c *gin.Context) {
 // ---------------------------------------------------------
 func RevokeRepair(c *gin.Context) {
 	repairID := c.Param("id")
-
-	// [แก้ไข] รีเซ็ต accepted_at และ completed_at กลับเป็น NULL
 	_, err := database.DB.Exec(`UPDATE repairs SET status = 'รอซ่อม', technician_id = NULL, accepted_at = NULL, completed_at = NULL WHERE id = $1`, repairID)
-
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -286,10 +282,7 @@ func RevokeRepair(c *gin.Context) {
 // ---------------------------------------------------------
 func RejectRepair(c *gin.Context) {
 	repairID := c.Param("id")
-
-	// [แก้ไข] รีเซ็ตเวลาเช่นเดียวกับการดึงงานกลับ
 	_, err := database.DB.Exec(`UPDATE repairs SET status = 'รอซ่อม', technician_id = NULL, accepted_at = NULL, completed_at = NULL WHERE id = $1`, repairID)
-
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -304,45 +297,42 @@ func UpdateRepairStatus(c *gin.Context) {
 	repairID := c.Param("id")
 
 	status := c.PostForm("status")
-	technicianNote := c.PostForm("technician_note")
-	repairCostStr := c.PostForm("repair_cost")
+	actualCostStr := c.PostForm("actual_cost") // 🔥 [แก้ไข] เปลี่ยนจาก repair_cost เป็น actual_cost
+
+	tNote := nullIfEmpty(c.PostForm("technician_note"))
+	aNote := nullIfEmpty(c.PostForm("admin_note"))
 
 	if status == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาระบุสถานะ"})
 		return
 	}
 
-	// จัดการแปลงค่าซ่อมจาก String เป็น Float64
-	var repairCost float64
-	if repairCostStr != "" && repairCostStr != "null" && repairCostStr != "undefined" {
-		parsedCost, err := strconv.ParseFloat(repairCostStr, 64)
+	var actualCost float64
+	if actualCostStr != "" && actualCostStr != "null" && actualCostStr != "undefined" {
+		parsedCost, err := strconv.ParseFloat(actualCostStr, 64)
 		if err == nil {
-			repairCost = parsedCost
+			actualCost = parsedCost
 		}
 	}
 
 	var query string
 
-	// 🔥 [แก้ไข] ดักสถานะเพื่อสแตมป์เวลาให้ถูกต้อง
+	// 🔥 [แก้ไข] อัปเดตฟิลด์ actual_cost แทน repair_cost
 	if status == "กำลังซ่อม" {
-		// ช่างกด "รับงาน" -> สแตมป์เวลา accepted_at เพื่อเริ่มจับเวลาซ่อม
-		query = `UPDATE repairs SET status = $1, technician_note = $2, repair_cost = $3, accepted_at = CURRENT_TIMESTAMP WHERE id = $4`
+		query = `UPDATE repairs SET status = $1, technician_note = COALESCE($2, technician_note), admin_note = COALESCE($3, admin_note), actual_cost = $4, accepted_at = CURRENT_TIMESTAMP WHERE id = $5`
 	} else if status == "เสร็จเรียบร้อย" || status == "ซ่อมไม่ได้" {
-		// ช่างกด "ปิดงาน" -> สแตมป์เวลา completed_at เพื่อจบการจับเวลา
-		query = `UPDATE repairs SET status = $1, technician_note = $2, repair_cost = $3, completed_at = CURRENT_TIMESTAMP WHERE id = $4`
+		query = `UPDATE repairs SET status = $1, technician_note = COALESCE($2, technician_note), admin_note = COALESCE($3, admin_note), actual_cost = $4, completed_at = CURRENT_TIMESTAMP WHERE id = $5`
 	} else {
-		// กรณีอื่นๆ
-		query = `UPDATE repairs SET status = $1, technician_note = $2, repair_cost = $3 WHERE id = $4`
+		query = `UPDATE repairs SET status = $1, technician_note = COALESCE($2, technician_note), admin_note = COALESCE($3, admin_note), actual_cost = $4 WHERE id = $5`
 	}
 
-	_, err := database.DB.Exec(query, status, technicianNote, repairCost, repairID)
+	_, err := database.DB.Exec(query, status, tNote, aNote, actualCost, repairID)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	// ส่วนจัดการอัปโหลดรูปภาพ (หลังซ่อม) ใช้งานได้ตามเดิมเลยครับ
 	form, _ := c.MultipartForm()
 	if form != nil && form.File != nil {
 		files := form.File["image"]
@@ -363,4 +353,155 @@ func UpdateRepairStatus(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "อัปเดตสถานะสำเร็จ"})
+}
+
+// ---------------------------------------------------------
+// 8. CancelRepairByAdmin: Admin ยกเลิกงาน (ไม่คุ้มทุน)
+// ---------------------------------------------------------
+func CancelRepairByAdmin(c *gin.Context) {
+	repairID := c.Param("id")
+	type CancelRequest struct {
+		AdminNote string `json:"admin_note" binding:"required"`
+	}
+
+	var req CancelRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาระบุเหตุผลที่ยกเลิกงาน"})
+		return
+	}
+
+	_, err := database.DB.Exec(
+		`UPDATE repairs SET status = 'ซ่อมไม่ได้', admin_note = $1, completed_at = CURRENT_TIMESTAMP WHERE id = $2`,
+		req.AdminNote, repairID,
+	)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "ยกเลิกงานสำเร็จ (สถานะ: ซ่อมไม่ได้)"})
+}
+
+// ---------------------------------------------------------
+// 🔥 9. EstimateRepair: ช่างประเมินราคาและเช็กจุดคุ้มทุน (Hybrid Logic - 4 สถานะ)
+// ---------------------------------------------------------
+func EstimateRepair(c *gin.Context) {
+	repairID := c.Param("id")
+
+	// 🔥 [แก้ไขจุดนี้] เปลี่ยนจาก binding:"required" เป็น binding:"gte=0" เพื่อให้รับค่า 0 ได้
+	type EstimateRequest struct {
+		EstimatedCost float64 `json:"estimated_cost" binding:"gte=0"`
+	}
+
+	var req EstimateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาระบุราคาประเมินให้ถูกต้อง"})
+		return
+	}
+
+	// 1. ดึง Equipment ID และ Base Price ของงานซ่อมนี้
+	var eqID *int
+	var basePrice float64
+	err := database.DB.QueryRow(`
+		SELECT r.equipment_id, e.base_price
+		FROM repairs r
+		JOIN equipments e ON r.equipment_id = e.id
+		WHERE r.id = $1
+	`, repairID).Scan(&eqID, &basePrice)
+
+	if err != nil || eqID == nil {
+		// กรณีไม่มีข้อมูล Equipment ให้ผ่านไปเลยโดยไม่อิง Break-even
+		database.DB.Exec(`UPDATE repairs SET estimated_cost = $1, status = 'กำลังซ่อม', accepted_at = CURRENT_TIMESTAMP WHERE id = $2`, req.EstimatedCost, repairID)
+		c.JSON(http.StatusOK, gin.H{"message": "บันทึกราคาประเมินสำเร็จ", "status": "กำลังซ่อม"})
+		return
+	}
+
+	// 2. คำนวณยอดซ่อมสะสม (Accumulated Cost) เฉพาะงานที่เสร็จแล้ว
+	var accumulatedCost float64
+	database.DB.QueryRow(`
+		SELECT COALESCE(SUM(actual_cost), 0)
+		FROM repairs
+		WHERE equipment_id = $1 AND status = 'เสร็จเรียบร้อย'
+	`, *eqID).Scan(&accumulatedCost)
+
+	// 3. ลอจิกตรวจสอบเงื่อนไข Hybrid
+	newStatus := "กำลังซ่อม"
+	adminSystemNote := ""
+
+	isSingleExceed := req.EstimatedCost > (basePrice * 0.5)
+	isAccumulatedExceed := (accumulatedCost + req.EstimatedCost) > (basePrice * 0.7)
+
+	if isSingleExceed || isAccumulatedExceed {
+		// 🔥 [แก้ไขจุดสำคัญ] ตีกลับเป็น "รอซ่อม" เพื่อให้แอดมินตัดสินใจ โดยไม่เพิ่มสถานะใหม่
+		newStatus = "รอซ่อม"
+
+		if isSingleExceed && isAccumulatedExceed {
+			adminSystemNote = fmt.Sprintf("ระบบระงับอัตโนมัติ: ประเมินครั้งนี้เกิน 50%% และยอดสะสมรวมเกิน 70%% ของราคาต้นทุน (%.2f บาท)", basePrice)
+		} else if isSingleExceed {
+			adminSystemNote = fmt.Sprintf("ระบบระงับอัตโนมัติ: ประเมินครั้งนี้เกิน 50%% ของราคาต้นทุน (%.2f บาท)", basePrice)
+		} else {
+			adminSystemNote = fmt.Sprintf("ระบบระงับอัตโนมัติ: ยอดสะสมรวมกับครั้งนี้เกิน 70%% ของราคาต้นทุน (%.2f บาท)", basePrice)
+		}
+	}
+
+	// 4. บันทึกลง Database
+	if newStatus == "รอซ่อม" {
+		// ถ้าระบบระงับ จะอัปเดตราคาประเมิน ฝังโน้ตเตือนแอดมิน และเคลียร์เวลา accepted_at ออกชั่วคราว
+		_, err = database.DB.Exec(`
+			UPDATE repairs
+			SET estimated_cost = $1, status = $2, admin_note = $3, accepted_at = NULL
+			WHERE id = $4
+		`, req.EstimatedCost, newStatus, adminSystemNote, repairID)
+	} else {
+		// ถ้าไม่เกินเกณฑ์ ให้ช่างเริ่มงานได้เลย (เปลี่ยนเป็น กำลังซ่อม)
+		_, err = database.DB.Exec(`
+			UPDATE repairs
+			SET estimated_cost = $1, status = $2, accepted_at = CURRENT_TIMESTAMP
+			WHERE id = $3
+		`, req.EstimatedCost, newStatus, repairID)
+	}
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "อัปเดตข้อมูลล้มเหลว: " + err.Error()})
+		return
+	}
+
+	// ส่งข้อความกลับไปบอก Frontend ให้ช่างรู้ตัวด้วยว่าถูกระงับ
+	responseMsg := "ประเมินราคาสำเร็จและเริ่มซ่อมได้"
+	if newStatus == "รอซ่อม" {
+		responseMsg = "ประเมินราคาเกินจุดคุ้มทุน ระบบได้ส่งเรื่องกลับไปให้แอดมินพิจารณาแล้ว"
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":          responseMsg,
+		"status":           newStatus,
+		"estimated_cost":   req.EstimatedCost,
+		"accumulated_cost": accumulatedCost,
+	})
+}
+
+// ---------------------------------------------------------
+// 10. ApproveRepairThreshold: Admin อนุมัติงานที่ติดเงื่อนไข Break-even
+// ---------------------------------------------------------
+func ApproveRepairThreshold(c *gin.Context) {
+	repairID := c.Param("id")
+
+	// เปลี่ยนสถานะเป็น 'กำลังซ่อม' (ถือว่าเริ่มงานเลย)
+	// ประทับเวลา accepted_at เป็นปัจจุบัน
+	// และต่อท้าย admin_note ว่าอนุมัติแล้ว เพื่อเป็นประวัติ
+	_, err := database.DB.Exec(`
+		UPDATE repairs 
+		SET status = 'กำลังซ่อม', 
+		    accepted_at = CURRENT_TIMESTAMP,
+		    admin_note = CONCAT(admin_note, ' -> (Admin อนุมัติให้ดำเนินการต่อ)')
+		WHERE id = $1
+	`, repairID)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถอนุมัติงานได้: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "อนุมัติงานซ่อมสำเร็จ"})
 }
