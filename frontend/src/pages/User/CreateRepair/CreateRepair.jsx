@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { Camera, Image as ImageIcon } from 'lucide-react'; 
 import "./CreateRepair.css";
 
 function CreateRepair() {
@@ -13,7 +14,7 @@ function CreateRepair() {
   const [equipment, setEquipment] = useState(""); 
   const [customLocationName, setCustomLocationName] = useState(""); 
   const [problemType, setProblemType] = useState("");
-  const [customProblemName, setCustomProblemName] = useState(""); // 🔥 เพิ่ม State สำหรับปัญหาอื่นๆ
+  const [customProblemName, setCustomProblemName] = useState("");
   const [details, setDetails] = useState("");
   const [image, setImage] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -25,19 +26,20 @@ function CreateRepair() {
   const [equipments, setEquipments] = useState([]); 
   const [problemTypes, setProblemTypes] = useState([]);
 
-  // ตรวจสอบว่าตึกที่เลือกอยู่ปัจจุบันคือตัวเลือก "อื่นๆ" หรือไม่
+  // Ref สำหรับอ้างอิง Input File ที่ซ่อนไว้
+  const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+
   const isOtherLocation = () => {
     const selectedLoc = locations.find(loc => String(loc.id) === String(location));
     return selectedLoc && (selectedLoc.name.includes("อื่นๆ") || selectedLoc.name.toLowerCase() === "other");
   };
 
-  // 🔥 เพิ่ม: ตรวจสอบว่าหมวดหมู่ปัญหาที่เลือกคือ "อื่นๆ" หรือไม่
   const isOtherProblem = () => {
     const selectedType = problemTypes.find(type => String(type.id) === String(problemType));
     return selectedType && (selectedType.name.includes("อื่นๆ") || selectedType.name.toLowerCase() === "other");
   };
 
-  // 1. ดึงข้อมูลตึกและประเภทปัญหา เมื่อเปิดหน้าเว็บครั้งแรก
   useEffect(() => {
     const fetchMasterData = async () => {
       try {
@@ -55,7 +57,6 @@ function CreateRepair() {
     fetchMasterData();
   }, []);
 
-  // 2. ดึงข้อมูล "ชั้น" เมื่อเลือก "ตึก"
   useEffect(() => {
       setFloor("");
       setRooms([]);
@@ -79,7 +80,6 @@ function CreateRepair() {
     fetchFloors();
   }, [location]);
 
-  // 3. ดึงข้อมูล "ห้อง" เมื่อเลือก "ชั้น"
   useEffect(() => {
     setRoom("");
     setEquipments([]);
@@ -101,7 +101,6 @@ function CreateRepair() {
     fetchRooms();
   }, [floor]);
 
-  // 4. ดึงข้อมูล "อุปกรณ์" เมื่อเลือก "ห้อง"
   useEffect(() => {
     setEquipment("");
 
@@ -124,8 +123,8 @@ function CreateRepair() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!email.endsWith("@su.ac.th")) {
-      alert("⚠️ กรุณาใช้อีเมลของมหาวิทยาลัย (@su.ac.th) เท่านั้นครับ");
+    if (!email.endsWith("@gmail.com") && !email.endsWith("@silpakorn.edu")) {
+      alert("⚠️ กรุณาใช้อีเมลของมหาวิทยาลัย (@silpakorn.edu) หรือ Gmail (@gmail.com) เท่านั้นครับ");
       return;
     }
 
@@ -134,7 +133,6 @@ function CreateRepair() {
       return;
     }
 
-    // 🔥 ตรวจสอบข้อมูลถ้าเลือกปัญหาอื่นๆ แต่ไม่ได้พิมพ์ระบุมา
     if (isOtherProblem() && !customProblemName.trim()) {
       alert("⚠️ กรุณาระบุหมวดหมู่งานซ่อมอื่นๆ ที่คุณต้องการแจ้งด้วยครับ");
       return;
@@ -146,9 +144,8 @@ function CreateRepair() {
     formData.append("reporter_email", email);
     formData.append("location_id", location);
     formData.append("problem_type_id", problemType);
-    formData.append("description", details); // 📝 คืนค่า Description ให้เก็บแค่รายละเอียดอย่างเดียว
+    formData.append("description", details); 
     
-    // 🔥 ส่งข้อมูล other_location (ถ้ามี)
     if (isOtherLocation()) {
       formData.append("other_location", customLocationName);
     } else {
@@ -157,7 +154,6 @@ function CreateRepair() {
       if (equipment) formData.append("equipment_id", equipment); 
     }
 
-    // 🔥 ส่งข้อมูล other_problem_type (ถ้ามี)
     if (isOtherProblem()) {
       formData.append("other_problem_type", customProblemName);
     }
@@ -174,7 +170,7 @@ function CreateRepair() {
 
       if (response.ok) {
         alert("✅ ระบบได้รับเรื่องแจ้งซ่อมของคุณเรียบร้อยแล้ว");
-        navigate("/repair/history"); // เปลี่ยนไปยังหน้า MyRepairs
+        navigate("/repair/history");
       } else {
         const errorData = await response.json();
         alert(`❌ เกิดข้อผิดพลาด: ${errorData.error || "ไม่สามารถส่งข้อมูลได้"}`);
@@ -198,15 +194,14 @@ function CreateRepair() {
       <div className="repair-card">
         <div className="repair-header">
           <h2>ฟอร์มแจ้งปัญหา / งานซ่อมบำรุง</h2>
-          <p>กรุณากรอกข้อมูลให้ครบถ้วนเพื่อให้ช่างเทคนิคเข้าดำเนินการได้อย่างรวดเร็ว</p>
         </div>
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>E-mail ผู้แจ้ง (@su.ac.th) <span className="required">*</span></label>
+            <label>อีเมลผู้แจ้ง (ที่ต้องการรับข้อมูลการแจ้งซ่อม)<span className="required">*</span></label>
             <input
               type="email"
-              placeholder="ระบุอีเมลมหาวิทยาลัยของคุณ"
+              placeholder="เช่น @silpakorn.edu , @gmail.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -294,7 +289,6 @@ function CreateRepair() {
             </select>
           </div>
 
-          {/* 🔥 ส่วนเงื่อนไข: แสดงกล่องข้อความเมื่อเลือกปัญหา "อื่นๆ" */}
           {problemType && isOtherProblem() && (
             <div className="form-group slide-down">
               <label>ระบุหมวดหมู่งานซ่อมอื่นๆ <span className="required">*</span></label>
@@ -321,11 +315,50 @@ function CreateRepair() {
 
           <div className="form-group">
             <label>แนบรูปภาพประกอบ (ถ้ามี)</label>
-            <input type="file" accept="image/*" onChange={handleImageChange} className="file-input" id="file-upload" />
-            <label htmlFor="file-upload" className="file-upload-label">
-              📸 คลิกเพื่อเลือกรูปภาพ หรือ ลากไฟล์มาวางที่นี่
-            </label>
-            {image && <p className="file-name-preview">✔️ ไฟล์ที่เลือก: {image.name}</p>}
+            <div className="upload-box-container">
+              
+              <div className="upload-buttons-row">
+                <button 
+                  type="button" 
+                  className="btn-upload-gallery"
+                  onClick={() => fileInputRef.current.click()}
+                >
+                  <ImageIcon size={20} /> เลือกจากคลังภาพ
+                </button>
+
+                <button 
+                  type="button" 
+                  className="btn-upload-camera"
+                  onClick={() => cameraInputRef.current.click()}
+                >
+                  <Camera size={20} /> ถ่ายภาพ
+                </button>
+              </div>
+
+              {/* 🔥 เปลี่ยนมาใช้เงื่อนไข && เพื่อแสดงแค่ชื่อไฟล์ตอนมีรูปเท่านั้น ไม่มีข้อความกวนใจแล้ว */}
+              {image && (
+                <p className="file-name-preview">✔️ ไฟล์ที่เลือก: {image.name}</p>
+              )}
+
+              {/* ซ่อน input แบบดั้งเดิมไว้ */}
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                accept="image/*" 
+                onChange={handleImageChange} 
+                className="hidden-file-input" 
+                style={{ display: 'none' }} 
+              />
+              <input 
+                type="file" 
+                ref={cameraInputRef} 
+                accept="image/*" 
+                capture="environment" 
+                onChange={handleImageChange} 
+                className="hidden-file-input" 
+                style={{ display: 'none' }} 
+              />
+            </div>
           </div>
 
           <div className="form-actions">

@@ -140,9 +140,14 @@ function AdminDashboard() {
     return Object.keys(counts).map(key => ({ name: key, จำนวน: counts[key] })).sort((a, b) => b.จำนวน - a.จำนวน);
   }, [filteredRepairs]);
 
+  // ✅ [อัปเดต] กรองขยะ/ค่าว่างออกจากกราฟอุปกรณ์ (ไม่เอา "ไม่ระบุ")
   const equipmentData = useMemo(() => {
     const counts = {};
-    filteredRepairs.forEach(r => { counts[r.equipment_name || "ไม่ระบุ"] = (counts[r.equipment_name || "ไม่ระบุ"] || 0) + 1; });
+    filteredRepairs.forEach(r => { 
+      if (r.equipment_name && r.equipment_name.trim() !== "") {
+        counts[r.equipment_name] = (counts[r.equipment_name] || 0) + 1; 
+      }
+    });
     return Object.keys(counts).map(key => ({ name: key, จำนวน: counts[key] })).sort((a, b) => b.จำนวน - a.จำนวน).slice(0, 10);
   }, [filteredRepairs]);
 

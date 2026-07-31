@@ -14,61 +14,57 @@ func SetupRoutes(r *gin.Engine) {
 	// สร้างกลุ่ม api ครอบทุกเส้นทาง (แนะนำให้คงไว้เพื่อความเป็นระเบียบและมาตรฐาน)
 	api := r.Group("/api")
 	{
-		// ==========================================
-		// 🟢 AUTH (เข้าสู่ระบบ Admin/Technician)
-		// ==========================================
+		// Login ของช่างและแอดมิน
 		api.POST("/login", handler.Login)
-
-		// ==========================================
-		// 🟢 USER MANAGEMENT (Admin จัดการช่าง)
-		// ==========================================
+		// ใช้สำหรับค้นหา
 		api.GET("/users/search", handler.SearchUsers)
+		// ดึงข้อมูล users ทั้งหมดในระบบ
 		api.GET("/users", handler.GetUsers)
+		// ใช้สำหรับสร้างผู้ใช้งาน
 		api.POST("/users", handler.CreateUser)
+		// ใช้สำหรับแก้ไขข้อมูลผู้ใช้งาน
 		api.PUT("/users/:id", handler.UpdateUser)
+		// ใช้สำหรับลบข้อมูลผู้ใช้งาน
 		api.DELETE("/users/:id", handler.DeleteUser)
-
-		// ==========================================
-		// 🟢 MASTER DATA (ข้อมูล Dropdown)
-		// ==========================================
+		// ใช้สำหรับดึงข้อมูลอาคารทั้งหมด
 		api.GET("/locations", userHandler.GetLocations)
-		api.GET("/locations/:id/floors", userHandler.GetFloorsByLocation) // 🔥 ดึงข้อมูลชั้นตามตึก
-		api.GET("/floors/:id/rooms", userHandler.GetRoomsByFloor)         // 🔥 ดึงข้อมูลห้องตามชั้น
-		api.GET("/rooms/:id/equipments", userHandler.GetEquipmentsByRoom) // 🔥 ดึงข้อมูลอุปกรณ์ตามห้อง
+		// ใช้สำหรับดึงข้อมูลชั้น ของแต่ละอาคารตาม id ของอาคาร
+		api.GET("/locations/:id/floors", userHandler.GetFloorsByLocation)
+		// ใช้สำหรับดึงข้อมูลห้อง ของแต่ละชั้นตาม id ของชั้น
+		api.GET("/floors/:id/rooms", userHandler.GetRoomsByFloor)
+		// ใช้สำหรับดึงข้อมูลอุปกรณ์ ของแต่ละห้องตาม id ของห้อง
+		api.GET("/rooms/:id/equipments", userHandler.GetEquipmentsByRoom)
+		// ใช้สำหรับดึงข้อมูลหมวดหมู่การซ่อม
 		api.GET("/problem-types", userHandler.GetProblemTypes)
-
-		// ==========================================
-		// 🟢 REPAIRS (Transaction แจ้งซ่อม)
-		// ==========================================
-
-		// ฝั่ง Public (แจ้งซ่อม/ติดตาม)
+		// ใช้สำหรับดึงข้อมูลรายการการแจ้งซ่อมทั้งหมด
 		api.GET("/repairs", repairHandler.GetAllRepairs)
+		// ใช้สำหรับดึงข้อมูลรายการการแจ้งซ่อมตาม id
 		api.GET("/repairs/:id", repairHandler.GetRepairByID)
+		// ใช้สำหรับสร้างรายการการแจ้งซ่อม
 		api.POST("/repairs", repairHandler.CreateRepair)
-
-		// ฝั่ง Admin (มอบหมายงาน / ดึงงานกลับ / ยกเลิกงาน)
+		// ใช้สำหรับการมอบหมายงานให้ช่างแต่ละคน
 		api.PUT("/repairs/:id/assign", repairHandler.AssignRepair)
+		// ใช้สำหรับการดึงงานกลับ ในกรณีที่แอดมินมอบหมายงานให้ช่างผิดความถนัด
 		api.PUT("/repairs/:id/revoke", repairHandler.RevokeRepair)
-		api.PUT("/repairs/:id/cancel", repairHandler.CancelRepairByAdmin) // 🔥 [ย้ายหมวดหมู่] แอดมินยกเลิกงาน (ไม่คุ้มทุน)
+		// ใช้สำหรับยกเลิกงาน ในกรณีไม่คุ้มทุนในการซ่อม
+		api.PUT("/repairs/:id/cancel", repairHandler.CancelRepairByAdmin)
+		// ใช้สำหรับอนุมัติงานที่ ติดจุดคุ้มทุน แต่แอดมินคิดเห็นว่าควรซ่อมอยู่ดี
 		api.PUT("/repairs/:id/approve", repairHandler.ApproveRepairThreshold)
-
-		// ฝั่ง Technician (ประเมินราคา / ปฏิเสธงาน / ปิดงาน)
-		api.PUT("/repairs/:id/estimate", repairHandler.EstimateRepair) // 🔥 [เพิ่มใหม่] ช่างประเมินราคา (ระบบคำนวณ Hybrid)
+		// ใช้สำหรับการประเมินราคาเบื้องต้นของช่าง
+		api.PUT("/repairs/:id/estimate", repairHandler.EstimateRepair)
+		// ใช้สำหรับปฏิเสธงาน ในกรณีที่ช่างไม่สามารถซ่อมงานนี้ได้
 		api.PUT("/repairs/:id/reject", repairHandler.RejectRepair)
+		// ใช้สำหรับกดปิดงาน สำหรับช่างที่ซ่อมงานนั้นๆ เสร็จแล้ว
 		api.PUT("/repairs/:id/status", repairHandler.UpdateRepairStatus)
-
-		// ==========================================
-		// 🟢 ADMIN DASHBOARD (สถิติและรายงาน)
-		// ==========================================
 		dashboard := api.Group("/admin/dashboard")
 		{
-			// สถิติภาพรวม
+			// ใช้สำหรับดึงข้อมูลสถิติเอามาไว้ในหน้า Dashboard
 			dashboard.GET("/overview", dashboardHandler.GetDashboardOverview)
-			// รายงานการซ่อม
+			// ใช้สำหรับคำนวณเวลาเฉลี่ยนในการทำงานของช่าง (คำนวณจากการแจ้งซ่อมที่เสร็จสิ้นทั้งหมด)
 			dashboard.GET("/performance", dashboardHandler.GetTechnicianPerformance)
-			// จุดคุ้มทุน
+			// ใช้สำหรับวิเคราะห์จุดคุ้มทุน แล้วนำมาใส่ในหน้า Dashboard
 			dashboard.GET("/breakeven", dashboardHandler.GetBreakEvenAnalysis)
-			// สถิติประเภทปัญหา
+			// ใช้สำหรับดึงสัดส่วนหมวดหมู่ปัญหา
 			dashboard.GET("/problem-stats", dashboardHandler.GetProblemTypeStats)
 		}
 	}

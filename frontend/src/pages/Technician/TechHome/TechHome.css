@@ -166,6 +166,9 @@
 .action-buttons {
   display: flex;
   gap: 10px;
+  align-items: center;
+  /* เผื่อกรณีหน้าจอเริ่มบีบ ปุ่มจะได้ตัดลงบรรทัดใหม่สวยๆ */
+  flex-wrap: wrap; 
 }
 
 .action-buttons button {
@@ -176,6 +179,9 @@
   cursor: pointer;
   border: none;
   transition: all 0.2s;
+  /* 🔥 แก้ไขจุดนี้: บังคับให้ปุ่มขยายตามความยาวข้อความเท่านั้น ห้ามยืดเต็มพื้นที่ */
+  flex: 0 0 auto !important; 
+  width: auto !important;
 }
 
 .btn-details {
