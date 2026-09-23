@@ -6,7 +6,8 @@ import MyRepairs from "./pages/User/MyRepairs/MyRepairs";
 import TechHome from "./pages/Technician/TechHome/TechHome";
 import AdminDashboard from "./pages/Admin/AdminDashboard/AdminDashboard"; 
 import AdminManage from "./pages/Admin/AdminManage/AdminManage";
-import AdminUsers from "./pages/Admin/AdminUsers/AdminUsers";
+// เปลี่ยนการ Import มาเป็นไฟล์แม่ (AdminSettings) แทน
+import AdminSettings from "./pages/Admin/AdminSettings/AdminSettings";
 
 function App() {
   return (
@@ -21,7 +22,9 @@ function App() {
         {/* ฝั่งแอดมิน */}
         <Route path="/admin/home" element={<AdminDashboard />} />
         <Route path="/admin/manage" element={<AdminManage />} />
-        <Route path="/admin/users" element={<AdminUsers />} />
+        {/* เปลี่ยน Path และ Element ให้ชี้ไปที่หน้าตั้งค่าระบบ */}
+        <Route path="/admin/settings" element={<AdminSettings />} />
+        
         {/* ฝั่งช่าง */}
         <Route path="/tech/home" element={<TechHome />} />
 

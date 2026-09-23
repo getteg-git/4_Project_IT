@@ -1,0 +1,240 @@
+/* =========================================
+   Modal Base & Overlay
+========================================= */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+  backdrop-filter: blur(2px);
+}
+
+.modal-box.timeline-box {
+  background: #ffffff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 85vh; /* ป้องกันล้นจอขอบล่าง */
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  animation: modalFadeIn 0.3s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* =========================================
+   Header Section
+========================================= */
+.timeline-box h3 {
+  color: #0f766e; /* สีเขียวมหาวิทยาลัย */
+  margin: 20px 20px 5px 20px;
+  font-size: 1.25rem;
+}
+
+.timeline-box .ticket-subtitle {
+  color: #64748b;
+  margin: 0 20px 15px 20px;
+  font-size: 0.9rem;
+}
+
+.timeline-box hr {
+  border: none;
+  border-top: 1px solid #e2e8f0;
+  margin: 0;
+}
+
+.close-btn {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+/* =========================================
+   Timeline Content (Scrollable Area)
+========================================= */
+.timeline-content {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1; /* ยืดหดตามเนื้อหาแต่ไม่เกิน max-height */
+}
+
+.loading-state, .error-state, .no-data {
+  text-align: center;
+  padding: 30px 0;
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+.error-state {
+  color: #ef4444;
+}
+
+/* =========================================
+   Timeline Structure (เส้นและวงกลม)
+========================================= */
+.timeline-container {
+  position: relative;
+  padding-top: 5px;
+}
+
+.timeline-item {
+  position: relative;
+  padding-left: 45px; /* เว้นที่ว่างฝั่งซ้ายให้ไอคอนและเส้น */
+  padding-bottom: 24px;
+}
+
+.timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+/* เส้นเชื่อมต่อแนวตั้ง */
+.timeline-line {
+  position: absolute;
+  left: 15px; /* กึ่งกลางของวงกลม (32px / 2 = 16 ลบด้วยความกว้างเส้น) */
+  top: 32px; /* เริ่มวาดใต้ไอคอนวงกลม */
+  bottom: -5px; /* ลากยาวลงไปหาไอคอนถัดไป */
+  width: 2px;
+  background-color: #e2e8f0;
+}
+
+/* ไอคอนวงกลมแสดงสถานะ */
+.timeline-icon {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  z-index: 2; /* ให้อยู่เหนือเส้น */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* =========================================
+   Timeline Details (กล่องข้อความ)
+========================================= */
+.timeline-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap; /* รองรับจอเล็ก */
+  gap: 4px 10px;
+}
+
+.timeline-status {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.timeline-date {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.timeline-body {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.timeline-user {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.timeline-note {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #cbd5e1;
+  font-size: 0.95rem;
+  color: #1e293b;
+  line-height: 1.5;
+}
+
+/* =========================================
+   Utility Colors (สีไอคอนและข้อความสถานะ)
+========================================= */
+.bg-blue { background-color: #3b82f6; }
+.text-blue { color: #2563eb; }
+
+.bg-indigo { background-color: #6366f1; }
+.text-indigo { color: #4f46e5; }
+
+.bg-green { background-color: #16a34a; }
+.text-green { color: #15803d; }
+
+.bg-emerald { background-color: #10b981; }
+.text-emerald { color: #047857; }
+
+.bg-orange { background-color: #f97316; }
+.text-orange { color: #c2410c; }
+
+.bg-red { background-color: #ef4444; }
+.text-red { color: #b91c1c; }
+
+.bg-gray { background-color: #94a3b8; }
+.text-gray { color: #475569; }
+
+/* =========================================
+   Responsive Design (หน้าจอมือถือ)
+========================================= */
+@media (max-width: 480px) {
+  .timeline-box h3 {
+    font-size: 1.15rem;
+  }
+  
+  .timeline-header {
+    flex-direction: column; /* ให้วันที่ตกลงมาอยู่ใต้สถานะเมื่อจอแคบ */
+  }
+
+  .timeline-date {
+    font-size: 0.75rem;
+  }
+  
+  .timeline-status {
+    font-size: 0.95rem;
+  }
+
+  .timeline-note {
+    font-size: 0.9rem;
+  }
+}

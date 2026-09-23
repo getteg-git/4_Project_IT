@@ -4,12 +4,14 @@ import {
   PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend
 } from "recharts";
-import { AlertTriangle, Ban, Calendar } from 'lucide-react';
+import { AlertTriangle, Ban, Calendar, CircleDot, ClipboardList, LayoutDashboard, LogOut, Monitor, TrendingUp, Settings } from 'lucide-react';
+import useToast from "../../../hooks/useToast";
 import dayjs from 'dayjs';
 import "./AdminDashboard.css";
 
 function AdminDashboard() {
   const navigate = useNavigate();
+  const { confirm } = useToast();
   const [repairs, setRepairs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -99,20 +101,20 @@ function AdminDashboard() {
   const formatRepairTime = (hoursString) => {
     const hours = parseFloat(hoursString);
     if (!hours || isNaN(hours)) return "0 นาที";
-  
+
     const totalMinutes = Math.round(hours * 60);
-  
+
     if (totalMinutes < 60) {
       return `${totalMinutes} นาที`;
-    } 
-    
+    }
+
     const h = Math.floor(totalMinutes / 60);
     const m = totalMinutes % 60;
-    
+
     if (m === 0) {
-      return `${h} ชม.`; 
+      return `${h} ชม.`;
     }
-    
+
     return `${h} ชม. ${m} นาที`;
   };
 
@@ -143,9 +145,9 @@ function AdminDashboard() {
   // ✅ [อัปเดต] กรองขยะ/ค่าว่างออกจากกราฟอุปกรณ์ (ไม่เอา "ไม่ระบุ")
   const equipmentData = useMemo(() => {
     const counts = {};
-    filteredRepairs.forEach(r => { 
+    filteredRepairs.forEach(r => {
       if (r.equipment_name && r.equipment_name.trim() !== "") {
-        counts[r.equipment_name] = (counts[r.equipment_name] || 0) + 1; 
+        counts[r.equipment_name] = (counts[r.equipment_name] || 0) + 1;
       }
     });
     return Object.keys(counts).map(key => ({ name: key, จำนวน: counts[key] })).sort((a, b) => b.จำนวน - a.จำนวน).slice(0, 10);
@@ -155,48 +157,75 @@ function AdminDashboard() {
   // โครงสร้างเมนู Tabs
   // ==========================================
   const TABS_CONFIG = [
-    { id: "status", label: "⭕ สัดส่วนสถานะ" },
-    { id: "problem", label: "📈 ปัญหาที่พบบ่อย" },
-    { id: "equipment", label: "💻 อุปกรณ์ที่ซ่อมบ่อย" },
-    { id: "warning", label: `⚠️ งานรอพิจารณา (${warningRepairs.length})` }
+    { id: "status", label: "สัดส่วนสถานะ", icon: CircleDot },
+    { id: "problem", label: "ปัญหาที่พบบ่อย", icon: TrendingUp },
+    { id: "equipment", label: "อุปกรณ์ที่ซ่อมบ่อย", icon: Monitor },
+    { id: "warning", label: `งานรอพิจารณา (${warningRepairs.length})`, icon: AlertTriangle }
+  ];
+
+  const thaiMonths = [
+    "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน",
+    "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม",
+    "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
   ];
 
   return (
     <div className="admin-dashboard-container">
       <header className="dashboard-header">
         <div>
-          <h1>📊 แผงควบคุมผู้ดูแลระบบ</h1>
+          <h1><LayoutDashboard size={25} aria-hidden="true" /> แผงควบคุมผู้ดูแลระบบ</h1>
           <p>สรุปภาพรวมระบบแจ้งซ่อมบำรุง</p>
         </div>
         <div className="header-actions">
-          <button className="btn-users" onClick={() => navigate("/admin/users")}>👥 จัดการบัญชี</button>
-          <button className="btn-manage" onClick={() => navigate("/admin/manage")}>🛠️ มอบหมายงาน</button>
-          <button className="btn-logout" onClick={() => { if (window.confirm("ออก?")) { localStorage.removeItem("user"); navigate("/"); } }}>🚪 ออกจากระบบ</button>
+          {/* แก้ไขลิงก์และข้อความตรงนี้ครับ */}
+          <button className="btn-users" onClick={() => navigate("/admin/settings")}>
+            <Settings size={17} aria-hidden="true" /> ตั้งค่าระบบ
+          </button>
+          <button className="btn-manage" onClick={() => navigate("/admin/manage")}>
+            <ClipboardList size={17} aria-hidden="true" /> มอบหมายงาน
+          </button>
+          <button className="btn-logout" onClick={async () => {
+            const approved = await confirm({ title: "ออกจากระบบ", description: "คุณต้องการออกจากระบบผู้ดูแลหรือไม่?", confirmLabel: "ออกจากระบบ", variant: "danger" });
+            if (approved) { localStorage.removeItem("user"); navigate("/"); }
+          }}>
+            <LogOut size={17} aria-hidden="true" /> ออกจากระบบ
+          </button>
         </div>
       </header>
 
       {/* ส่วนตัวกรอง เดือน/ปี */}
       <div className="filter-section">
         <div className="filter-group">
-          <Calendar size={20} color="#007A53" />
-          <span className="filter-label">ดูข้อมูลประจำ:</span>
-          <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="filter-select">
-            <option value="all">รวมทุกเดือน</option>
-            {[...Array(12)].map((_, i) => (
-              <option key={i + 1} value={i + 1}>เดือน {i + 1}</option>
-            ))}
-          </select>
-          <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="filter-select">
-            <option value="all">รวมทุกปี</option>
-            {availableYears.map(year => (
-              <option key={year} value={year}>ปี {year}</option>
-            ))}
-          </select>
+          <div className="filter-heading">
+            <span className="filter-icon"><Calendar size={20} aria-hidden="true" /></span>
+            <span><strong>ช่วงเวลาที่แสดง</strong><small>เลือกข้อมูลสรุปตามเดือนและปี</small></span>
+          </div>
+          <div className="filter-controls">
+            <label>
+              <span>เดือน</span>
+              <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="filter-select">
+                
+                <option value="all">ทุกเดือน</option>
+                {thaiMonths.map((monthName, i) => (
+                  <option key={i + 1} value={i + 1}>{monthName}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>ปี</span>
+              <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="filter-select">
+                <option value="all">ทุกปี</option>
+                {availableYears.map(year => (
+                  <option key={year} value={year}>พ.ศ. {Number(year) + 543}</option>
+                ))}
+              </select>
+            </label>
+          </div>
         </div>
       </div>
 
       {isLoading ? (
-        <div className="loading-state">⏳ กำลังโหลดข้อมูล...</div>
+        <div className="loading-state">กำลังโหลดข้อมูล...</div>
       ) : (
         <>
           {/* การ์ดสรุปตัวเลข */}
@@ -204,27 +233,29 @@ function AdminDashboard() {
             <div className="summary-card total"><h3>รวมทั้งหมด</h3><div className="number">{totalRepairs}</div><span>รายการ</span></div>
             <div className="summary-card pending"><h3>รอซ่อม/พิจารณา</h3><div className="number">{pendingCount}</div><span>รายการ</span></div>
             <div className="summary-card progress"><h3>กำลังซ่อม</h3><div className="number">{progressCount}</div><span>ดำเนินการ</span></div>
-            
-            {/* ✅ [อัปเดต] เรียกใช้ formatRepairTime ตรงนี้ และเอา <span>ชั่วโมง</span> ออก */}
+
             <div className="summary-card mttr">
               <h3>ระยะเวลาซ่อมเฉลี่ย</h3>
               <div className="number">{formatRepairTime(mttrDays)}</div>
             </div>
-            
+
             <div className="summary-card warning"><h3>งานรอพิจารณาคุ้มทุน</h3><div className="number">{warningRepairs.length}</div><span>รายการ</span></div>
           </div>
 
           {/* ปุ่มเลือกสถิติ (Tabs) */}
           <div className="tabs-container">
-            {TABS_CONFIG.map(tab => (
-              <button
-                key={tab.id}
-                className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                {tab.label}
-              </button>
-            ))}
+            {TABS_CONFIG.map(tab => {
+              const TabIcon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
+                  onClick={() => setActiveTab(tab.id)}
+                >
+                  <TabIcon size={17} aria-hidden="true" /> {tab.label}
+                </button>
+              );
+            })}
           </div>
 
           {/* พื้นที่แสดงผลกราฟตาม Tab ที่เลือก */}
@@ -305,10 +336,10 @@ function AdminDashboard() {
                       <tbody>
                         {warningRepairs.map(r => (
                           <tr key={r.id}>
-                            <td className="font-bold">{r.id}</td>
+                            {/* 🔥 [อัปเดต] นำ ticket_number มาโชว์ตรงนี้ */}
+                            <td className="font-bold">{r.ticket_number || `#${r.id}`}</td>
                             <td>{r.equipment_name || "ไม่ระบุ"} <br /><span className="sub-text">{r.problem_type}</span></td>
                             <td>฿{Number(r.estimated_cost || 0).toLocaleString()}</td>
-                            {/* ✅ [อัปเดต] เอา Inline CSS ออก แล้วใช้ class แทน */}
                             <td className="warning-note-text">{r.admin_note}</td>
                             <td className="text-center">
                               <button className="btn-cancel-repair" onClick={() => navigate(`/admin/manage/${r.id}`)}>

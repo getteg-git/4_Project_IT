@@ -19,14 +19,3 @@ type Room struct {
 	FloorID    int    `json:"floor_id"`
 	RoomNumber string `json:"room_number"`
 }
-
-// [เพิ่มใหม่] ตาราง equipments (อุปกรณ์/ครุภัณฑ์)
-type Equipment struct {
-	ID        int     `json:"id"`
-	RoomID    int     `json:"room_id"`
-	AssetCode string  `json:"asset_code"`
-	Name      string  `json:"name"`
-	Category  string  `json:"category"`
-	BasePrice float64 `json:"base_price"`
-	IsActive  bool    `json:"is_active"`
-}

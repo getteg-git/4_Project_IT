@@ -1,9 +1,10 @@
+@scope (.admin-manage-container) {
 /* โครงสร้างพื้นฐาน */
 .admin-manage-container {
   min-height: 100vh;
-  background-color: #f0f4f2;
+  background-color: var(--color-background);
   padding: 30px 40px;
-  font-family: 'Sarabun', 'Prompt', sans-serif;
+  font-family: inherit;
 }
 
 .admin-wrapper {
@@ -21,11 +22,11 @@
   border-radius: 12px;
   margin-bottom: 30px;
   box-shadow: 0 4px 15px rgba(0, 122, 83, 0.08);
-  border-left: 8px solid #007A53;
+  border-left: 8px solid var(--color-primary);
 }
 
 .admin-header h2 {
-  color: #007A53;
+  color: var(--color-primary);
   font-size: 1.8rem;
   margin-bottom: 5px;
   margin-top: 0;
@@ -39,9 +40,9 @@
 
 .btn-back-dashboard {
   background-color: transparent;
-  color: #007A53;
+  color: var(--color-primary);
   padding: 10px 20px;
-  border: 2px solid #007A53;
+  border: 2px solid var(--color-primary);
   border-radius: 8px;
   font-size: 0.95rem;
   font-weight: bold;
@@ -53,7 +54,7 @@
 }
 
 .btn-back-dashboard:hover {
-  background-color: #007A53;
+  background-color: var(--color-primary);
   color: white;
   box-shadow: 0 4px 12px rgba(0, 122, 83, 0.15);
   transform: translateY(-2px);
@@ -73,7 +74,7 @@
 }
 .search-input:focus {
   outline: none;
-  border-color: #007A53;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 4px rgba(0, 122, 83, 0.15);
 }
 
@@ -124,7 +125,7 @@
 }
 .status-pending { background-color: #f39c12; }
 .status-progress { background-color: #2980b9; }
-.status-completed { background-color: #007A53; }
+.status-completed { background-color: var(--color-primary); }
 .status-failed { background-color: #e74c3c; }
 
 .repair-title {
@@ -197,7 +198,7 @@
 }
 .btn-details:hover { 
   background-color: #f0fdf4; 
-  color: #007A53; 
+  color: var(--color-primary);
 }
 
 .btn-assign {
@@ -291,7 +292,7 @@
   padding: 35px; border-radius: 12px;
   position: relative;
   box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-  border-top: 6px solid #007A53;
+  border-top: 6px solid var(--color-primary);
 }
 
 .details-box { max-width: 600px; max-height: 90vh; overflow-y: auto; }
@@ -316,7 +317,7 @@
 
 .info-grid { display: grid; gap: 10px; margin-bottom: 20px; color: #444; }
 .issue-desc-box { background: #fafbfc; padding: 15px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px; }
-.tech-info-box { background: #f2f9f6; padding: 15px; border-radius: 8px; border-left: 5px solid #007A53; margin-bottom: 20px; }
+.tech-info-box { background: #f2f9f6; padding: 15px; border-radius: 8px; border-left: 5px solid var(--color-primary); margin-bottom: 20px; }
 
 /* 🌟 กล่องแสดงข้อมูลประเมินราคาและแจ้งเตือนสำหรับ Admin */
 .admin-cost-info-box {
@@ -341,7 +342,7 @@
 }
 
 /* Assign Modal Specific */
-.assign-modal-title { color: #007A53; margin: 0 0 5px 0; }
+.assign-modal-title { color: var(--color-primary); margin: 0 0 5px 0; }
 .assign-modal-subtitle { font-size: 14px; color: #666; margin-bottom: 20px; }
 .assign-select { height: auto; min-height: 50px; }
 .assign-modal-hint { display: block; margin-top: 8px; color: #666; font-size: 0.85rem; }
@@ -354,7 +355,7 @@
   white-space: normal;
   box-sizing: border-box;
 }
-.input-group select:focus { outline: none; border-color: #007A53; background-color: white; box-shadow: 0 0 0 3px rgba(0, 122, 83, 0.15); }
+.input-group select:focus { outline: none; border-color: var(--color-primary); background-color: white; box-shadow: 0 0 0 3px rgba(0, 122, 83, 0.15); }
 .input-group select option { padding: 10px; }
 
 /* 🌟 ฟอร์ม Textarea สำหรับ Reject Modal */
@@ -378,12 +379,30 @@
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
 }
 
+.admin-manage-container .modal-box.reject-modal-box {
+  width: min(calc(100vw - 40px), 760px);
+  max-width: 760px;
+  padding: 44px 46px 40px;
+  box-sizing: border-box;
+}
+
+.admin-manage-container .reject-modal-box .reject-textarea {
+  min-height: 190px;
+  padding: 16px;
+  font-size: 1.05rem;
+}
+
+.admin-manage-container .reject-modal-box .btn-submit-reject {
+  min-height: 56px;
+  font-size: 1.05rem;
+}
+
 .modal-actions { display: flex; gap: 15px; }
 .modal-actions button { flex: 1; padding: 14px; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer; border: none; transition: background-color 0.2s; }
 .btn-cancel { background-color: #f1f3f4; color: #444; }
 .btn-cancel:hover { background-color: #e8eaed; color: #d32f2f; }
-.btn-submit { background-color: #007A53; color: white; }
-.btn-submit:hover { background-color: #006343; }
+.btn-submit { background-color: var(--color-primary); color: white; }
+.btn-submit:hover { background-color: var(--color-primary-hover); }
 
 /* 🌟 ปุ่มปิดหน้าต่างแบบ User */
 .btn-close-modal { 
@@ -406,4 +425,7 @@
   .action-buttons { width: 100%; flex-wrap: wrap; }
   .action-buttons button { flex: 1; text-align: center; min-width: 120px; }
   .threshold-actions { flex-direction: column; }
+  .admin-manage-container .modal-box.reject-modal-box { width: calc(100vw - 24px); padding: 32px 20px 24px; }
+  .admin-manage-container .reject-modal-box .reject-textarea { min-height: 150px; }
+}
 }

@@ -1,16 +1,17 @@
+@scope (.home-container) {
 /* =======================================
    โครงสร้างพื้นหลังและเลย์เอาต์หลัก
    ======================================= */
 .home-container {
   min-height: 100vh;
-  background-color: #f0f4f2; 
+  background-color: var(--color-background);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 20px; 
   box-sizing: border-box;
-  font-family: 'Sarabun', 'Prompt', sans-serif;
+  font-family: inherit;
   position: relative; /* สำคัญ: เพื่อให้ยึด Top Nav ไว้ด้านบนได้ */
 }
 
@@ -23,8 +24,8 @@
 
 .btn-staff-login {
   background-color: transparent;
-  color: #007A53;
-  border: 2px solid #007A53;
+  color: var(--color-primary);
+  border: 2px solid var(--color-primary);
   padding: 10px 20px;
   border-radius: 8px;
   font-size: 1rem;
@@ -37,7 +38,7 @@
 }
 
 .btn-staff-login:hover {
-  background-color: #007A53;
+  background-color: var(--color-primary);
   color: white;
   box-shadow: 0 4px 12px rgba(0, 122, 83, 0.15);
 }
@@ -51,7 +52,7 @@
 }
 
 .home-header h1 {
-  color: #007A53; 
+  color: var(--color-primary);
   font-size: 2.5rem; /* ปรับให้ใหญ่ขึ้นนิดนึงเพราะเหลือ 2 กล่อง */
   font-weight: 700;
   margin-bottom: 5px;
@@ -90,17 +91,24 @@
   border: 1px solid #e0e8e4;
 }
 
-.card-user { border-top: 6px solid #007A53; }
+.card-user { border-top: 6px solid var(--color-primary); }
 
 .menu-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 12px 25px rgba(0, 122, 83, 0.15);
-  border-color: #007A53;
+  border-color: var(--color-primary);
 }
 
 .card-icon img, .card-icon {
   font-size: 3.5rem; /* ขยายไอคอนให้ใหญ่ขึ้น */
   margin-bottom: 15px; 
+}
+
+.card-icon svg {
+  width: 54px;
+  height: 54px;
+  color: var(--color-primary);
+  stroke-width: 1.5;
 }
 
 .menu-card h2 {
@@ -133,7 +141,7 @@
   background: white; padding: 40px; border-radius: 12px;
   width: 90%; max-width: 450px; position: relative;
   box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-  border-top: 6px solid #007A53;
+  border-top: 6px solid var(--color-primary);
   animation: fadeIn 0.3s ease-out;
 }
 
@@ -142,10 +150,10 @@
   to { opacity: 1; transform: scale(1); }
 }
 
-.close-btn { position: absolute; top: 15px; right: 20px; font-size: 28px; cursor: pointer; color: #aaa; transition: color 0.2s; }
-.close-btn:hover { color: #d32f2f; }
+.close-btn { position: absolute; top: 15px; right: 20px; display: grid; width: 36px; height: 36px; padding: 0; place-items: center; border: 0; border-radius: 50%; background: transparent; cursor: pointer; color: #777; transition: color 0.2s, background-color 0.2s; }
+.close-btn:hover { color: #d32f2f; background-color: #fceceb; }
 
-.modal-box h3 { color: #007A53; font-size: 1.5rem; margin-bottom: 5px; text-align: center; }
+.modal-box h3 { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--color-primary); font-size: 1.5rem; margin-bottom: 5px; text-align: center; }
 .modal-subtitle { text-align: center; color: #666; font-size: 0.9rem; margin-bottom: 25px; }
 
 .input-group { margin-bottom: 20px; }
@@ -166,7 +174,7 @@
 }
 .input-group input:focus, .role-select:focus { 
   outline: none; 
-  border-color: #007A53; 
+  border-color: var(--color-primary);
   background-color: white; 
   box-shadow: 0 0 0 3px rgba(0, 122, 83, 0.15); 
 }
@@ -176,8 +184,8 @@
 .modal-actions button:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn-cancel { background-color: #f1f3f4; color: #444; }
 .btn-cancel:hover:not(:disabled) { background-color: #e8eaed; color: #d32f2f; }
-.btn-submit { background-color: #007A53; color: white; box-shadow: 0 4px 10px rgba(0, 122, 83, 0.2); }
-.btn-submit:hover:not(:disabled) { background-color: #006343; transform: translateY(-2px); }
+.btn-submit { background-color: var(--color-primary); color: white; box-shadow: 0 4px 10px rgba(0, 122, 83, 0.2); }
+.btn-submit:hover:not(:disabled) { background-color: var(--color-primary-hover); transform: translateY(-2px); }
 
 /* =======================================
    📱 Responsive 1: สำหรับ Notebook (จอเตี้ย)
@@ -209,4 +217,5 @@
     height: auto; 
     padding: 20px;
   }
+}
 }

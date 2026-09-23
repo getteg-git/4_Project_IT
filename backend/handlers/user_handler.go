@@ -1,4 +1,4 @@
-package handlers
+package user
 
 import (
 	"database/sql"
@@ -15,60 +15,89 @@ import (
 // Struct สำหรับรับข้อมูลจาก Frontend (Request)
 // ==========================================
 type CreateUserRequest struct {
-	Username    string `json:"username" binding:"required"`
-	Password    string `json:"password" binding:"required"`
-	FullName    string `json:"full_name" binding:"required"` // ชื่อแสดงผลจริงภาษาไทย/อังกฤษ
-	Role        string `json:"role" binding:"required"`      // 'admin' หรือ 'technician'
-	Specialties []int  `json:"specialties"`                  // รายการ ID หมวดหมู่งานที่ถนัด (ส่งมาเป็น Array เช่น [1, 2])
+	Username     string `json:"username" binding:"required"`
+	Password     string `json:"password" binding:"required"`
+	FullName     string `json:"full_name" binding:"required"`
+	Email        string `json:"email" binding:"required"` // 🔥 [เพิ่มใหม่]
+	Role         string `json:"role" binding:"required"`
+	DepartmentID *int   `json:"department_id"` // 🔥 [เพิ่มใหม่] (เป็น null ได้สำหรับ admin)
+	IsCentral    bool   `json:"is_central"`    // 🔥 [เพิ่มใหม่]
+	Specialties  []int  `json:"specialties"`
 }
 
 type UpdateUserRequest struct {
-	Username    string `json:"username" binding:"required"`
-	Password    string `json:"password" binding:"required"`  // รหัสผ่านใหม่เพื่อยืนยันการบันทึกข้อมูล
-	FullName    string `json:"full_name" binding:"required"` // ชื่อแสดงผลจริงที่ต้องการแก้ไข
-	Specialties []int  `json:"specialties"`                  // รายการ ID หมวดหมู่งานที่ถนัดชุดใหม่
+	Username     string `json:"username" binding:"required"`
+	Password     string `json:"password" binding:"required"`
+	FullName     string `json:"full_name" binding:"required"`
+	Email        string `json:"email" binding:"required"` // 🔥 [เพิ่มใหม่]
+	DepartmentID *int   `json:"department_id"`            // 🔥 [เพิ่มใหม่]
+	IsCentral    bool   `json:"is_central"`               // 🔥 [เพิ่มใหม่]
+	Specialties  []int  `json:"specialties"`
 }
 
 type LoginRequest struct {
 	Username     string `json:"username" binding:"required"`
 	Password     string `json:"password" binding:"required"`
-	ExpectedRole string `json:"expected_role" binding:"required"` // ประตูทางเข้า 'admin' หรือ 'technician'
+	ExpectedRole string `json:"expected_role" binding:"required"`
 }
 
 // ---------------------------------------------------------
-// 1. GetUsers: ดึงรายชื่อผู้ใช้งานทั้งหมด พร้อมข้อมูลความถนัดจริง
+// 1. GetUsers: ดึงรายชื่อผู้ใช้งานทั้งหมด (ที่ยัง Active)
 // ---------------------------------------------------------
 func GetUsers(c *gin.Context) {
-	// ดึงข้อมูลหลักจากตาราง users
-	rows, err := database.DB.Query("SELECT id, username, full_name, role, created_at FROM users ORDER BY id ASC")
+	// 🔥 [ปรับปรุง] ใช้ LEFT JOIN เพื่อดึงชื่อสาขามาด้วย และกรองเฉพาะคนที่ is_active = true
+	query := `
+		SELECT u.id, u.username, u.full_name, u.email, u.role, 
+		       u.department_id, d.name as department_name, 
+		       u.is_central, u.is_active, u.created_at 
+		FROM users u
+		LEFT JOIN departments d ON u.department_id = d.id
+		WHERE u.is_active = true
+		ORDER BY u.id ASC
+	`
+	rows, err := database.DB.Query(query)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถดึงข้อมูลผู้ใช้ได้: " + err.Error()})
 		return
 	}
 	defer rows.Close()
 
-	// [ปรับปรุง] ใช้ make เพื่อส่ง [] แทน null
 	users := make([]models.User, 0)
 
 	for rows.Next() {
 		var u models.User
-		// กำหนดค่าเริ่มต้นเป็น Slice เปล่า ป้องกันการส่งค่า null กลับไปที่ React
 		u.Specialties = []int{}
 		u.SpecialtyNames = []string{}
 
-		err := rows.Scan(&u.ID, &u.Username, &u.FullName, &u.Role, &u.CreatedAt)
+		// ใช้ sql.NullInt64 และ sql.NullString มารับค่าที่อาจเป็น NULL จาก Database ป้องกัน Go Error
+		var deptID sql.NullInt64
+		var deptName sql.NullString
+
+		err := rows.Scan(
+			&u.ID, &u.Username, &u.FullName, &u.Email, &u.Role,
+			&deptID, &deptName, &u.IsCentral, &u.IsActive, &u.CreatedAt,
+		)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "เกิดข้อผิดพลาดในการ Scan ข้อมูล: " + err.Error()})
 			return
 		}
 
-		// ถ้าเป็นช่างเทคนิค ให้ไป Query ดึงข้อมูลความถนัดจริงจาก Junction Table ออกมาด้วย
+		// แปลงค่า Null กลับเป็น Pointer ให้ Struct
+		if deptID.Valid {
+			idVal := int(deptID.Int64)
+			u.DepartmentID = &idVal
+		}
+		if deptName.Valid {
+			u.DepartmentName = deptName.String
+		}
+
+		// ดึงข้อมูลความถนัดจริงจาก Junction Table
 		if u.Role == "technician" {
 			specRows, err := database.DB.Query(`
-                SELECT ts.problem_type_id, pt.name 
-                FROM technician_specialties ts
-                JOIN problem_types pt ON ts.problem_type_id = pt.id
-                WHERE ts.user_id = $1`, u.ID)
+				SELECT ts.problem_type_id, pt.name 
+				FROM technician_specialties ts
+				JOIN problem_types pt ON ts.problem_type_id = pt.id
+				WHERE ts.user_id = $1`, u.ID)
 
 			if err == nil {
 				for specRows.Next() {
@@ -90,7 +119,7 @@ func GetUsers(c *gin.Context) {
 }
 
 // ---------------------------------------------------------
-// 2. CreateUser: Admin สร้างบัญชีผู้ใช้ใหม่ พร้อมบันทึกความถนัดลง Database
+// 2. CreateUser: สร้างบัญชีผู้ใช้ใหม่
 // ---------------------------------------------------------
 func CreateUser(c *gin.Context) {
 	var req CreateUserRequest
@@ -100,14 +129,12 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 
-	// เข้ารหัสผ่าน (Hash)
 	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "เข้ารหัสผ่านไม่สำเร็จ"})
 		return
 	}
 
-	// ใช้ระบบ Transaction เพื่อป้องกันข้อมูลตกค้างหรือแหว่งในระบบ
 	tx, err := database.DB.Begin()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถเริ่มกระบวนการฐานข้อมูลได้"})
@@ -115,21 +142,20 @@ func CreateUser(c *gin.Context) {
 	}
 
 	var newUserID int
-	// บันทึกลงตาราง users และนำ ID ล่าสุดกลับมาใช้ผูกตารางเชื่อม
-	err = tx.QueryRow(
-		"INSERT INTO users (username, password, full_name, role) VALUES ($1, $2, $3, $4) RETURNING id",
-		req.Username, string(hashed), req.FullName, req.Role,
-	).Scan(&newUserID)
+	// 🔥 [ปรับปรุง] เพิ่ม email, department_id, is_central ลงในคำสั่ง INSERT
+	query := `
+		INSERT INTO users (username, password, full_name, email, role, department_id, is_central) 
+		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
+	`
+	err = tx.QueryRow(query, req.Username, string(hashed), req.FullName, req.Email, req.Role, req.DepartmentID, req.IsCentral).Scan(&newUserID)
 
 	if err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "ชื่อผู้ใช้งานนี้มีอยู่ในระบบแล้ว ไม่สามารถสร้างซ้ำได้"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ชื่อผู้ใช้งานหรืออีเมลนี้มีอยู่ในระบบแล้ว"})
 		return
 	}
 
-	// บันทึกความถนัดลงตารางเชื่อมเฉพาะสิทธิ์ช่างเทคนิคเท่านั้น
 	if req.Role == "technician" && len(req.Specialties) > 0 {
-		// ควบคุมโควตาความถนัดสูงสุดไม่เกิน 3 หมวดหมู่ตามเงื่อนไขที่กำหนดไว้
 		if len(req.Specialties) > 3 {
 			tx.Rollback()
 			c.JSON(http.StatusBadRequest, gin.H{"error": "ช่าง 1 คนสามารถมีความถนัดได้สูงสุด 3 หมวดหมู่เท่านั้น"})
@@ -143,13 +169,12 @@ func CreateUser(c *gin.Context) {
 			)
 			if err != nil {
 				tx.Rollback()
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกข้อมูลความถนัดได้: " + err.Error()})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกข้อมูลความถนัดได้"})
 				return
 			}
 		}
 	}
 
-	// ยืนยันกระบวนการบันทึกข้อมูลทั้งหมดพร้อมกัน
 	err = tx.Commit()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถยืนยันการบันทึกข้อมูลลงระบบได้"})
@@ -160,7 +185,7 @@ func CreateUser(c *gin.Context) {
 }
 
 // ---------------------------------------------------------
-// 3. UpdateUser: แก้ไขข้อมูลผู้ใช้และล้าง/อัปเดตความถนัดใหม่ทั้งหมด
+// 3. UpdateUser: แก้ไขข้อมูลผู้ใช้
 // ---------------------------------------------------------
 func UpdateUser(c *gin.Context) {
 	id := c.Param("id")
@@ -171,7 +196,6 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
-	// เข้ารหัสผ่านใหม่
 	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "เข้ารหัสผ่านไม่สำเร็จ"})
@@ -184,7 +208,6 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
-	// ตรวจสอบสิทธิ์สิทธิ์ดั้งเดิมจาก ID เพื่อนำไปประมวลผลตารางเชื่อมความถนัด
 	var role string
 	err = tx.QueryRow("SELECT role FROM users WHERE id = $1", id).Scan(&role)
 	if err != nil {
@@ -193,20 +216,21 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
-	// 1. อัปเดตข้อมูลหลักในตาราง users (อัปเดต username, password, และ full_name)
-	_, err = tx.Exec(
-		"UPDATE users SET username=$1, password=$2, full_name=$3 WHERE id=$4",
-		req.Username, string(hashed), req.FullName, id,
-	)
+	// 🔥 [ปรับปรุง] เพิ่ม email, department_id, is_central ลงในคำสั่ง UPDATE
+	updateQuery := `
+		UPDATE users 
+		SET username=$1, password=$2, full_name=$3, email=$4, department_id=$5, is_central=$6 
+		WHERE id=$7
+	`
+	_, err = tx.Exec(updateQuery, req.Username, string(hashed), req.FullName, req.Email, req.DepartmentID, req.IsCentral, id)
+
 	if err != nil {
 		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถอัปเดตข้อมูลผู้ใช้งานได้: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถอัปเดตข้อมูลผู้ใช้งานได้"})
 		return
 	}
 
-	// 2. จัดการข้อมูลความถนัดใหม่หากผู้ใช้งานรายนั้นเป็นช่างเทคนิค
 	if role == "technician" {
-		// เคลียร์ข้อมูลความถนัดเก่าออกให้หมดก่อนเพื่อรออัปเดตชุดใหม่
 		_, err = tx.Exec("DELETE FROM technician_specialties WHERE user_id = $1", id)
 		if err != nil {
 			tx.Rollback()
@@ -214,7 +238,6 @@ func UpdateUser(c *gin.Context) {
 			return
 		}
 
-		// บันทึกความถนัดชุดใหม่เข้าไปแทนที่
 		if len(req.Specialties) > 0 {
 			if len(req.Specialties) > 3 {
 				tx.Rollback()
@@ -242,32 +265,33 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "อัปเดตข้อมูลผู้ใช้งานและจัดระเบียบความถนัดสำเร็จ"})
+	c.JSON(http.StatusOK, gin.H{"message": "อัปเดตข้อมูลผู้ใช้งานสำเร็จ"})
 }
 
 // ---------------------------------------------------------
-// 4. DeleteUser: ลบบัญชีผู้ใช้งาน (ตารางเชื่อมจะลบอัตโนมัติด้วย ON DELETE CASCADE)
+// 4. DeleteUser: ลบบัญชีผู้ใช้งาน (ปรับเป็น Soft Delete)
 // ---------------------------------------------------------
 func DeleteUser(c *gin.Context) {
 	id := c.Param("id")
 
-	result, err := database.DB.Exec("DELETE FROM users WHERE id=$1", id)
+	// 🔥 [ปรับปรุง] ใช้เทคนิค Soft Delete เปลี่ยน is_active = false แทนการลบทิ้ง เพื่อรักษาประวัติงานซ่อม
+	result, err := database.DB.Exec("UPDATE users SET is_active = false WHERE id=$1", id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "เกิดข้อผิดพลาดในการลบ: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "เกิดข้อผิดพลาดในการระงับบัญชี: " + err.Error()})
 		return
 	}
 
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบผู้ใช้งานที่ต้องการลบ"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบผู้ใช้งานที่ต้องการระงับ"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "ลบผู้ใช้งานออกจากระบบสำเร็จ"})
+	c.JSON(http.StatusOK, gin.H{"message": "ระงับบัญชีผู้ใช้งานสำเร็จ"})
 }
 
 // ---------------------------------------------------------
-// 5. Login: เข้าสู่ระบบพร้อมส่ง FullName กลับไปแสดงผลแทน Username
+// 5. Login: เข้าสู่ระบบ
 // ---------------------------------------------------------
 func Login(c *gin.Context) {
 	var req LoginRequest
@@ -279,54 +303,66 @@ func Login(c *gin.Context) {
 
 	var dbUser models.User
 	var dbHashedPassword string
+	var deptID sql.NullInt64
 
-	// ค้นหาข้อมูลใน Database โดยดึงฟิลด์ full_name ออกมาด้วย
-	err := database.DB.QueryRow(
-		"SELECT id, username, password, full_name, role FROM users WHERE username=$1",
-		req.Username,
-	).Scan(
+	// 🔥 [ปรับปรุง] ดึง email, department_id, is_central ออกมาด้วย (ต้อง check is_active ด้วย)
+	query := `
+		SELECT id, username, password, full_name, email, role, department_id, is_central 
+		FROM users 
+		WHERE username=$1 AND is_active=true
+	`
+	err := database.DB.QueryRow(query, req.Username).Scan(
 		&dbUser.ID,
 		&dbUser.Username,
 		&dbHashedPassword,
 		&dbUser.FullName,
+		&dbUser.Email,
 		&dbUser.Role,
+		&deptID,
+		&dbUser.IsCentral,
 	)
 
 	if err == sql.ErrNoRows {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง หรือบัญชีถูกระงับ"})
 		return
 	} else if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	// ตรวจสอบความถูกต้องของสิทธิ์ทางเข้า
+	if deptID.Valid {
+		idVal := int(deptID.Int64)
+		dbUser.DepartmentID = &idVal
+	}
+
 	if dbUser.Role != req.ExpectedRole {
 		c.JSON(http.StatusForbidden, gin.H{"error": "คุณไม่มีสิทธิ์เข้าสู่ระบบผ่านช่องทางนี้"})
 		return
 	}
 
-	// ตรวจสอบความถูกต้องของรหัสผ่าน
 	err = bcrypt.CompareHashAndPassword([]byte(dbHashedPassword), []byte(req.Password))
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง"})
 		return
 	}
 
-	// ส่งข้อมูลเฉพาะที่จำเป็นกลับหน้าบ้าน โดยมี full_name ไปโชว์ต้อนรับอย่างสวยงาม
+	// 🔥 [ปรับปรุง] ส่ง department_id และ is_central กลับไปให้ Frontend ใช้ประมวลผลต่อ
 	c.JSON(http.StatusOK, gin.H{
 		"message": "เข้าสู่ระบบสำเร็จ",
 		"user": gin.H{
-			"id":        dbUser.ID,
-			"username":  dbUser.Username,
-			"full_name": dbUser.FullName, // หน้า React จะนำค่านี่ไปแสดงผลเป็น "ยินดีต้อนรับ, สมชาย"
-			"role":      dbUser.Role,
+			"id":            dbUser.ID,
+			"username":      dbUser.Username,
+			"full_name":     dbUser.FullName,
+			"email":         dbUser.Email,
+			"role":          dbUser.Role,
+			"department_id": dbUser.DepartmentID,
+			"is_central":    dbUser.IsCentral,
 		},
 	})
 }
 
 // ---------------------------------------------------------
-// 6. SearchUsers: ค้นหาผู้ใช้งานจาก Username หรือ ชื่อจริง (ดึงความถนัดจริง ไม่ใช้ Mockup)
+// 6. SearchUsers: ค้นหาผู้ใช้งาน (อัปเดต Query ให้ตรงกับ GetUsers)
 // ---------------------------------------------------------
 func SearchUsers(c *gin.Context) {
 	keyword := c.Query("q")
@@ -336,18 +372,23 @@ func SearchUsers(c *gin.Context) {
 		return
 	}
 
-	// ค้นหาแบบยืดหยุ่นโดยรองรับทั้งการหาด้วย username หรือชื่อจริง full_name ภาษาไทย
-	rows, err := database.DB.Query(
-		"SELECT id, username, full_name, role, created_at FROM users WHERE username ILIKE $1 OR full_name ILIKE $1 ORDER BY id ASC",
-		"%"+keyword+"%",
-	)
+	// 🔥 [ปรับปรุง] อัปเดตโครงสร้างดึงข้อมูลเหมือน GetUsers
+	query := `
+		SELECT u.id, u.username, u.full_name, u.email, u.role, 
+		       u.department_id, d.name as department_name, 
+		       u.is_central, u.is_active, u.created_at 
+		FROM users u
+		LEFT JOIN departments d ON u.department_id = d.id
+		WHERE (u.username ILIKE $1 OR u.full_name ILIKE $1) AND u.is_active = true
+		ORDER BY u.id ASC
+	`
+	rows, err := database.DB.Query(query, "%"+keyword+"%")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	defer rows.Close()
 
-	// [ปรับปรุง] ใช้ make เพื่อส่ง [] แทน null
 	users := make([]models.User, 0)
 
 	for rows.Next() {
@@ -355,18 +396,32 @@ func SearchUsers(c *gin.Context) {
 		u.Specialties = []int{}
 		u.SpecialtyNames = []string{}
 
-		err := rows.Scan(&u.ID, &u.Username, &u.FullName, &u.Role, &u.CreatedAt)
+		var deptID sql.NullInt64
+		var deptName sql.NullString
+
+		err := rows.Scan(
+			&u.ID, &u.Username, &u.FullName, &u.Email, &u.Role,
+			&deptID, &deptName, &u.IsCentral, &u.IsActive, &u.CreatedAt,
+		)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
+		if deptID.Valid {
+			idVal := int(deptID.Int64)
+			u.DepartmentID = &idVal
+		}
+		if deptName.Valid {
+			u.DepartmentName = deptName.String
+		}
+
 		if u.Role == "technician" {
 			specRows, err := database.DB.Query(`
-                SELECT ts.problem_type_id, pt.name 
-                FROM technician_specialties ts
-                JOIN problem_types pt ON ts.problem_type_id = pt.id
-                WHERE ts.user_id = $1`, u.ID)
+				SELECT ts.problem_type_id, pt.name 
+				FROM technician_specialties ts
+				JOIN problem_types pt ON ts.problem_type_id = pt.id
+				WHERE ts.user_id = $1`, u.ID)
 
 			if err == nil {
 				for specRows.Next() {

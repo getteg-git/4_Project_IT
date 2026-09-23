@@ -1,9 +1,10 @@
+@scope (.tracking-container) {
 /* โครงสร้างพื้นฐาน */
 .tracking-container {
   min-height: 100vh;
-  background-color: #f0f4f2; /* โทนสีเขียวอ่อนศิลปากร */
+  background-color: var(--color-background); /* โทนสีเขียวอ่อนศิลปากร */
   padding: 40px 20px;
-  font-family: 'Sarabun', 'Prompt', sans-serif;
+  font-family: inherit;
   display: flex;
   justify-content: center;
 }
@@ -19,7 +20,7 @@
 }
 
 .tracking-header h2 {
-  color: #007A53; /* สีเขียวศิลปากร */
+  color: var(--color-primary); /* สีเขียวศิลปากร */
   font-size: 2rem;
   margin-bottom: 10px;
 }
@@ -48,7 +49,7 @@
 
 .search-input:focus {
   outline: none;
-  border-color: #007A53;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 4px rgba(0, 122, 83, 0.15);
 }
 
@@ -65,7 +66,7 @@
   padding: 25px;
   border-radius: 12px;
   box-shadow: 0 4px 15px rgba(0, 122, 83, 0.08);
-  border-left: 6px solid #007A53;
+  border-left: 6px solid var(--color-primary);
   transition: transform 0.2s;
 }
 
@@ -100,7 +101,7 @@
 
 .status-pending { background-color: #f39c12; color: white; } /* รอซ่อม - สีส้ม */
 .status-progress { background-color: #2980b9; color: white; } /* กำลังซ่อม - สีฟ้า */
-.status-completed { background-color: #007A53; color: white; } /* เสร็จ - สีเขียวศิลปากร */
+.status-completed { background-color: var(--color-primary); color: white; } /* เสร็จ - สีเขียวศิลปากร */
 .status-failed { background-color: #e74c3c; color: white; } /* ซ่อมไม่ได้ - สีแดง */
 .status-default { background-color: #95a5a6; }
 
@@ -118,9 +119,10 @@
 
 /* 🔥 ป้ายชื่อช่างหน้าการ์ด (เพิ่มใหม่) */
 .repair-tech-badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   background-color: #f2f9f6;
-  color: #007A53;
+  color: var(--color-primary);
   padding: 6px 12px;
   border-radius: 6px;
   font-size: 0.9rem;
@@ -145,8 +147,8 @@
 
 .btn-details {
   background-color: #f2f9f6;
-  color: #007A53;
-  border: 1px solid #007A53;
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
   padding: 10px 20px;
   border-radius: 8px;
   font-weight: bold;
@@ -155,7 +157,7 @@
 }
 
 .btn-details:hover {
-  background-color: #007A53;
+  background-color: var(--color-primary);
   color: white;
 }
 
@@ -215,7 +217,7 @@
   border-radius: 12px;
   position: relative;
   box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-  border-top: 6px solid #007A53;
+  border-top: 6px solid var(--color-primary);
 }
 
 .close-btn {
@@ -229,7 +231,7 @@
 .close-btn:hover { color: #d32f2f; }
 
 .modal-box h3 {
-  color: #007A53;
+  color: var(--color-primary);
   font-size: 1.5rem;
   margin-bottom: 5px;
 }
@@ -287,12 +289,12 @@
   background-color: #f2f9f6;
   padding: 18px;
   border-radius: 8px;
-  border-left: 5px solid #007A53;
+  border-left: 5px solid var(--color-primary);
 }
 
 .tech-note {
   margin-top: 8px;
-  color: #006343;
+  color: var(--color-primary-hover);
 }
 
 .btn-close-modal {
@@ -341,4 +343,9 @@
   .modal-box {
     padding: 25px 20px;
   }
+}
+.repair-tech-badge strong,
+.issue-desc-box strong,
+.tech-info-box strong,
+.no-results p { display: inline-flex; align-items: center; gap: 6px; }
 }

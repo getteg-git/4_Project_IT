@@ -1,9 +1,10 @@
+@scope (.admin-dashboard-container) {
 /* โครงสร้างหลัก */
 .admin-dashboard-container {
   min-height: 100vh;
-  background-color: #f0f4f2; /* พื้นหลังสีเขียวอ่อนสะอาดตา */
+  background-color: var(--color-background); /* พื้นหลังสีเขียวอ่อนสะอาดตา */
   padding: 30px 40px;
-  font-family: 'Sarabun', 'Prompt', sans-serif;
+  font-family: inherit;
 }
 
 /* ส่วนหัว Header */
@@ -16,11 +17,11 @@
   padding: 25px 30px;
   border-radius: 12px;
   box-shadow: 0 4px 15px rgba(0, 122, 83, 0.08);
-  border-left: 8px solid #007A53; /* เขียวศิลปากร */
+  border-left: 8px solid var(--color-primary); /* เขียวศิลปากร */
 }
 
 .dashboard-header h1 {
-  color: #007A53;
+  color: var(--color-primary);
   font-size: 1.8rem;
   margin-bottom: 8px;
 }
@@ -40,9 +41,9 @@
    ======================================= */
 .btn-users {
   background-color: transparent;
-  color: #007A53;
+  color: var(--color-primary);
   padding: 12px 24px;
-  border: 2px solid #007A53;
+  border: 2px solid var(--color-primary);
   border-radius: 8px;
   font-size: 1.05rem;
   font-weight: bold;
@@ -51,14 +52,14 @@
 }
 
 .btn-users:hover {
-  background-color: #007A53;
+  background-color: var(--color-primary);
   color: white;
   box-shadow: 0 4px 10px rgba(0, 122, 83, 0.2);
   transform: translateY(-2px);
 }
 
 .btn-manage {
-  background-color: #007A53;
+  background-color: var(--color-primary);
   color: white;
   padding: 12px 24px;
   border: none;
@@ -71,7 +72,7 @@
 }
 
 .btn-manage:hover {
-  background-color: #006343;
+  background-color: var(--color-primary-hover);
   transform: translateY(-2px);
 }
 
@@ -130,7 +131,7 @@
 }
 
 .filter-select:focus {
-  border-color: #007A53;
+  border-color: var(--color-primary);
 }
 
 /* =======================================
@@ -180,8 +181,8 @@
 .progress { border-top: 5px solid #2980b9; }
 .progress .number { color: #2980b9; }
 
-.completed { border-top: 5px solid #007A53; }
-.completed .number { color: #007A53; }
+.completed { border-top: 5px solid var(--color-primary); }
+.completed .number { color: var(--color-primary); }
 
 .mttr { border-top: 5px solid #27ae60; }
 .mttr .number { color: #27ae60; }
@@ -202,6 +203,10 @@
 }
 
 .tab-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   background-color: transparent;
   border: none;
   padding: 10px 20px;
@@ -215,12 +220,12 @@
 }
 
 .tab-button:hover {
-  color: #007A53;
+  color: var(--color-primary);
   background-color: rgba(0, 122, 83, 0.05);
 }
 
 .tab-button.active {
-  color: #007A53;
+  color: var(--color-primary);
   background-color: white;
   border: 1px solid #e0e8e4;
   border-bottom: none;
@@ -236,7 +241,7 @@
   left: 0;
   width: 100%;
   height: 3px;
-  background-color: #007A53;
+  background-color: var(--color-primary);
 }
 
 /* =======================================
@@ -425,4 +430,5 @@
   .summary-card.warning {
     grid-column: 1;
   }
+}
 }

@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import api from "../../api/axios";
+import useToast from "../../hooks/useToast";
 import "./Users.css";
 
 function Users({ user, setUser }) {
+    const { toast, confirm } = useToast();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -60,7 +62,7 @@ function Users({ user, setUser }) {
     // Add user
     const handleAddUser = async () => {
         if (!newUsername || !newPassword) {
-            alert("กรุณากรอกข้อมูลให้ครบ");
+            toast.warning("กรุณากรอกข้อมูลให้ครบ", { description: "ระบุชื่อผู้ใช้และรหัสผ่านก่อนบันทึก" });
             return;
         }
 
@@ -74,23 +76,25 @@ function Users({ user, setUser }) {
             setNewPassword("");
 
             fetchUsers();
+            toast.success("เพิ่มผู้ใช้งานสำเร็จ");
         } catch (err) {
             console.error(err);
-            alert("เพิ่ม user ไม่สำเร็จ");
+            toast.error("เพิ่มผู้ใช้งานไม่สำเร็จ", { description: "กรุณาลองใหม่อีกครั้ง" });
         }
     };
 
     const handleDeleteUser = async (id) => {
-        const ok = window.confirm("ต้องการลบ user นี้ใช่ไหม?");
+        const ok = await confirm({ title: "ลบผู้ใช้งาน", description: "บัญชีนี้จะถูกลบออกจากระบบถาวร", confirmLabel: "ลบบัญชี", variant: "danger" });
 
         if (!ok) return;
 
         try {
             await api.delete(`/users/${id}`);
             fetchUsers();
+            toast.success("ลบผู้ใช้งานสำเร็จ");
         } catch (err) {
             console.error(err);
-            alert("ลบไม่สำเร็จ");
+            toast.error("ลบผู้ใช้งานไม่สำเร็จ", { description: "กรุณาลองใหม่อีกครั้ง" });
         }
     };
 
@@ -102,7 +106,7 @@ function Users({ user, setUser }) {
 
     const handleUpdateUser = async () => {
         if (!editUsername || !editPassword) {
-            alert("กรุณากรอกข้อมูลให้ครบ");
+            toast.warning("กรุณากรอกข้อมูลให้ครบ", { description: "ระบุชื่อผู้ใช้และรหัสผ่านก่อนบันทึก" });
             return;
         }
 
@@ -117,9 +121,10 @@ function Users({ user, setUser }) {
             setEditPassword("");
 
             fetchUsers();
+            toast.success("แก้ไขผู้ใช้งานสำเร็จ");
         } catch (err) {
             console.error(err);
-            alert("แก้ไขไม่สำเร็จ");
+            toast.error("แก้ไขผู้ใช้งานไม่สำเร็จ", { description: "กรุณาลองใหม่อีกครั้ง" });
         }
     };
 

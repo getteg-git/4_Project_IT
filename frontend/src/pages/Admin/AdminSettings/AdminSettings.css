@@ -1,0 +1,138 @@
+/* =======================================
+   Layout พื้นฐาน
+   ======================================= */
+.admin-settings-container {
+  padding: 30px;
+  background-color: #f8f9fa; /* ปรับสีพื้นหลังให้เข้ากับโปรเจกต์ของคุณ */
+  min-height: 100vh;
+}
+
+.admin-settings-wrapper {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.settings-header {
+  margin-bottom: 25px;
+  margin-top: 15px;
+}
+
+.settings-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.5rem;
+  color: #333;
+  margin-bottom: 5px;
+}
+
+.settings-header p {
+  color: #666;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+/* =======================================
+   ระบบ Tab (ปุ่มกดสลับหน้า)
+   ======================================= */
+.settings-tabs {
+  display: flex;
+  gap: 10px;
+  border-bottom: 2px solid #e0e0e0;
+  margin-bottom: 25px;
+  /* ทำให้สไลด์ซ้าย-ขวาได้เมื่อหน้าจอเล็ก */
+  overflow-x: auto; 
+  white-space: nowrap;
+  padding-bottom: 5px;
+}
+
+/* ซ่อน Scrollbar ของ Tab เพื่อความสวยงาม */
+.settings-tabs::-webkit-scrollbar {
+  height: 4px;
+}
+.settings-tabs::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 4px;
+}
+
+.tab-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: none;
+  border: none;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  transition: all 0.2s ease-in-out;
+}
+
+.tab-button:hover {
+  color: #007bff;
+  background-color: rgba(0, 123, 255, 0.05);
+}
+
+/* Tab ที่กำลังถูกเลือก */
+.tab-button.active {
+  color: #007bff; /* สีหลักของโปรเจกต์ */
+  position: relative;
+}
+
+/* เส้นใต้ Tab ที่แอคทีฟ */
+.tab-button.active::after {
+  content: "";
+  position: absolute;
+  bottom: -7px; /* ให้เส้นทับลงบน border-bottom ของแม่พอดี */
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background-color: #007bff;
+  border-radius: 4px 4px 0 0;
+}
+
+/* =======================================
+   ส่วนแสดงผลและ Placeholder
+   ======================================= */
+.tab-content {
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  overflow: hidden;
+}
+
+.placeholder-content {
+  padding: 60px 20px;
+  text-align: center;
+  color: #888;
+  font-size: 1.1rem;
+}
+
+/* =======================================
+   Responsive สำหรับมือถือและแท็บเล็ต
+   ======================================= */
+@media (max-width: 768px) {
+  .admin-settings-container {
+    padding: 20px 15px;
+  }
+  
+  .settings-header {
+    text-align: center;
+  }
+  
+  .settings-header h2 {
+    justify-content: center;
+  }
+
+  .settings-tabs {
+    gap: 5px;
+    padding-bottom: 10px;
+  }
+  
+  .tab-button {
+    padding: 10px 15px;
+    font-size: 0.95rem;
+  }
+}

@@ -1,0 +1,67 @@
+.ui-toast-container {
+  position: fixed;
+  z-index: 3000;
+  top: 24px;
+  right: 24px;
+  display: grid;
+  width: min(390px, calc(100vw - 32px));
+  gap: 12px;
+}
+
+.ui-toast {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  overflow: hidden;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-left: 4px solid currentColor;
+  border-radius: var(--radius-surface);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+  animation: toast-in 220ms ease-out both;
+}
+
+.ui-toast--success { color: var(--color-success); }
+.ui-toast--info { color: var(--color-info); }
+.ui-toast--warning { color: var(--color-warning); }
+.ui-toast--error { color: var(--color-danger); }
+
+.ui-toast__icon { margin-top: 2px; flex: 0 0 auto; }
+.ui-toast__content { color: var(--color-text); }
+.ui-toast__content strong { display: block; font-size: 0.95rem; }
+.ui-toast__content p { margin: 2px 0 0; color: var(--color-text-muted); font-size: 0.875rem; }
+.ui-toast__action { margin-top: 8px; padding: 0; border: 0; color: inherit; background: transparent; font-weight: 700; cursor: pointer; }
+.ui-toast__close { align-self: start; color: var(--color-text-muted); }
+.ui-toast__progress { position: absolute; bottom: 0; left: 0; width: 100%; height: 3px; transform-origin: left; background: currentColor; animation-name: toast-progress; animation-timing-function: linear; animation-fill-mode: both; }
+.ui-toast__progress.is-paused { animation-play-state: paused; }
+
+.ui-icon-button { display: inline-grid; width: 34px; height: 34px; padding: 0; place-items: center; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
+.ui-icon-button:hover { background: rgba(24, 51, 42, 0.08); }
+
+.ui-dialog-backdrop { position: fixed; z-index: 2500; inset: 0; display: grid; padding: 20px; place-items: center; background: rgba(16, 39, 31, 0.56); backdrop-filter: blur(3px); }
+.ui-confirm-dialog { position: relative; width: min(100%, 440px); padding: 32px; border: 1px solid var(--color-border); border-radius: var(--radius-surface); background: var(--color-surface); box-shadow: var(--shadow-md); }
+.ui-confirm-dialog__close { position: absolute; top: 12px; right: 12px; color: var(--color-text-muted); }
+.ui-confirm-dialog__icon { display: grid; width: 48px; height: 48px; margin-bottom: 16px; place-items: center; border-radius: 50%; color: var(--color-warning); background: #fff4df; }
+.ui-confirm-dialog__icon.is-danger { color: var(--color-danger); background: #fff0f0; }
+.ui-confirm-dialog h2 { margin: 0; color: var(--color-text); font-size: 1.25rem; }
+.ui-confirm-dialog p { margin: 8px 0 0; color: var(--color-text-muted); }
+.ui-confirm-dialog__actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 28px; }
+.ui-button { min-height: 42px; padding: 9px 16px; border: 1px solid transparent; border-radius: var(--radius-control); font-weight: 700; cursor: pointer; }
+.ui-button--primary { color: #fff; background: var(--color-primary); }
+.ui-button--primary:hover { background: var(--color-primary-hover); }
+.ui-button--secondary { color: var(--color-text); border-color: var(--color-border); background: var(--color-surface); }
+.ui-button--secondary:hover { background: var(--color-primary-soft); }
+.ui-button--danger { color: #fff; background: var(--color-danger); }
+.ui-button--danger:hover { background: #a62f2f; }
+
+@keyframes toast-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes toast-progress { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+@media (max-width: 600px) {
+  .ui-toast-container { top: 16px; right: 16px; left: 16px; width: auto; }
+  .ui-confirm-dialog { padding: 28px 20px 20px; }
+  .ui-confirm-dialog__actions { flex-direction: column; }
+  .ui-confirm-dialog__actions .ui-button { width: 100%; }
+}

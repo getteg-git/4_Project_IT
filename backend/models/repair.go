@@ -5,7 +5,10 @@ import "time"
 // ตาราง repairs
 type Repair struct {
 	ID               int     `json:"id"`
+	TicketNumber     string  `json:"ticket_number"` // 🔥 [เพิ่มใหม่] รหัสอ้างอิงตั๋ว (เช่น REQ-2609001)
 	ReporterEmail    string  `json:"reporter_email"`
+	DepartmentID     *int    `json:"department_id"`             // 🔥 [เพิ่มใหม่] งานนี้เป็นของสาขาไหน (ใช้ *int เพราะอาจเป็น null ได้)
+	DepartmentName   string  `json:"department_name,omitempty"` // 🔥 [แถมให้] เอาไว้เก็บชื่อสาขาตอน JOIN ตารางส่งให้ Frontend
 	TechnicianID     *int    `json:"technician_id"`
 	TechnicianName   string  `json:"technician_name,omitempty"`
 	LocationID       *int    `json:"location_id"`
@@ -26,7 +29,7 @@ type Repair struct {
 	AdminNote        *string `json:"admin_note"`
 	Status           string  `json:"status"`
 
-	// 🔥 [แก้ไขจุดนี้] เปลี่ยนจาก RepairCost เป็น 2 ฟิลด์ใหม่ตาม Database
+	// ฟิลด์ค่าใช้จ่าย
 	EstimatedCost float64 `json:"estimated_cost"`
 	ActualCost    float64 `json:"actual_cost"`
 

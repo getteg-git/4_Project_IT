@@ -1,0 +1,388 @@
+/* =======================================
+   Container & Toolbar
+   ======================================= */
+.admin-equipments-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+.equipments-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+  gap: 15px;
+}
+
+.equipments-toolbar .search-section {
+  flex: 1;
+  max-width: 400px;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* =======================================
+   ปุ่ม Action หลัก (Import / Create)
+   ======================================= */
+.btn-create-equipment,
+.btn-import-equipment {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.95rem;
+}
+
+.btn-create-equipment {
+  background-color: #6f42c1; /* ธีมสีม่วงเดิม */
+  color: white;
+}
+.btn-create-equipment:hover {
+  background-color: #59339d;
+}
+
+.btn-import-equipment {
+  background-color: #10b981; /* สีเขียวสำหรับ Excel */
+  color: white;
+}
+.btn-import-equipment:hover:not(:disabled) {
+  background-color: #059669;
+}
+.btn-import-equipment:disabled {
+  background-color: #6ee7b7;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* =======================================
+   สถานะ Loading และแจ้งเตือน
+   ======================================= */
+.import-loading-state,
+.loading-state,
+.no-results {
+  text-align: center;
+  padding: 40px 20px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+}
+
+.import-loading-state {
+  color: #10b981;
+  font-weight: 600;
+  border-color: #a7f3d0;
+  background-color: #ecfdf5;
+}
+
+.no-results {
+  color: #888;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* =======================================
+   รายการอุปกรณ์ (Table Layout แทน Grid)
+   ======================================= */
+.equipments-list-wrapper {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto; /* ทำให้เลื่อนตารางซ้ายขวาได้ในจอมือถือ */
+}
+
+.equipments-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.95rem;
+}
+
+.equipments-table th {
+  background-color: #f8f9fa;
+  color: #555;
+  font-weight: 600;
+  padding: 12px 16px;
+  border-bottom: 2px solid #e0e0e0;
+  white-space: nowrap;
+}
+
+.equipments-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f1f3f5;
+  color: #333;
+  vertical-align: middle;
+}
+
+.equipments-table tr:last-child td {
+  border-bottom: none;
+}
+
+.equipments-table tr:hover {
+  background-color: #fcfcfc;
+}
+
+/* Typography & Utilities ในตาราง */
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.font-medium { font-weight: 500; color: #333; }
+.font-mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.font-numeric { font-variant-numeric: tabular-nums; color: #555; }
+.text-gray { color: #888; font-size: 0.85rem; }
+
+/* =======================================
+   Badges (หมวดหมู่ และ สถานะ)
+   ======================================= */
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.badge-category {
+  background-color: #f0ecf9; /* ใช้สีม่วงอ่อนแบบที่คุณออกแบบไว้ */
+  color: #6f42c1;
+}
+
+.badge-status {
+  border: 1px solid transparent;
+}
+
+.status-active {
+  background-color: #d1fae5;
+  color: #065f46;
+  border-color: #a7f3d0;
+}
+
+.status-inactive {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
+/* =======================================
+   ปุ่ม Action ในตาราง (แก้ไข / ลบ)
+   ======================================= */
+.table-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  background: none;
+  transition: all 0.2s;
+}
+
+.btn-edit-icon {
+  color: #6f42c1;
+  background-color: rgba(111, 66, 193, 0.1);
+}
+.btn-edit-icon:hover {
+  background-color: #6f42c1;
+  color: white;
+}
+
+.btn-delete-icon {
+  color: #dc3545;
+  background-color: rgba(220, 53, 69, 0.1);
+}
+.btn-delete-icon:hover {
+  background-color: #dc3545;
+  color: white;
+}
+
+/* =======================================
+   POPUP MODAL (คงเดิม 100% กัน UI พัง)
+   ======================================= */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal-box {
+  background: #ffffff;
+  padding: 25px;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 450px;
+  position: relative;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.close-btn {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  background-color: #f1f3f5;
+  color: #dc3545;
+}
+
+.modal-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 0;
+  margin-bottom: 25px;
+  font-size: 1.25rem;
+  color: #333;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+}
+
+.input-group label {
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #555;
+  font-size: 0.95rem;
+}
+
+.input-group .required {
+  color: #dc3545;
+}
+
+.input-group input {
+  padding: 10px 15px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.input-group input:focus {
+  outline: none;
+  border-color: #6f42c1;
+  box-shadow: 0 0 0 3px rgba(111, 66, 193, 0.1);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 25px;
+}
+
+.btn-cancel {
+  padding: 10px 20px;
+  background-color: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  color: #495057;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-cancel:hover {
+  background-color: #e2e6ea;
+}
+
+.btn-submit {
+  padding: 10px 20px;
+  background-color: #6f42c1;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background-color 0.2s;
+}
+
+.btn-submit:hover {
+  background-color: #59339d;
+}
+
+.btn-submit:disabled {
+  background-color: #c9bcf2;
+  cursor: not-allowed;
+}
+
+/* =======================================
+   Responsive (รองรับมือถือและแท็บเล็ต)
+   ======================================= */
+@media (max-width: 768px) {
+  .equipments-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .equipments-toolbar .search-section {
+    max-width: 100%;
+  }
+
+  .toolbar-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .toolbar-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  /* ตัวตารางจะเลื่อนซ้ายขวาได้อัตโนมัติจากคลาส .table-responsive */
+}
