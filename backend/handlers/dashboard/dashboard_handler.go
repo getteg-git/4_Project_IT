@@ -22,9 +22,9 @@ func GetDashboardOverview(c *gin.Context) {
 	query := `
         SELECT 
             COUNT(*) as total_repairs,
-            COALESCE(SUM(CASE WHEN status = 'รอซ่อม' THEN 1 ELSE 0 END), 0) as pending,
+			COALESCE(SUM(CASE WHEN status IN ('รอซ่อม', 'รับงานแล้ว') THEN 1 ELSE 0 END), 0) as pending,
             COALESCE(SUM(CASE WHEN status = 'กำลังซ่อม' THEN 1 ELSE 0 END), 0) as in_progress,
-            COALESCE(SUM(CASE WHEN status = 'ซ่อมไม่ได้' THEN 1 ELSE 0 END), 0) as cannot_repair,
+			COALESCE(SUM(CASE WHEN status IN ('ซ่อมไม่ได้', 'ส่งซ่อมภายนอก') THEN 1 ELSE 0 END), 0) as cannot_repair,
             COALESCE(SUM(CASE WHEN status = 'เสร็จสิ้น' THEN 1 ELSE 0 END), 0) as completed
         FROM repairs
         WHERE 1=1 

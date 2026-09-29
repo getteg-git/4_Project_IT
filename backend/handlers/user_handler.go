@@ -2,7 +2,11 @@ package user
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
+	"net/mail"
+	"regexp"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -27,11 +31,12 @@ type CreateUserRequest struct {
 
 type UpdateUserRequest struct {
 	Username     string `json:"username" binding:"required"`
-	Password     string `json:"password" binding:"required"`
+	Password     string `json:"password"`
 	FullName     string `json:"full_name" binding:"required"`
 	Email        string `json:"email" binding:"required"` // 🔥 [เพิ่มใหม่]
-	DepartmentID *int   `json:"department_id"`            // 🔥 [เพิ่มใหม่]
-	IsCentral    bool   `json:"is_central"`               // 🔥 [เพิ่มใหม่]
+	Role         string `json:"role" binding:"required"`
+	DepartmentID *int   `json:"department_id"` // 🔥 [เพิ่มใหม่]
+	IsCentral    bool   `json:"is_central"`    // 🔥 [เพิ่มใหม่]
 	Specialties  []int  `json:"specialties"`
 }
 
@@ -39,6 +44,61 @@ type LoginRequest struct {
 	Username     string `json:"username" binding:"required"`
 	Password     string `json:"password" binding:"required"`
 	ExpectedRole string `json:"expected_role" binding:"required"`
+}
+
+var userUsernamePattern = regexp.MustCompile(`^[A-Za-z0-9._-]{3,30}$`)
+
+func validateUserPayload(username, password, fullName, email, role string, departmentID *int, specialties []int, allowEmptyPassword bool) error {
+	username = strings.TrimSpace(username)
+	password = strings.TrimSpace(password)
+	fullName = strings.TrimSpace(fullName)
+	email = strings.TrimSpace(email)
+	role = strings.ToLower(strings.TrimSpace(role))
+
+	if username == "" {
+		return fmt.Errorf("username ต้องไม่ว่าง")
+	}
+	if !userUsernamePattern.MatchString(username) {
+		return fmt.Errorf("username ต้องมีความยาว 3-30 ตัวอักษร และใช้ได้เฉพาะ a-z, A-Z, 0-9, '.', '_', '-'")
+	}
+	if password != "" {
+		if len(password) < 3 || len(password) > 30 {
+			return fmt.Errorf("password ต้องมีความยาว 3-30 ตัวอักษร")
+		}
+	} else if !allowEmptyPassword {
+		return fmt.Errorf("password ต้องมีความยาว 3-30 ตัวอักษร")
+	}
+	if len(fullName) < 2 {
+		return fmt.Errorf("ชื่อ-นามสกุลจริง ต้องมีความยาวอย่างน้อย 2 ตัวอักษร")
+	}
+	if _, err := mail.ParseAddress(email); err != nil {
+		return fmt.Errorf("อีเมลไม่ถูกต้อง")
+	}
+	if role != "admin" && role != "technician" {
+		return fmt.Errorf("สิทธิ์ผู้ใช้ต้องเป็น admin หรือ technician")
+	}
+	if role == "technician" {
+		if departmentID == nil {
+			return fmt.Errorf("ช่างเทคนิคต้องเลือกสาขาวิชา")
+		}
+		if len(specialties) == 0 {
+			return fmt.Errorf("ช่างเทคนิคต้องมีความถนัดอย่างน้อย 1 หมวดหมู่")
+		}
+		if len(specialties) > 3 {
+			return fmt.Errorf("ช่างเทคนิคสามารถมีความถนัดได้สูงสุด 3 หมวดหมู่")
+		}
+		seen := make(map[int]bool)
+		for _, specialtyID := range specialties {
+			if specialtyID <= 0 || seen[specialtyID] {
+				return fmt.Errorf("ข้อมูลความถนัดไม่ถูกต้อง")
+			}
+			seen[specialtyID] = true
+		}
+	} else if len(specialties) > 0 {
+		return fmt.Errorf("แอดมินไม่จำเป็นต้องระบุความถนัด")
+	}
+
+	return nil
 }
 
 // ---------------------------------------------------------
@@ -129,6 +189,11 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 
+	if err := validateUserPayload(req.Username, req.Password, req.FullName, req.Email, req.Role, req.DepartmentID, req.Specialties, false); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
 	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "เข้ารหัสผ่านไม่สำเร็จ"})
@@ -196,10 +261,24 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
-	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "เข้ารหัสผ่านไม่สำเร็จ"})
+	if err := validateUserPayload(req.Username, req.Password, req.FullName, req.Email, req.Role, req.DepartmentID, req.Specialties, true); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+
+	passwordHash := req.Password
+	if req.Password == "" {
+		if err := database.DB.QueryRow("SELECT password FROM users WHERE id = $1", id).Scan(&passwordHash); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถดึงรหัสผ่านปัจจุบันได้"})
+			return
+		}
+	} else {
+		hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "เข้ารหัสผ่านไม่สำเร็จ"})
+			return
+		}
+		passwordHash = string(hashed)
 	}
 
 	tx, err := database.DB.Begin()
@@ -208,21 +287,26 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
-	var role string
-	err = tx.QueryRow("SELECT role FROM users WHERE id = $1", id).Scan(&role)
+	var exists int
+	err = tx.QueryRow("SELECT 1 FROM users WHERE id = $1", id).Scan(&exists)
 	if err != nil {
 		tx.Rollback()
 		c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบผู้ใช้งานที่ต้องการแก้ไข"})
 		return
 	}
 
-	// 🔥 [ปรับปรุง] เพิ่ม email, department_id, is_central ลงในคำสั่ง UPDATE
+	if req.Role == "admin" {
+		req.DepartmentID = nil
+		req.IsCentral = false
+		req.Specialties = nil
+	}
+
 	updateQuery := `
 		UPDATE users 
-		SET username=$1, password=$2, full_name=$3, email=$4, department_id=$5, is_central=$6 
-		WHERE id=$7
+		SET username=$1, password=$2, full_name=$3, email=$4, role=$5, department_id=$6, is_central=$7 
+		WHERE id=$8
 	`
-	_, err = tx.Exec(updateQuery, req.Username, string(hashed), req.FullName, req.Email, req.DepartmentID, req.IsCentral, id)
+	_, err = tx.Exec(updateQuery, req.Username, passwordHash, req.FullName, req.Email, req.Role, req.DepartmentID, req.IsCentral, id)
 
 	if err != nil {
 		tx.Rollback()
@@ -230,31 +314,29 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
-	if role == "technician" {
-		_, err = tx.Exec("DELETE FROM technician_specialties WHERE user_id = $1", id)
-		if err != nil {
+	_, err = tx.Exec("DELETE FROM technician_specialties WHERE user_id = $1", id)
+	if err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถรีเซ็ตข้อมูลความถนัดดั้งเดิมได้"})
+		return
+	}
+
+	if req.Role == "technician" {
+		if len(req.Specialties) > 3 {
 			tx.Rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถรีเซ็ตข้อมูลความถนัดดั้งเดิมได้"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ช่าง 1 คนสามารถมีความถนัดได้สูงสุด 3 หมวดหมู่เท่านั้น"})
 			return
 		}
 
-		if len(req.Specialties) > 0 {
-			if len(req.Specialties) > 3 {
+		for _, problemTypeID := range req.Specialties {
+			_, err = tx.Exec(
+				"INSERT INTO technician_specialties (user_id, problem_type_id) VALUES ($1, $2)",
+				id, problemTypeID,
+			)
+			if err != nil {
 				tx.Rollback()
-				c.JSON(http.StatusBadRequest, gin.H{"error": "ช่าง 1 คนสามารถมีความถนัดได้สูงสุด 3 หมวดหมู่เท่านั้น"})
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถอัปเดตข้อมูลความถนัดชุดใหม่ได้"})
 				return
-			}
-
-			for _, problemTypeID := range req.Specialties {
-				_, err = tx.Exec(
-					"INSERT INTO technician_specialties (user_id, problem_type_id) VALUES ($1, $2)",
-					id, problemTypeID,
-				)
-				if err != nil {
-					tx.Rollback()
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถอัปเดตข้อมูลความถนัดชุดใหม่ได้"})
-					return
-				}
 			}
 		}
 	}

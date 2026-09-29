@@ -24,8 +24,17 @@
   border-left: 8px solid #007A53;
 }
 
-.admin-header h2 { color: #007A53; font-size: 1.8rem; margin-bottom: 5px; }
-.admin-header p { color: #666; font-size: 1rem; margin: 0; }
+.admin-header h2 {
+  color: #007A53;
+  font-size: 1.8rem;
+  margin-bottom: 5px;
+}
+
+.admin-header p {
+  color: #666;
+  font-size: 1rem;
+  margin: 0;
+}
 
 .btn-back-dashboard {
   background-color: transparent;
@@ -53,16 +62,20 @@
   margin-bottom: 25px;
 }
 
-.search-section { flex: 1; }
+.search-section {
+  flex: 1;
+}
+
 .search-input {
   width: 100%;
   padding: 15px 20px;
   border: 2px solid #ccd6d1;
   border-radius: 12px;
   font-size: 1.05rem;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
   transition: all 0.3s;
 }
+
 .search-input:focus {
   outline: none;
   border-color: #007A53;
@@ -82,6 +95,7 @@
   transition: all 0.2s;
   white-space: nowrap;
 }
+
 .btn-create-user:hover {
   background-color: #006343;
   transform: translateY(-2px);
@@ -98,7 +112,7 @@
   background: white;
   padding: 20px 25px;
   border-radius: 12px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.04);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
   border: 1px solid #e0e8e4;
   display: flex;
   justify-content: space-between;
@@ -114,7 +128,8 @@
 .user-info {
   display: flex;
   align-items: center;
-  gap: 20px; /* เพิ่มระยะห่างระหว่างอวาตาร์กับข้อความให้สบายตาขึ้น */
+  gap: 20px;
+  /* เพิ่มระยะห่างระหว่างอวาตาร์กับข้อความให้สบายตาขึ้น */
 }
 
 .user-avatar {
@@ -132,7 +147,8 @@
 .user-details-block {
   display: flex;
   flex-direction: column;
-  gap: 6px; /* ระยะห่างของแต่ละบรรทัดในก้อนชื่อ */
+  gap: 6px;
+  /* ระยะห่างของแต่ละบรรทัดในก้อนชื่อ */
 }
 
 /* สไตล์ชื่อผู้ใช้และ Username */
@@ -159,10 +175,19 @@
   border-radius: 20px;
   font-size: 0.85rem;
   font-weight: bold;
-  width: fit-content; /* ให้ป้ายหดพอดีกับข้อความ */
+  width: fit-content;
+  /* ให้ป้ายหดพอดีกับข้อความ */
 }
-.role-admin { background-color: #e3f2fd; color: #1565c0; }
-.role-tech { background-color: #fff3e0; color: #e65100; }
+
+.role-admin {
+  background-color: #e3f2fd;
+  color: #1565c0;
+}
+
+.role-tech {
+  background-color: #fff3e0;
+  color: #e65100;
+}
 
 /* ป้ายแสดงความถนัด (Specialty Tags) */
 .specialty-container {
@@ -184,11 +209,31 @@
 
 /* โซนปุ่ม Action ลบ/แก้ไข */
 .user-actions {
-  display: flex;
-  gap: 10px;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
 }
 
-.btn-edit, .btn-delete {
+.btn-view {
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 0.95rem;
+  cursor: pointer;
+  background-color: #e8f5e9;
+  color: #007A53;
+  border: 1px solid #007A53;
+  transition: all 0.2s;
+}
+
+.btn-view:hover {
+  background-color: #007A53;
+  color: white;
+}
+
+.btn-edit,
+.btn-delete {
   padding: 10px 16px;
   border-radius: 8px;
   font-weight: bold;
@@ -198,29 +243,57 @@
   transition: all 0.2s;
 }
 
-.btn-edit { background-color: #f1f3f4; color: #444; border: 1px solid #ddd; }
-.btn-edit:hover { background-color: #e2e6e9; }
+.btn-edit {
+  background-color: #f1f3f4;
+  color: #444;
+  border: 1px solid #ddd;
+}
 
-.btn-delete { background-color: white; color: #d32f2f; border: 1px solid #d32f2f; }
-.btn-delete:hover { background-color: #ffebee; }
+.btn-edit:hover {
+  background-color: #e2e6e9;
+}
+
+.btn-delete {
+  background-color: white;
+  color: #d32f2f;
+  border: 1px solid #d32f2f;
+}
+
+.btn-delete:hover {
+  background-color: #ffebee;
+}
 
 /* =======================================
    Modal Styles (หน้าต่าง Popup)
    ======================================= */
 .modal-overlay {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0,0,0,0.6);
-  display: flex; justify-content: center; align-items: center;
-  z-index: 1000; backdrop-filter: blur(4px);
-  padding: 20px; box-sizing: border-box;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  padding: 20px;
+  box-sizing: border-box;
 }
 
 .modal-box {
-  background: white; width: 100%; max-width: 500px; /* ขยายกล่องนิดนึงให้เลือก Checkbox สบายขึ้น */
-  padding: 35px; border-radius: 12px; position: relative;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  background: white;
+  width: 100%;
+  max-width: 500px;
+  /* ขยายกล่องนิดนึงให้เลือก Checkbox สบายขึ้น */
+  padding: 35px;
+  border-radius: 12px;
+  position: relative;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
   border-top: 6px solid #007A53;
-  max-height: 90vh; /* เผื่อจอเล็กจะได้มี Scrollbar */
+  max-height: 90vh;
+  /* เผื่อจอเล็กจะได้มี Scrollbar */
   overflow-y: auto;
 }
 
@@ -232,23 +305,47 @@
 }
 
 .close-btn {
-  position: absolute; top: 15px; right: 20px; font-size: 28px; cursor: pointer; color: #aaa;
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  font-size: 28px;
+  cursor: pointer;
+  color: #aaa;
 }
 
-.input-group { margin-bottom: 18px; }
-.input-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #333; }
-.required { color: #d32f2f; }
+.input-group {
+  margin-bottom: 18px;
+}
 
-.input-group input[type="text"], 
-.input-group input[type="password"], 
+.input-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #333;
+}
+
+.required {
+  color: #d32f2f;
+}
+
+.input-group input[type="text"],
+.input-group input[type="password"],
 .input-group select {
-  width: 100%; padding: 14px; border: 1px solid #ccd6d1; border-radius: 8px;
-  font-size: 1rem; box-sizing: border-box; background-color: #fafbfc;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid #ccd6d1;
+  border-radius: 8px;
+  font-size: 1rem;
+  box-sizing: border-box;
+  background-color: #fafbfc;
 }
-.input-group input[type="text"]:focus, 
-.input-group input[type="password"]:focus, 
+
+.input-group input[type="text"]:focus,
+.input-group input[type="password"]:focus,
 .input-group select:focus {
-  outline: none; border-color: #007A53; box-shadow: 0 0 0 3px rgba(0, 122, 83, 0.15);
+  outline: none;
+  border-color: #007A53;
+  box-shadow: 0 0 0 3px rgba(0, 122, 83, 0.15);
 }
 
 /* สไตล์กล่อง Checkbox สำหรับเลือกความถนัด */
@@ -264,7 +361,8 @@
 }
 
 .checkbox-item-label {
-  display: flex !important; /* บังคับทับ style หลักของ label ใน input-group */
+  display: flex !important;
+  /* บังคับทับ style หลักของ label ใน input-group */
   align-items: center;
   gap: 10px;
   font-size: 0.95rem;
@@ -278,7 +376,8 @@
   height: 18px;
   margin: 0;
   cursor: pointer;
-  accent-color: #007A53; /* เปลี่ยนสี Checkbox ให้เข้าธีม */
+  accent-color: #007A53;
+  /* เปลี่ยนสี Checkbox ให้เข้าธีม */
 }
 
 /* คำเตือนใต้ช่องรหัสผ่าน */
@@ -291,26 +390,133 @@
 }
 
 /* โซนปุ่มบันทึก/ยกเลิกใน Modal */
-.modal-actions { display: flex; gap: 15px; margin-top: 30px; }
-.modal-actions button { flex: 1; padding: 14px; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer; border: none; transition: all 0.2s;}
-.modal-actions button:disabled { opacity: 0.6; cursor: not-allowed; }
-.btn-cancel { background-color: #f1f3f4; color: #444; border: 1px solid #ddd; }
-.btn-cancel:hover:not(:disabled) { background-color: #e2e6e9; color: #d32f2f;}
-.btn-submit { background-color: #007A53; color: white; box-shadow: 0 4px 10px rgba(0, 122, 83, 0.2); }
-.btn-submit:hover:not(:disabled) { background-color: #006343; transform: translateY(-2px); }
+.modal-actions {
+  display: flex;
+  gap: 15px;
+  margin-top: 30px;
+}
+
+.modal-actions button {
+  flex: 1;
+  padding: 14px;
+  font-size: 1rem;
+  font-weight: bold;
+  border-radius: 8px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.modal-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-cancel {
+  background-color: #f1f3f4;
+  color: #444;
+  border: 1px solid #ddd;
+}
+
+.btn-cancel:hover:not(:disabled) {
+  background-color: #e2e6e9;
+  color: #d32f2f;
+}
+
+.btn-submit {
+  background-color: #007A53;
+  color: white;
+  box-shadow: 0 4px 10px rgba(0, 122, 83, 0.2);
+}
+
+.btn-submit:hover:not(:disabled) {
+  background-color: #006343;
+  transform: translateY(-2px);
+}
 
 /* =======================================
    Responsive สำหรับมือถือและแท็บเล็ต
    ======================================= */
 @media (max-width: 768px) {
-  .admin-users-container { padding: 20px 15px; }
-  .admin-header { flex-direction: column; text-align: center; gap: 15px; }
-  .users-toolbar { flex-direction: column; align-items: stretch; }
-  .user-item-card { flex-direction: column; align-items: flex-start; gap: 15px; }
-  
-  .user-info { width: 100%; }
-  
-  .user-actions { width: 100%; display: grid; grid-template-columns: 1fr 1fr; }
-  
-  .specialties-checkbox-grid { grid-template-columns: 1fr; /* บนมือถือให้ Checkbox เรียงลงมาแถวละ 1 อัน */ }
+  .admin-users-container {
+    padding: 20px 15px;
+  }
+
+  .admin-header {
+    flex-direction: column;
+    text-align: center;
+    gap: 15px;
+  }
+
+  .users-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .user-item-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .user-info {
+    width: 100%;
+  }
+
+  .user-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .specialties-checkbox-grid {
+    grid-template-columns: 1fr;
+    /* บนมือถือให้ Checkbox เรียงลงมาแถวละ 1 อัน */
+  }
+}
+
+.user-view-modal {
+  max-width: 600px;
+}
+
+.user-view-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.user-view-avatar {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #e7f4ed;
+  font-size: 32px;
+}
+
+.user-view-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f6f8f7;
+}
+
+.user-view-row strong {
+  color: #007a53;
+  font-size: 0.9rem;
+}
+
+.user-view-row span {
+  color: #333;
+}
+
+.user-view-specialties {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }

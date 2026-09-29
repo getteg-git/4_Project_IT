@@ -50,10 +50,6 @@ import (
 )
 
 // SendEmailNotification เปลี่ยนการรับ to จาก string เป็น []string (รับกี่คนก็ได้)
-const (
-    AdminEmail = "chonpasu01@gmail.com"
-    TechEmail  = "getaengja@gmail.com" // 👈 ใส่เมลส่วนตัวของช่างที่นี่
-)
 func SendEmailNotification(toRecipients []string, subject string, bodyHTML string) error {
 	host := os.Getenv("SMTP_HOST")
 	port := os.Getenv("SMTP_PORT")

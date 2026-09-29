@@ -59,9 +59,9 @@ function AdminDashboard() {
   // Logic การคำนวณสถิติ 4 สถานะหลัก
   // ==========================================
   const totalRepairs = filteredRepairs.length;
-  const pendingCount = filteredRepairs.filter(r => r.status === "รอซ่อม").length;
+  const pendingCount = filteredRepairs.filter(r => r.status === "รอซ่อม" || r.status === "รับงานแล้ว").length;
   const progressCount = filteredRepairs.filter(r => r.status === "กำลังซ่อม").length;
-  const cannotRepairCount = filteredRepairs.filter(r => r.status === "ซ่อมไม่ได้").length;
+  const cannotRepairCount = filteredRepairs.filter(r => r.status === "ซ่อมไม่ได้" || r.status === "ส่งซ่อมภายนอก").length;
   // เผื่อกรณี Database เก็บคำว่า 'เสร็จสิ้น' หรือ 'เสร็จเรียบร้อย'
   const completedCount = filteredRepairs.filter(r => r.status === "เสร็จเรียบร้อย" || r.status === "เสร็จสิ้น").length;
 
@@ -130,9 +130,9 @@ function AdminDashboard() {
   // ข้อมูลสำหรับกราฟแต่ละแบบ
   // ==========================================
   const statusChartData = [
-    { name: "รอซ่อม", value: pendingCount, color: "#f39c12" },
+    { name: "รอรับงาน/เข้าหน้างาน", value: pendingCount, color: "#f39c12" },
     { name: "กำลังซ่อม", value: progressCount, color: "#2980b9" },
-    { name: "ซ่อมไม่ได้", value: cannotRepairCount, color: "#e74c3c" },
+    { name: "ซ่อมไม่ได้/ส่งภายนอก", value: cannotRepairCount, color: "#e74c3c" },
     { name: "เสร็จสิ้น", value: completedCount, color: "#007A53" }
   ].filter(item => item.value > 0);
 
@@ -171,27 +171,29 @@ function AdminDashboard() {
 
   return (
     <div className="admin-dashboard-container">
-      <header className="dashboard-header">
+      <header className="dashboard-header page-header">
         <div>
           <h1><LayoutDashboard size={25} aria-hidden="true" /> แผงควบคุมผู้ดูแลระบบ</h1>
           <p>สรุปภาพรวมระบบแจ้งซ่อมบำรุง</p>
         </div>
-        <div className="header-actions">
-          {/* แก้ไขลิงก์และข้อความตรงนี้ครับ */}
-          <button className="btn-users" onClick={() => navigate("/admin/settings")}>
-            <Settings size={17} aria-hidden="true" /> ตั้งค่าระบบ
-          </button>
-          <button className="btn-manage" onClick={() => navigate("/admin/manage")}>
-            <ClipboardList size={17} aria-hidden="true" /> มอบหมายงาน
-          </button>
-          <button className="btn-logout" onClick={async () => {
-            const approved = await confirm({ title: "ออกจากระบบ", description: "คุณต้องการออกจากระบบผู้ดูแลหรือไม่?", confirmLabel: "ออกจากระบบ", variant: "danger" });
+        <div className="header-actions page-logout-group">
+          <button className="btn-logout page-logout" onClick={async () => {
+            const approved = await confirm({ title: "ยืนยันออกจากระบบ", description: "คุณแน่ใจหรือไม่ว่าต้องการออกจากระบบผู้ดูแล?", confirmLabel: "ออกจากระบบ", cancelLabel: "ยกเลิก", variant: "danger" });
             if (approved) { localStorage.removeItem("user"); navigate("/"); }
           }}>
             <LogOut size={17} aria-hidden="true" /> ออกจากระบบ
           </button>
         </div>
       </header>
+
+      <div className="admin-action-bar">
+        <button className="btn-users" onClick={() => navigate("/admin/settings")}>
+          <Settings size={17} aria-hidden="true" /> ตั้งค่าระบบ
+        </button>
+        <button className="btn-manage" onClick={() => navigate("/admin/manage")}>
+          <ClipboardList size={17} aria-hidden="true" /> มอบหมายงานซ่อม
+        </button>
+      </div>
 
       {/* ส่วนตัวกรอง เดือน/ปี */}
       <div className="filter-section">
@@ -231,7 +233,7 @@ function AdminDashboard() {
           {/* การ์ดสรุปตัวเลข */}
           <div className="summary-cards-grid">
             <div className="summary-card total"><h3>รวมทั้งหมด</h3><div className="number">{totalRepairs}</div><span>รายการ</span></div>
-            <div className="summary-card pending"><h3>รอซ่อม/พิจารณา</h3><div className="number">{pendingCount}</div><span>รายการ</span></div>
+            <div className="summary-card pending"><h3>รอรับงาน/เข้าหน้างาน</h3><div className="number">{pendingCount}</div><span>รายการ</span></div>
             <div className="summary-card progress"><h3>กำลังซ่อม</h3><div className="number">{progressCount}</div><span>ดำเนินการ</span></div>
 
             <div className="summary-card mttr">

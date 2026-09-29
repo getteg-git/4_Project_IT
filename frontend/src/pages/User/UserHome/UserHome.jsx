@@ -1,48 +1,43 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle2, ClipboardPenLine, LoaderCircle, LogIn, Search, ShieldCheck, X } from "lucide-react";
+import { CheckCircle2, ClipboardPenLine, Cog, Hammer, LoaderCircle, LogIn, Search, ShieldCheck, Wrench, X } from "lucide-react";
 import useToast from "../../../hooks/useToast";
 import "./UserHome.css";
 
 function UserHome() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  
-  // State สำหรับจัดการ Popup Login
+
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loginRole, setLoginRole] = useState("admin"); // ค่าเริ่มต้นให้เป็น admin
+  const [loginRole, setLoginRole] = useState("admin");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isLoginSuccess, setIsLoginSuccess] = useState(false);
 
-  // ฟังก์ชันเปิด Popup ล็อคอินสำหรับเจ้าหน้าที่
-  const openLoginModal = () => {
-    setIsModalOpen(true);
-  };
+  const openLoginModal = () => setIsModalOpen(true);
 
   const closeLoginModal = () => {
     setIsModalOpen(false);
     setUsername("");
     setPassword("");
-    setLoginRole("admin"); // รีเซ็ตค่าเมื่อปิด
+    setLoginRole("admin");
     setIsLoginSuccess(false);
   };
 
-  // ฟังก์ชันยิง API Login ไปเช็คที่ Backend
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setIsLoginSuccess(false);
-    
+
     try {
       const response = await fetch("http://localhost:8080/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          username: username, 
+        body: JSON.stringify({
+          username: username,
           password: password,
-          expected_role: loginRole 
+          expected_role: loginRole,
         }),
       });
 
@@ -51,6 +46,10 @@ function UserHome() {
       if (response.ok) {
         localStorage.setItem("user", JSON.stringify(data.user));
         setIsLoginSuccess(true);
+        toast.success("เข้าสู่ระบบสำเร็จ", {
+          description: `ยินดีต้อนรับ ${data.user?.role === "admin" ? "แอดมิน" : "ช่างเทคนิค"} ระบบพร้อมใช้งานแล้ว`,
+          duration: 3500,
+        });
         await new Promise((resolve) => window.setTimeout(resolve, 650));
 
         if (data.user.role === "admin") {
@@ -58,7 +57,7 @@ function UserHome() {
         } else if (data.user.role === "technician") {
           navigate("/tech/home", { replace: true });
         }
-        
+
         closeLoginModal();
       } else {
         toast.error("เข้าสู่ระบบไม่สำเร็จ", { description: data.error || "กรุณาตรวจสอบชื่อผู้ใช้และรหัสผ่าน" });
@@ -73,22 +72,25 @@ function UserHome() {
 
   return (
     <div className="home-container">
-      
-      {/* แถบ Navigation ด้านบน */}
+      <div className="top-band" aria-hidden="true">
+        <span className="tool-float tool-float-1"><Wrench /></span>
+        <span className="tool-float tool-float-2"><Cog /></span>
+        <span className="tool-float tool-float-3"><Hammer /></span>
+      </div>
+
       <nav className="top-nav">
         <button className="btn-staff-login" onClick={openLoginModal}>
-          <LogIn size={18} aria-hidden="true" />
+          <span className="lock-icon" aria-hidden="true">🔐</span>
           เข้าสู่ระบบเจ้าหน้าที่
         </button>
       </nav>
 
-      {/* ส่วนหัวของหน้า */}
-      <div className="home-header">
+      <header className="home-header">
+        {/* <span className="eyebrow">SCIENCE FACULTY SERVICE</span> */}
         <h1>ระบบแจ้งซ่อมและติดตามงาน</h1>
         <p>คณะวิทยาศาสตร์ มหาวิทยาลัยศิลปากร</p>
-      </div>
+      </header>
 
-      {/* ส่วนการ์ดเมนูสำหรับคนแจ้งซ่อม (เหลือแค่ 2 กล่อง) */}
       <div className="cards-grid user-only-grid">
         <button type="button" className="menu-card card-user" onClick={() => navigate("/repair/create")}>
           <div className="card-icon"><ClipboardPenLine aria-hidden="true" /></div>
@@ -103,22 +105,88 @@ function UserHome() {
         </button>
       </div>
 
-      {/* ส่วนของ POPUP LOGIN สำหรับเจ้าหน้าที่ */}
+      <section className="repair-steps">
+  <h2>วิธีการแจ้งซ่อม</h2>
+
+  <p className="steps-subtitle">
+    ขั้นตอนการแจ้งซ่อมตั้งแต่แจ้งปัญหาจนถึงปิดงาน
+  </p>
+
+  <div className="steps-container">
+
+    <div className="step-item">
+      <div className="step-marker">
+        <span className="step-number">01</span>
+        <div className="step-icon">📝</div>
+      </div>
+
+      <div className="step-content">
+        <h3>แจ้งปัญหา</h3>
+        <p>กรอกรายละเอียดปัญหาและสถานที่ที่พบปัญหา</p>
+      </div>
+    </div>
+
+    <div className="step-item">
+      <div className="step-marker">
+        <span className="step-number">02</span>
+        <div className="step-icon">👨‍💼</div>
+      </div>
+
+      <div className="step-content">
+        <h3>เจ้าหน้าที่รับเรื่อง</h3>
+        <p>เจ้าหน้าที่ตรวจสอบข้อมูลและรับเรื่องแจ้งซ่อม</p>
+      </div>
+    </div>
+
+    <div className="step-item">
+      <div className="step-marker">
+        <span className="step-number">03</span>
+        <div className="step-icon">🔧</div>
+      </div>
+
+      <div className="step-content">
+        <h3>ดำเนินการซ่อม</h3>
+        <p>ช่างตรวจสอบปัญหาและดำเนินการซ่อมแซม</p>
+      </div>
+    </div>
+
+    <div className="step-item">
+      <div className="step-marker">
+        <span className="step-number">04</span>
+        <div className="step-icon">✅</div>
+      </div>
+
+      <div className="step-content">
+        <h3>ปิดงาน</h3>
+        <p>ตรวจสอบผลการซ่อมและปิดรายการแจ้งซ่อม</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+      {/* Footer */}
+      <footer className="home-footer">
+        <div className="footer-content">
+          <h3>ระบบแจ้งซ่อมและติดตามงาน</h3>
+          <p>คณะวิทยาศาสตร์ มหาวิทยาลัยศิลปากร</p>
+          <span>© 2026 Faculty of Science</span>
+        </div>
+      </footer>
+
       {isModalOpen && (
         <div className="modal-overlay">
           <div className="modal-box">
             <button className="close-btn" type="button" onClick={closeLoginModal} disabled={isLoading} aria-label="ปิดหน้าต่างเข้าสู่ระบบ"><X aria-hidden="true" /></button>
-            
+
             <h3><ShieldCheck size={22} aria-hidden="true" /> เข้าสู่ระบบเจ้าหน้าที่</h3>
             <p className="modal-subtitle">กรุณาระบุสิทธิ์และข้อมูลเพื่อเข้าสู่ระบบ</p>
 
             <form onSubmit={handleLoginSubmit}>
-              
-              {/* Dropdown เลือก Role */}
               <div className="input-group">
                 <label>เข้าสู่ระบบในฐานะ <span className="required">*</span></label>
-                <select 
-                  value={loginRole} 
+                <select
+                  value={loginRole}
                   onChange={(e) => setLoginRole(e.target.value)}
                   className="role-select"
                 >
@@ -129,25 +197,25 @@ function UserHome() {
 
               <div className="input-group">
                 <label>ชื่อผู้ใช้งาน <span className="required">*</span></label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   placeholder="ระบุ Username ของคุณ"
-                  value={username} 
-                  onChange={(e) => setUsername(e.target.value)} 
-                  required 
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
                 />
               </div>
               <div className="input-group">
                 <label>รหัสผ่าน <span className="required">*</span></label>
-                <input 
-                  type="password" 
+                <input
+                  type="password"
                   placeholder="ระบุ Password"
-                  value={password} 
-                  onChange={(e) => setPassword(e.target.value)} 
-                  required 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
                 />
               </div>
-              
+
               <div className="modal-actions">
                 <button type="submit" className="btn-submit" disabled={isLoading}>
                   {isLoginSuccess

@@ -117,9 +117,10 @@ function MyRepairs() {
   const matchesStatusFilter = (repair, filter) => {
     if (filter === "all") return true;
     if (filter === "completed") return repair.status === "เสร็จเรียบร้อย" || repair.status === "เสร็จสิ้น";
-    if (filter === "pending") return repair.status === "รอซ่อม";
+    if (filter === "pending") return repair.status === "รอซ่อม" || repair.status === "รับงานแล้ว";
     if (filter === "progress") return repair.status === "กำลังซ่อม";
     if (filter === "failed") return repair.status === "ซ่อมไม่ได้";
+    if (filter === "outsourced") return repair.status === "ส่งซ่อมภายนอก";
     return true;
   };
 
@@ -160,20 +161,23 @@ function MyRepairs() {
 
   const statusFilters = [
     { id: "all", label: "ทั้งหมด", count: repairs.length },
-    { id: "pending", label: "รอซ่อม", count: repairs.filter((repair) => matchesStatusFilter(repair, "pending")).length },
+    { id: "pending", label: "รอช่างรับ/เข้าหน้างาน", count: repairs.filter((repair) => matchesStatusFilter(repair, "pending")).length },
     { id: "progress", label: "กำลังซ่อม", count: repairs.filter((repair) => matchesStatusFilter(repair, "progress")).length },
     { id: "completed", label: "เสร็จแล้ว", count: repairs.filter((repair) => matchesStatusFilter(repair, "completed")).length },
     { id: "failed", label: "ซ่อมไม่ได้", count: repairs.filter((repair) => matchesStatusFilter(repair, "failed")).length },
+    { id: "outsourced", label: "ส่งซ่อมภายนอก", count: repairs.filter((repair) => matchesStatusFilter(repair, "outsourced")).length },
   ];
   const paginatedRepairs = getPageItems(filteredRepairs, currentPage);
 
   const getStatusClass = (status) => {
     switch (status) {
       case "รอซ่อม": return "status-pending";
+      case "รับงานแล้ว": return "status-pending";
       case "กำลังซ่อม": return "status-progress";
       case "เสร็จเรียบร้อย": return "status-completed";
       case "เสร็จสิ้น": return "status-completed";
       case "ซ่อมไม่ได้": return "status-failed";
+      case "ส่งซ่อมภายนอก": return "status-outsourced";
       default: return "status-default";
     }
   };

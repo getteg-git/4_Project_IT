@@ -18,9 +18,12 @@ function AdminUsers() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState(""); // ฟิลด์ชื่อจริงใหม่
-  const [role, setRole] = useState("technician"); 
+  const [role, setRole] = useState("technician");
   const [specialties, setSpecialties] = useState([]); // อาเรย์เก็บ ID ความถนัด เช่น [1, 2]
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [isViewOpen, setIsViewOpen] = useState(false);
 
   // ดึงข้อมูลหลักจาก Backend พร้อมกันแบบไร้ Mockup
   const fetchMasterData = async () => {
@@ -30,7 +33,7 @@ function AdminUsers() {
         fetch("http://localhost:8080/api/users"),
         fetch("http://localhost:8080/api/problem-types")
       ]);
-      
+
       if (usersRes.ok) setUsers(await usersRes.json() || []);
       if (typesRes.ok) setProblemTypes(await typesRes.json() || []);
     } catch (error) {
@@ -80,6 +83,11 @@ function AdminUsers() {
     setIsEditModalOpen(true);
   };
 
+  const openViewModal = (user) => {
+    setSelectedUser(user);
+    setIsViewOpen(true);
+  };
+
   // จัดการกับการเพิ่ม/ลดความถนัดของช่างเทคนิค (ห้ามเกิน 3 รายการ)
   const handleSpecialtyChange = (typeId) => {
     if (specialties.includes(typeId)) {
@@ -96,15 +104,19 @@ function AdminUsers() {
   // สร้างผู้ใช้งานใหม่ (POST)
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
+    if (!password || password.trim().length < 3 || password.trim().length > 30) {
+      alert("⚠️ รหัสผ่านต้องมีความยาว 3-30 ตัวอักษร");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const response = await fetch("http://localhost:8080/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          username, 
-          password, 
-          full_name: fullName, 
+        body: JSON.stringify({
+          username,
+          password,
+          full_name: fullName,
           role,
           specialties: role === "technician" ? specialties : [] // ส่งความถนัดไปเฉพาะสิทธิ์ช่าง
         })
@@ -128,8 +140,8 @@ function AdminUsers() {
   // แก้ไขผู้ใช้งาน (PUT) - บันทึกชื่อจริงและความถนัดชุดใหม่ได้จริง
   const handleEditSubmit = async (e) => {
     e.preventDefault();
-    if (!password) {
-      alert("⚠️ กรุณากำหนดรหัสผ่านใหม่ (หรือพิมพ์รหัสเดิม) เพื่อยืนยันการแก้ไข");
+    if (password && (password.trim().length < 3 || password.trim().length > 30)) {
+      alert("⚠️ รหัสผ่านใหม่ต้องมีความยาว 3-30 ตัวอักษร");
       return;
     }
 
@@ -138,9 +150,9 @@ function AdminUsers() {
       const response = await fetch(`http://localhost:8080/api/users/${editId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          username, 
-          password, 
+        body: JSON.stringify({
+          username,
+          password,
           full_name: fullName,
           specialties: role === "technician" ? specialties : []
         })
@@ -186,7 +198,7 @@ function AdminUsers() {
   return (
     <div className="admin-users-container">
       <div className="admin-wrapper">
-        
+
         {/* Header */}
         <div className="admin-header">
           <div>
@@ -203,9 +215,9 @@ function AdminUsers() {
         {/* Toolbar: ค้นหา & เพิ่มผู้ใช้ */}
         <div className="users-toolbar">
           <div className="search-section">
-            <input 
-              type="text" 
-              placeholder="🔍 ค้นหาชื่อผู้ใช้ ชื่อจริง หรือสิทธิ์..." 
+            <input
+              type="text"
+              placeholder="🔍 ค้นหาชื่อผู้ใช้ ชื่อจริง หรือสิทธิ์..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="search-input"
@@ -232,7 +244,7 @@ function AdminUsers() {
                     <h3 className="user-name">
                       {user.full_name} <span className="user-username-label">(@{user.username})</span>
                     </h3>
-                    
+
                     <span className={`role-badge ${user.role === "admin" ? "role-admin" : "role-tech"}`}>
                       {user.role === "admin" ? "แอดมิน (Admin)" : "ช่างเทคนิค (Technician)"}
                     </span>
@@ -247,12 +259,26 @@ function AdminUsers() {
                     )}
                   </div>
                 </div>
-                
+
                 <div className="user-actions">
-                  <button className="btn-edit" onClick={() => openEditModal(user)}>
+                  <button
+                    className="btn-view"
+                    onClick={() => openViewModal(user)}
+                  >
+                    👁️ ดูข้อมูล
+                  </button>
+
+                  <button
+                    className="btn-edit"
+                    onClick={() => openEditModal(user)}
+                  >
                     ✏️ แก้ไข
                   </button>
-                  <button className="btn-delete" onClick={() => handleDelete(user.id, user.full_name)}>
+
+                  <button
+                    className="btn-delete"
+                    onClick={() => handleDelete(user.id, user.full_name)}
+                  >
                     🗑️ ลบ
                   </button>
                 </div>
@@ -274,7 +300,7 @@ function AdminUsers() {
           <div className="modal-box">
             <span className="close-btn" onClick={resetForm}>&times;</span>
             <h3 className="modal-title">➕ สร้างบัญชีผู้ใช้ใหม่</h3>
-            
+
             <form onSubmit={handleCreateSubmit}>
               <div className="input-group">
                 <label>สิทธิ์การใช้งาน <span className="required">*</span></label>
@@ -286,12 +312,12 @@ function AdminUsers() {
 
               <div className="input-group">
                 <label>ชื่อ-นามสกุลจริง <span className="required">*</span></label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   placeholder="ระบุชื่อและนามสกุลช่าง/แอดมิน (เช่น นายสมชาย ยอดช่าง)"
-                  value={fullName} 
-                  onChange={(e) => setFullName(e.target.value)} 
-                  required 
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
                 />
               </div>
 
@@ -302,7 +328,7 @@ function AdminUsers() {
                   <div className="specialties-checkbox-grid">
                     {problemTypes.map((type) => (
                       <label className="checkbox-item-label" key={type.id}>
-                        <input 
+                        <input
                           type="checkbox"
                           checked={specialties.includes(type.id)}
                           onChange={() => handleSpecialtyChange(type.id)}
@@ -316,23 +342,23 @@ function AdminUsers() {
 
               <div className="input-group">
                 <label>ชื่อผู้ใช้งาน (Username สำหรับใช้ Login) <span className="required">*</span></label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   placeholder="ตั้งชื่อล็อกอินภาษาอังกฤษ (เช่น tech_somch)"
-                  value={username} 
-                  onChange={(e) => setUsername(e.target.value)} 
-                  required 
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
                 />
               </div>
 
               <div className="input-group">
                 <label>รหัสผ่าน (Password) <span className="required">*</span></label>
-                <input 
-                  type="password" 
+                <input
+                  type="password"
                   placeholder="ตั้งรหัสผ่านเบื้องต้น"
-                  value={password} 
-                  onChange={(e) => setPassword(e.target.value)} 
-                  required 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
                 />
               </div>
 
@@ -355,25 +381,25 @@ function AdminUsers() {
           <div className="modal-box">
             <span className="close-btn" onClick={resetForm}>&times;</span>
             <h3 className="modal-title">✏️ แก้ไขข้อมูลบัญชี</h3>
-            
+
             <form onSubmit={handleEditSubmit}>
               <div className="input-group">
                 <label>ชื่อ-นามสกุลจริง <span className="required">*</span></label>
-                <input 
-                  type="text" 
-                  value={fullName} 
-                  onChange={(e) => setFullName(e.target.value)} 
-                  required 
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
                 />
               </div>
 
               <div className="input-group">
                 <label>ชื่อผู้ใช้งาน (Username) <span className="required">*</span></label>
-                <input 
-                  type="text" 
-                  value={username} 
-                  onChange={(e) => setUsername(e.target.value)} 
-                  required 
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
                 />
               </div>
 
@@ -384,7 +410,7 @@ function AdminUsers() {
                   <div className="specialties-checkbox-grid">
                     {problemTypes.map((type) => (
                       <label className="checkbox-item-label" key={type.id}>
-                        <input 
+                        <input
                           type="checkbox"
                           checked={specialties.includes(type.id)}
                           onChange={() => handleSpecialtyChange(type.id)}
@@ -397,16 +423,15 @@ function AdminUsers() {
               )}
 
               <div className="input-group">
-                <label>รีเซ็ตรหัสผ่านใหม่เพื่อยืนยัน <span className="required">*</span></label>
-                <input 
-                  type="text" 
-                  placeholder="ระบุรหัสผ่านใหม่ (หรือพิมพ์รหัสเดิม)"
-                  value={password} 
-                  onChange={(e) => setPassword(e.target.value)} 
-                  required 
+                <label>รีเซ็ตรหัสผ่านใหม่ (เว้นว่างไว้หากไม่ต้องการเปลี่ยน)</label>
+                <input
+                  type="password"
+                  placeholder="ระบุรหัสผ่านใหม่หากต้องการเปลี่ยน (3-30 ตัว)"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                 />
                 <small className="password-warning-text">
-                  * เนื่องจากความปลอดภัยของระบบฐานข้อมูลหลัก กรุณาระบุรหัสผ่านใหม่หรือรหัสผ่านเดิมเพื่อยืนยันการทำรายการอัปเดตทุกครั้ง
+                  * หากปล่อยว่างไว้ ระบบจะคงรหัสผ่านเดิมไว้ และถ้ากรอกใหม่ต้องอยู่ในช่วง 3-30 ตัว
                 </small>
               </div>
 
@@ -421,8 +446,113 @@ function AdminUsers() {
         </div>
       )}
 
+      {/* ==========================================
+    POPUP MODAL: ดูข้อมูลผู้ใช้งาน
+    ========================================== */}
+      {isViewOpen && selectedUser && (
+        <div className="modal-overlay">
+          <div className="modal-box user-view-modal">
+
+            <span
+              className="close-btn"
+              onClick={() => {
+                setIsViewOpen(false);
+                setSelectedUser(null);
+              }}
+            >
+              &times;
+            </span>
+
+            <h3 className="modal-title">👤 ข้อมูลผู้ใช้งาน</h3>
+
+            <div className="user-view-content">
+
+              <div className="user-view-avatar">
+                {selectedUser.role === "admin" ? "⚙️" : "🛠️"}
+              </div>
+
+              <div className="user-view-row">
+                <strong>ชื่อ-นามสกุล</strong>
+                <span>{selectedUser.full_name || "-"}</span>
+              </div>
+
+              <div className="user-view-row">
+                <strong>Username</strong>
+                <span>@{selectedUser.username || "-"}</span>
+              </div>
+
+              <div className="user-view-row">
+                <strong>สิทธิ์</strong>
+                <span>
+                  {selectedUser.role === "admin"
+                    ? "แอดมิน (Admin)"
+                    : "ช่างเทคนิค (Technician)"}
+                </span>
+              </div>
+
+              {selectedUser.email && (
+                <div className="user-view-row">
+                  <strong>อีเมล</strong>
+                  <span>{selectedUser.email}</span>
+                </div>
+              )}
+
+              {selectedUser.department_name && (
+                <div className="user-view-row">
+                  <strong>สาขา</strong>
+                  <span>{selectedUser.department_name}</span>
+                </div>
+              )}
+
+              {selectedUser.role === "technician" && (
+                <div className="user-view-row">
+                  <strong>ความเชี่ยวชาญ</strong>
+
+                  <div className="user-view-specialties">
+                    {selectedUser.specialty_names?.length > 0
+                      ? selectedUser.specialty_names.map((name, index) => (
+                        <span className="specialty-tag" key={index}>
+                          ⚡ {name}
+                        </span>
+                      ))
+                      : <span>- ยังไม่ได้ระบุ -</span>}
+                  </div>
+                </div>
+              )}
+
+            </div>
+
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn-cancel"
+                onClick={() => {
+                  setIsViewOpen(false);
+                  setSelectedUser(null);
+                }}
+              >
+                ปิด
+              </button>
+
+              <button
+                type="button"
+                className="btn-submit"
+                onClick={() => {
+                  setIsViewOpen(false);
+                  openEditModal(selectedUser);
+                }}
+              >
+                ✏️ แก้ไขข้อมูล
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
+
 }
 
 export default AdminUsers;

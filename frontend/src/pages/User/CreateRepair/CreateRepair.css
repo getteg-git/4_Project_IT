@@ -1,274 +1,612 @@
-@scope (.create-repair-container) {
-/* โครงสร้างพื้นหลัง */
 .create-repair-container {
   min-height: 100vh;
-  background-color: var(--color-background);
-  display: flex;
-  justify-content: center;
-  align-items: center; 
-  padding: 40px 20px;
-  font-family: inherit;
+  padding: 48px 20px 72px;
+
+  background:
+    radial-gradient(
+      circle at 15% 20%,
+      rgba(16, 185, 129, 0.12),
+      transparent 18%
+    ),
+    radial-gradient(
+      circle at 85% 8%,
+      rgba(0, 122, 83, 0.10),
+      transparent 20%
+    ),
+    linear-gradient(
+      135deg,
+      #f4faf7 0%,
+      #eef7f3 50%,
+      #f7faf9 100%
+    );
 }
 
-/* กล่องแบบฟอร์ม (Card) */
+
+/* =========================
+   Container
+========================= */
+
+.create-repair-shell {
+  width: min(100%, 820px);
+  margin: 0 auto;
+}
+
+.page-navigation {
+  margin-bottom: 18px;
+}
+
+
+/* =========================
+   Repair Card
+========================= */
+
 .repair-card {
-  background: white;
+  position: relative;
   width: 100%;
-  max-width: 650px; 
-  padding: 40px;
-  border-radius: 12px;
-  box-shadow: 0 8px 30px rgba(0, 122, 83, 0.08); 
-  border-top: 8px solid var(--color-primary);
+
+  padding: 34px 28px 28px;
+
+  border: 1px solid rgba(31, 120, 88, 0.12);
+  border-top: 4px solid #007a53;
+  border-radius: 28px;
+
+  background: rgba(255, 255, 255, 0.96);
+
+  box-shadow:
+    0 24px 60px rgba(15, 69, 49, 0.12);
+
+  backdrop-filter: blur(12px);
+
+  overflow: hidden;
+
+  animation: floatCard 7s ease-in-out infinite;
+}
+
+
+/* ตกแต่งมุมขวาบน */
+
+.repair-card::before {
+  content: "";
+
+  position: absolute;
+
+  right: -40px;
+  top: -40px;
+
+  width: 180px;
+  height: 180px;
+
+  border-radius: 50%;
+
+  background:
+    radial-gradient(
+      circle,
+      rgba(16, 185, 129, 0.16),
+      rgba(16, 185, 129, 0)
+    );
+
+  pointer-events: none;
+}
+
+
+/* ตกแต่งมุมซ้ายล่าง */
+
+.repair-card::after {
+  content: "";
+
+  position: absolute;
+
+  left: -50px;
+  bottom: -50px;
+
+  width: 200px;
+  height: 200px;
+
+  border-radius: 50%;
+
+  background:
+    radial-gradient(
+      circle,
+      rgba(0, 122, 83, 0.10),
+      rgba(0, 122, 83, 0)
+    );
+
+  pointer-events: none;
+}
+
+
+/* =========================
+   Header
+========================= */
+
+.repair-header,
+form {
+  position: relative;
+  z-index: 1;
 }
 
 .repair-header {
+  margin-bottom: 24px;
   text-align: center;
-  margin-bottom: 30px;
 }
+
+
+/* ป้ายด้านบน */
+
+.form-eyebrow {
+  display: inline-block;
+
+  margin-bottom: 12px;
+  padding: 7px 14px;
+
+  border-radius: 999px;
+
+  color: #00664c;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(0, 122, 83, 0.08),
+      rgba(16, 185, 129, 0.12)
+    );
+
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+
+  box-shadow:
+    0 10px 20px rgba(22, 101, 52, 0.06);
+}
+
 
 .repair-header h2 {
-  color: var(--color-primary);
-  font-size: 1.8rem;
-  font-weight: 700;
-  margin-bottom: 8px;
+  margin: 0 0 8px;
+
+  color: #18372d;
+
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+  line-height: 1.2;
+  letter-spacing: -0.04em;
 }
+
 
 .repair-header p {
-  color: #555;
-  font-size: 0.95rem;
-  line-height: 1.5;
+  margin: 0;
+
+  color: #58746d;
+
+  line-height: 1.6;
 }
 
-/* สไตล์ของแต่ละช่องกรอกข้อมูล */
+
+/* =========================
+   Form
+========================= */
+
 .form-group {
-  margin-bottom: 22px;
+  margin-bottom: 18px;
 }
+
 
 .form-group label {
   display: block;
+
   margin-bottom: 8px;
-  font-weight: 600;
-  color: #333;
-  font-size: 0.95rem;
+
+  color: #1d3a32;
+
+  font-size: 0.9rem;
+  font-weight: 800;
 }
+
 
 .required {
-  color: #d32f2f; 
-  margin-left: 3px;
+  color: #dc2626;
+  margin-left: 4px;
 }
 
-/* 🔥 แก้ไขจุดที่ 1: เพิ่ม input[type="text"] ให้ครอบคลุมช่องระบุสถานที่อื่นๆ ด้วย */
+
+/* Input / Select / Textarea */
+
 .form-group input[type="email"],
 .form-group input[type="text"],
 .form-group select,
 .form-group textarea {
   width: 100%;
-  padding: 14px 15px; 
-  border: 1px solid #ccd6d1;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-family: inherit;
-  box-sizing: border-box; 
-  transition: all 0.3s ease;
-  background-color: #fafbfc;
-  color: #222;
+  min-height: 50px;
+
+  padding: 12px 14px;
+
+  border: 1px solid rgba(16, 185, 129, 0.18);
+  border-radius: 14px;
+
+  background: rgba(255, 255, 255, 0.9);
+
+  color: #19352f;
+
+  box-shadow:
+    inset 0 1px 4px rgba(15, 118, 110, 0.05);
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease,
+    background 0.2s ease;
+
+  box-sizing: border-box;
 }
+
+
+.form-group textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
 
 .form-group input::placeholder,
 .form-group textarea::placeholder {
-  color: #999;
+  color: #7f8f8a;
 }
+
+
+/* Focus */
 
 .form-group input:focus,
 .form-group select:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: var(--color-primary);
-  background-color: white;
-  box-shadow: 0 0 0 3px rgba(0, 122, 83, 0.15); 
+
+  border-color: rgba(0, 122, 83, 0.55);
+
+  background: #ffffff;
+
+  box-shadow:
+    0 0 0 4px rgba(0, 122, 83, 0.10),
+    inset 0 1px 4px rgba(15, 118, 110, 0.05);
+
+  transform: translateY(-1px);
 }
 
-/* อนิเมชันช่องเลื่อนลงมา (สำหรับช่อง "ชั้น" และ "พิมพ์สถานที่เอง") */
+
+/* =========================
+   Animation
+========================= */
+
 .slide-down {
-  animation: slideDown 0.3s ease-out forwards;
+  animation: slideDown 0.25s ease-out forwards;
 }
 
-@keyframes slideDown {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
 
-/* =======================================
-   🔥 อัปเดตใหม่: กล่องอัปโหลดรูปภาพ 2 ปุ่ม
-   ======================================= */
+/* =========================
+   Upload
+========================= */
+
 .upload-box-container {
   width: 100%;
-  box-sizing: border-box;
-  /* เอา padding, border และ background-color ออกเพื่อให้เรียบเนียนไปกับฟอร์ม */
-  margin-top: 5px;
+  margin-top: 6px;
 }
+
 
 .upload-buttons-row {
   display: flex;
-  gap: 15px;
+
+  gap: 12px;
+
   justify-content: space-between;
-  /* เอา margin-bottom ออก เพื่อไม่ให้เหลือที่ว่างด้านล่างเมื่อไม่มีข้อความ */
 }
+
 
 .upload-buttons-row button {
-  flex: 1; /* แบ่งครึ่ง 50:50 ซ้ายขวาเท่ากัน */
-  display: flex;
-  justify-content: center;
+  flex: 1;
+
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
+
   gap: 8px;
-  padding: 14px 10px; /* ปรับขนาด padding ให้ความสูงใกล้เคียงกับ input ช่องอื่น */
-  border-radius: 8px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  font-family: inherit;
+
+  min-height: 48px;
+
+  padding: 10px 12px;
+
+  border: 1px solid rgba(15, 118, 110, 0.18);
+  border-radius: 14px;
+
+  background:
+    linear-gradient(
+      180deg,
+      #ffffff 0%,
+      #f5fff8 100%
+    );
+
+  color: #18372d;
+
+  font-weight: 800;
+
   cursor: pointer;
-  transition: all 0.2s ease;
-  border: none;
+
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
 }
 
-.btn-upload-gallery {
-  background-color: white;
-  color: #374151;
-  border: 1px solid #d1d5db !important;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+
+.upload-buttons-row button:hover {
+  transform: translateY(-2px);
+
+  border-color: rgba(0, 122, 83, 0.40);
+
+  background:
+    linear-gradient(
+      180deg,
+      #ffffff 0%,
+      #eefaf4 100%
+    );
+
+  box-shadow:
+    0 10px 20px rgba(15, 118, 110, 0.08);
 }
 
-.btn-upload-gallery:hover {
-  background-color: #f9fafb;
-  border-color: #9ca3af !important;
-}
-
-.btn-upload-camera {
-  background-color: white;
-  color: #374151;
-  border: 1px solid #d1d5db !important;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-
-.btn-upload-camera:hover {
-  background-color: #f9fafb;
-  border-color: #9ca3af !important;
-}
 
 .file-upload-hint {
-  margin: 0;
-  font-size: 0.9rem;
-  color: var(--color-primary);
-  opacity: 0.8;
+  margin: 8px 0 0;
+
+  color: #0b7a5d;
+
+  font-size: 0.84rem;
+  font-weight: 700;
 }
+
 
 .file-name-preview {
-  margin-top: 15px; /* เพิ่มระยะห่างด้านบนให้แสดงชื่อไฟล์ไม่ชิดปุ่มเกินไป */
-  margin-bottom: 0;
-  font-size: 0.95rem;
-  color: var(--color-primary);
-  font-weight: 700;
-  background-color: #e6f2ec;
-  padding: 10px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  text-align: center;
-  word-break: break-all;
+  margin-top: 12px;
+
+  padding: 10px 12px;
+
+  border-radius: 12px;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(16, 185, 129, 0.10),
+      rgba(0, 122, 83, 0.08)
+    );
+
+  color: #0f5a46;
+
+  font-size: 0.9rem;
+  font-weight: 800;
+
+  word-break: break-word;
 }
 
-/* ซ่อน input แบบเก่า */
+
 .hidden-file-input {
   display: none !important;
 }
 
-/* โซนปุ่มกดยืนยัน / ยกเลิก */
+
+/* =========================
+   Buttons
+========================= */
+
 .form-actions {
   display: flex;
-  gap: 15px;
-  margin-top: 35px;
+
+  gap: 14px;
+
+  margin-top: 26px;
 }
 
+
 .form-actions button {
-  flex: 1; 
-  padding: 16px; 
-  font-size: 1rem;
-  font-weight: 700;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
+  flex: 1;
+
+  min-height: 52px;
+
   border: none;
-  display: flex;
-  justify-content: center;
+  border-radius: 14px;
+
+  font-weight: 900;
+
+  cursor: pointer;
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    filter 0.2s ease;
+
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
+
   gap: 8px;
 }
 
-.form-actions button:disabled {
+
+/* ยกเลิก */
+
+.btn-cancel {
+  background:
+    linear-gradient(
+      180deg,
+      #f8fafc 0%,
+      #eef5f3 100%
+    );
+
+  color: #1f3b34;
+
+  border: 1px solid rgba(31, 120, 88, 0.1);
+}
+
+
+.btn-cancel:hover:not(:disabled) {
+  transform: translateY(-2px);
+
+  filter: brightness(0.98);
+
+  box-shadow:
+    0 8px 18px rgba(31, 120, 88, 0.08);
+}
+
+
+/* ส่งแจ้งซ่อม */
+
+.btn-submit {
+  background:
+    linear-gradient(
+      135deg,
+      #008f68 0%,
+      #007a53 55%,
+      #00664c 100%
+    );
+
+  color: #ffffff;
+
+  box-shadow:
+    0 16px 28px rgba(12, 117, 89, 0.20);
+}
+
+
+.btn-submit:hover:not(:disabled) {
+  transform: translateY(-2px);
+
+  box-shadow:
+    0 18px 30px rgba(12, 117, 89, 0.30);
+
+  filter: brightness(1.03);
+}
+
+
+.btn-submit:disabled,
+.btn-cancel:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.btn-cancel {
-  background-color: #f1f3f4;
-  color: #444;
-  border: 1px solid #dadce0;
-}
 
-.btn-cancel:hover:not(:disabled) {
-  background-color: #e8eaed;
-  color: #d32f2f; 
-}
-
-.btn-submit {
-  background-color: var(--color-primary);
-  color: white;
-  box-shadow: 0 4px 12px rgba(0, 122, 83, 0.25);
-}
-
-.btn-submit:hover:not(:disabled) {
-  background-color: var(--color-primary-hover);
-  transform: translateY(-2px); 
-}
-
-/* =======================================
-   Responsive สำหรับมือถือ 
-   ======================================= */
-@media (max-width: 600px) {
-  .repair-card {
-    padding: 30px 20px; 
-    border-radius: 10px;
-  }
-
-  /* ถ้าจอมือถือเล็กมาก ให้ปุ่มอัปโหลดรูปเรียงบน-ล่าง แทนซ้าย-ขวา */
-  .upload-buttons-row {
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .form-actions {
-    flex-direction: column-reverse; 
-    gap: 10px;
-  }
-  
-  .repair-header h2 {
-    font-size: 1.5rem;
-  }
-}
+/* =========================
+   Error
+========================= */
 
 .field-error {
-  margin: 6px 0 0;
-  color: var(--color-danger);
-  font-size: 0.875rem;
-  font-weight: 600;
+  margin-top: 6px;
+
+  color: #dc2626;
+
+  font-size: 0.8rem;
+  font-weight: 800;
 }
+
 
 .form-group input[aria-invalid="true"],
 .form-group select[aria-invalid="true"],
 .form-group textarea[aria-invalid="true"] {
-  border-color: var(--color-danger);
-  box-shadow: 0 0 0 3px rgba(196, 61, 61, 0.12);
+  border-color: rgba(239, 68, 68, 0.45);
+
+  box-shadow:
+    0 0 0 3px rgba(239, 68, 68, 0.08);
 }
+
+
+/* =========================
+   Keyframes
+========================= */
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+@keyframes floatCard {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+
+/* =========================
+   Mobile
+========================= */
+
+@media (max-width: 600px) {
+
+  .create-repair-container {
+    padding: 28px 12px 40px;
+  }
+
+
+  .repair-card {
+    padding: 22px 16px 18px;
+
+    border-radius: 20px;
+    border-top-width: 3px;
+  }
+
+
+  .repair-header h2 {
+    font-size: 1.7rem;
+  }
+
+
+  .repair-header p {
+    font-size: 0.9rem;
+  }
+
+
+  .form-group {
+    margin-bottom: 14px;
+  }
+
+
+  .form-group input[type="email"],
+  .form-group input[type="text"],
+  .form-group select,
+  .form-group textarea {
+    min-height: 46px;
+
+    font-size: 1rem;
+
+    padding: 10px 12px;
+  }
+
+
+  .upload-buttons-row {
+    flex-direction: column;
+
+    gap: 10px;
+  }
+
+
+  .form-actions {
+    flex-direction: column-reverse;
+
+    gap: 10px;
+  }
+
+
+  .form-actions button {
+    width: 100%;
+  }
+
+
+  .form-eyebrow {
+    font-size: 0.68rem;
+    padding: 6px 12px;
+  }
 }

@@ -1,39 +1,71 @@
-@scope (.tech-container) {
 /* โครงสร้างพื้นฐาน */
 .tech-container {
+  position: relative;
   min-height: 100vh;
-  background-color: var(--color-background);
+  max-width: 100%;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(25, 135, 84, 0.14), transparent 26%),
+    radial-gradient(circle at right center, rgba(255, 198, 97, 0.16), transparent 18%),
+    linear-gradient(180deg, #f3f8f5 0%, #eef3f0 100%);
   padding: 30px 40px;
   font-family: inherit;
 }
 
+.tech-container::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(0, 107, 79, 0.06) 0%, rgba(0, 107, 79, 0) 30%, rgba(0, 107, 79, 0.06) 100%);
+  transform: skewY(-6deg) translateY(-15%);
+  pointer-events: none;
+}
+
 .tech-wrapper {
+  position: relative;
+  z-index: 1;
   max-width: 1000px;
+  width: 100%;
   margin: 0 auto;
 }
 
 /* ส่วนหัว Header */
 .tech-header {
+  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: white;
+  background: linear-gradient(135deg, rgba(6, 42, 34, 0.98), rgba(10, 83, 66, 0.98) 48%, rgba(15, 100, 76, 0.98));
   padding: 25px 30px;
-  border-radius: 12px;
+  border-radius: 18px;
   margin-bottom: 30px;
-  box-shadow: 0 4px 15px rgba(0, 122, 83, 0.08);
-  border-left: 8px solid var(--color-primary);
+  box-shadow: 0 12px 26px rgba(8, 46, 35, 0.22);
+  border-left: 12px solid #f4c86a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f0f8f5;
+}
+
+.tech-header::after {
+  content: "";
+  position: absolute;
+  inset: 10px 14px auto auto;
+  width: 92px;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(244, 200, 106, 0.9), rgba(255, 255, 255, 0.08));
+  opacity: 0.8;
 }
 
 .tech-header h2 {
-  color: var(--color-primary);
+  color: #f7faf9;
   font-size: 1.8rem;
   margin-bottom: 5px;
   margin-top: 0;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.12);
 }
 
 .tech-header p {
-  color: #666;
+  color: rgba(240, 248, 245, 0.82);
   font-size: 1rem;
   margin: 0;
 }
@@ -44,20 +76,22 @@
 }
 
 .btn-logout {
-  background-color: transparent;
+  background: linear-gradient(135deg, #fff, #f4f8f6);
   color: #d32f2f;
   padding: 10px 20px;
-  border: 2px solid #d32f2f;
-  border-radius: 8px;
+  border: 1px solid rgba(211, 47, 47, 0.2);
+  border-radius: 10px;
   font-size: 0.95rem;
   font-weight: bold;
   cursor: pointer;
+  box-shadow: 0 6px 14px rgba(24, 51, 42, 0.06);
   transition: all 0.3s ease;
 }
 
 .btn-logout:hover {
-  background-color: #d32f2f;
-  color: white;
+  background: linear-gradient(135deg, #fff4f4, #ffe8e8);
+  color: #d32f2f;
+  transform: translateY(-1px);
 }
 
 /* ช่องค้นหา */
@@ -86,14 +120,13 @@
 }
 
 .repair-item-card {
-  background: white;
+  background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(244,250,247,0.97));
   padding: 25px;
-  border-radius: 12px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.04);
-  border: 1px solid #e0e8e4;
+  border-radius: 14px;
+  box-shadow: 0 8px 18px rgba(0, 122, 83, 0.05);
+  border: 1px solid rgba(0, 107, 79, 0.08);
   transition: transform 0.2s;
 }
-
 .repair-item-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 8px 25px rgba(0, 122, 83, 0.1);
@@ -309,12 +342,72 @@
 .btn-close-modal:hover { background-color: #ffebee; }
 
 /* Responsive */
-@media (max-width: 768px) {
+/* @media (max-width: 768px) {
   .tech-container { padding: 20px 15px; }
-  .tech-header { flex-direction: column; text-align: center; gap: 15px; }
+  .tech-header {
+    flex-direction: column;
+    text-align: center;
+    gap: 15px;
+    padding: 20px 18px;
+  }
   .card-actions-row { flex-direction: column; align-items: flex-start; gap: 15px; }
   .action-buttons { width: 100%; flex-wrap: wrap; }
-  .action-buttons button { flex: 1; text-align: center; min-width: 120px; }
+  .action-buttons button {
+    flex: 1 1 140px;
+    text-align: center;
+    min-width: 120px;
+    white-space: nowrap;
+  }
   .modal-actions { flex-direction: column; }
-}
+} */
+@media (max-width: 768px) {
+  .tech-container {
+    padding: 20px 15px;
+  }
+
+  .tech-header {
+    flex-direction: row;
+    text-align: left;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 20px 18px;
+  }
+
+  .tech-header > div:first-child {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .header-actions {
+    flex-shrink: 0;
+  }
+
+  .btn-logout {
+    white-space: nowrap;
+    padding: 9px 14px;
+    font-size: 0.85rem;
+  }
+
+  .card-actions-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .action-buttons {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .action-buttons button {
+    flex: 1 1 140px;
+    text-align: center;
+    min-width: 120px;
+    white-space: nowrap;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+  }
 }

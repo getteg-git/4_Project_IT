@@ -514,7 +514,7 @@
 .admin-manage-container .waiting-assignment span { display: flex; min-width: 0; flex-direction: column; }
 .admin-manage-container .waiting-assignment strong { color: var(--color-text); font-size: 0.84rem; }
 .admin-manage-container .waiting-assignment small { margin-top: 1px; font-size: 0.75rem; }
-.admin-manage-container .assignment-view-tabs { display: grid; width: 100%; margin-bottom: 14px; padding: 4px; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; border: 1px solid var(--color-border); border-radius: 11px; background: #eef2f0; }
+.admin-manage-container .assignment-view-tabs { display: grid; width: 100%; margin-bottom: 14px; padding: 4px; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; border: 1px solid var(--color-border); border-radius: 11px; background: #eef2f0; }
 .admin-manage-container .assignment-view-tabs button { display: inline-flex; width: 100%; min-height: 42px; padding: 8px 13px; align-items: center; justify-content: center; gap: 7px; border: 0; border-radius: 8px; color: var(--color-text-muted); background: transparent; font-weight: 700; }
 .admin-manage-container .assignment-view-tabs button:hover { color: var(--color-primary); background: rgba(255, 255, 255, 0.7); }
 .admin-manage-container .assignment-view-tabs button.is-active { color: var(--color-primary); background: #fff; box-shadow: 0 1px 4px rgba(24, 51, 42, 0.09); }
@@ -867,4 +867,48 @@
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
+@media (max-width: 768px) {
+  .admin-dashboard-container .page-header,
+  .tech-container .page-header {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .admin-dashboard-container .page-header > div:first-child,
+  .tech-container .page-header > div:first-child {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .admin-dashboard-container .page-logout-group,
+  .tech-container .page-logout-group {
+    display: flex;
+    width: auto;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    margin-left: auto;
+  }
+
+  .admin-dashboard-container .page-header .page-logout-group .page-logout,
+  .tech-container .page-header .page-logout-group .page-logout {
+    width: auto;
+    min-width: max-content;
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .tech-container .page-header .page-logout-group .page-logout span {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    white-space: nowrap;
+  }
 }

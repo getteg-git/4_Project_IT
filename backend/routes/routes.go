@@ -61,6 +61,7 @@ func SetupRoutes(r *gin.Engine) {
 		api.PUT("/repairs/:id/revoke", repairHandler.RevokeRepair)
 		// ใช้สำหรับยกเลิกงาน ในกรณีไม่คุ้มทุนในการซ่อม
 		api.PUT("/repairs/:id/cancel", repairHandler.CancelRepairByAdmin)
+		api.PUT("/repairs/:id/outsource", repairHandler.OutsourceRepair)
 		// ใช้สำหรับอนุมัติงานที่ ติดจุดคุ้มทุน แต่แอดมินคิดเห็นว่าควรซ่อมอยู่ดี
 		api.PUT("/repairs/:id/approve", repairHandler.ApproveRepairThreshold)
 		// ใช้สำหรับการประเมินราคาเบื้องต้นของช่าง

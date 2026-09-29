@@ -103,6 +103,7 @@ function TechHome() {
   const getStatusClass = (status) => {
     switch (status) {
       case "รอซ่อม": return "status-pending";
+      case "รับงานแล้ว": return "status-pending";
       case "กำลังซ่อม": return "status-progress";
       case "เสร็จเรียบร้อย": return "status-completed";
       case "ซ่อมไม่ได้": return "status-failed";
@@ -126,26 +127,65 @@ function TechHome() {
     setIsDetailsOpen(true);
   };
 
-  // 🔥 1. ฟังก์ชัน "รับงาน" (เริ่มจับเวลา + เปลี่ยนเป็นกำลังซ่อม)
-  const handleAcceptJob = async (id) => {
+  // รับงานไว้ก่อน โดยยังไม่เริ่มจับเวลาซ่อม
+  const handleAcceptJob = async (repair) => {
+    const approved = await confirm({
+      title: "ยืนยันรับงานซ่อม",
+      description: `คุณแน่ใจหรือไม่ว่าต้องการรับงาน ${repair.ticket_number || `#${repair.id}`}? งานจะอยู่ในสถานะรับงานแล้วจนกว่าคุณจะถึงหน้างานและเริ่มซ่อม`,
+      confirmLabel: "ยืนยันรับงาน",
+      cancelLabel: "ยกเลิก",
+    });
+    if (!approved) return;
+
     try {
       const formData = new FormData();
-      formData.append("status", "กำลังซ่อม");
+      formData.append("status", "รับงานแล้ว");
       formData.append("technician_id", currentUser.id);
 
-      const response = await fetch(`http://localhost:8080/api/repairs/${id}/status`, {
+      const response = await fetch(`http://localhost:8080/api/repairs/${repair.id}/status`, {
         method: "PUT",
         body: formData
       });
 
       if (response.ok) {
-        toast.success("รับงานสำเร็จ", { description: "ระบบเริ่มบันทึกเวลาการปฏิบัติงานแล้ว" });
+        toast.success("รับงานสำเร็จ", { description: "งานจะอยู่ในรายการรอเข้าหน้างาน จนกว่าคุณจะกดเริ่มดำเนินการซ่อม" });
         fetchMyJobs(currentUser);
       } else {
         toast.error("รับงานไม่สำเร็จ", { description: "กรุณาลองใหม่อีกครั้ง" });
       }
     } catch (error) {
       console.error("Accept Job Error:", error);
+      toast.error("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
+    }
+  };
+
+  const handleStartRepair = async (repair) => {
+    const approved = await confirm({
+      title: "ยืนยันเริ่มดำเนินการซ่อม",
+      description: `เมื่อยืนยัน งาน ${repair.ticket_number || `#${repair.id}`} จะเปลี่ยนสถานะเป็น “กำลังซ่อม” และระบบจะเริ่มบันทึกเวลาซ่อม`,
+      confirmLabel: "เริ่มดำเนินการซ่อม",
+      cancelLabel: "ยกเลิก",
+    });
+    if (!approved) return;
+
+    try {
+      const formData = new FormData();
+      formData.append("status", "กำลังซ่อม");
+      formData.append("technician_id", currentUser.id);
+
+      const response = await fetch(`http://localhost:8080/api/repairs/${repair.id}/status`, {
+        method: "PUT",
+        body: formData,
+      });
+
+      if (response.ok) {
+        toast.success("เริ่มดำเนินการซ่อมแล้ว", { description: "เปลี่ยนสถานะงานเป็นกำลังซ่อมและเริ่มบันทึกเวลาแล้ว" });
+        fetchMyJobs(currentUser);
+      } else {
+        toast.error("เริ่มงานซ่อมไม่สำเร็จ", { description: "กรุณาลองใหม่อีกครั้ง" });
+      }
+    } catch (error) {
+      console.error("Start Repair Error:", error);
       toast.error("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
     }
   };
@@ -260,17 +300,17 @@ function TechHome() {
   };
 
   const handleLogout = async () => {
-    const approved = await confirm({ title: "ออกจากระบบ", description: "คุณต้องการออกจากระบบช่างเทคนิคหรือไม่?", confirmLabel: "ออกจากระบบ", variant: "danger" });
+    const approved = await confirm({ title: "ยืนยันออกจากระบบ", description: "คุณแน่ใจหรือไม่ว่าต้องการออกจากระบบช่างเทคนิค?", confirmLabel: "ออกจากระบบ", cancelLabel: "ยกเลิก", variant: "danger" });
     if (approved) {
       localStorage.removeItem("user");
       navigate("/");
     }
   };
 
-  const activeRepairs = filteredRepairs.filter((repair) => repair.status === "รอซ่อม");
+  const activeRepairs = filteredRepairs.filter((repair) => repair.status === "รอซ่อม" || repair.status === "รับงานแล้ว");
   const progressRepairs = filteredRepairs.filter((repair) => repair.status === "กำลังซ่อม");
   const completedRepairs = filteredRepairs.filter((repair) =>
-    repair.status !== "รอซ่อม" && repair.status !== "กำลังซ่อม"
+    repair.status !== "รอซ่อม" && repair.status !== "รับงานแล้ว" && repair.status !== "กำลังซ่อม"
   );
   const displayedRepairs = jobView === "active"
     ? activeRepairs
@@ -319,18 +359,24 @@ function TechHome() {
         </div>
       </div>
 
-      {repair.status === "รอซ่อม" && (
+      {(repair.status === "รอซ่อม" || repair.status === "รับงานแล้ว") && (
         <div className="job-decision-row">
-          {repair.admin_note && repair.admin_note.trim() !== "" ? (
+          {repair.status === "รับงานแล้ว" ? (
+            <button className="btn-accept" onClick={() => handleStartRepair(repair)}>
+              <CircleCheck size={17} aria-hidden="true" /> เริ่มดำเนินการซ่อม
+            </button>
+          ) : repair.admin_note && repair.admin_note.trim() !== "" ? (
             <button className="btn-waiting-approval" disabled><Clock3 size={17} aria-hidden="true" /> รอแอดมินอนุมัติงบ</button>
           ) : (
-            <button className="btn-accept" onClick={() => handleAcceptJob(repair.id)}>
+            <button className="btn-accept" onClick={() => handleAcceptJob(repair)}>
               <CircleCheck size={17} aria-hidden="true" /> รับงาน
             </button>
           )}
-          <button className="btn-reject" onClick={() => handleReject(repair.id)}>
-            <X size={17} aria-hidden="true" /> ปฏิเสธงาน
-          </button>
+          {repair.status === "รอซ่อม" && (
+            <button className="btn-reject" onClick={() => handleReject(repair.id)}>
+              <X size={17} aria-hidden="true" /> ปฏิเสธงาน
+            </button>
+          )}
         </div>
       )}
 
@@ -358,13 +404,13 @@ function TechHome() {
     <div className="tech-container">
       <div className="tech-wrapper">
 
-        <div className="tech-header">
+        <div className="tech-header page-header">
           <div>
             <h2><ClipboardList size={24} aria-hidden="true" /> งานซ่อมที่รับผิดชอบ</h2>
             <p>ยินดีต้อนรับ, {currentUser ? (currentUser.full_name || currentUser.username) : "กำลังโหลด..."}</p>
           </div>
-          <div className="header-actions">
-            <button className="btn-logout" onClick={handleLogout}>
+          <div className="header-actions page-logout-group">
+            <button className="btn-logout page-logout" onClick={handleLogout}>
               <LogOut size={17} aria-hidden="true" /> <span>ออกจากระบบ</span>
             </button>
           </div>
@@ -389,7 +435,7 @@ function TechHome() {
           <div className="job-view-area">
             <div className="job-view-tabs" role="tablist" aria-label="เลือกประเภทงาน">
               <button type="button" role="tab" aria-selected={jobView === "active"} className={jobView === "active" ? "is-active" : ""} onClick={() => { setJobView("active"); setCurrentPage(1); }}>
-                งานที่รอรับ <span>{activeRepairs.length}</span>
+                รอรับงาน / ไปหน้างาน <span>{activeRepairs.length}</span>
               </button>
               <button type="button" role="tab" aria-selected={jobView === "progress"} className={jobView === "progress" ? "is-active" : ""} onClick={() => { setJobView("progress"); setCurrentPage(1); }}>
                 กำลังซ่อม <span>{progressRepairs.length}</span>
@@ -404,7 +450,7 @@ function TechHome() {
                 <Pagination currentPage={currentPage} totalItems={displayedRepairs.length} onPageChange={setCurrentPage} />
               </>
             ) : (
-              <div className="no-results"><p>{jobView === "active" ? "ไม่มีงานที่รอรับในขณะนี้" : jobView === "progress" ? "ไม่มีงานที่กำลังซ่อม" : "ยังไม่มีประวัติงานที่เสร็จแล้ว"}</p></div>
+              <div className="no-results"><p>{jobView === "active" ? "ไม่มีงานที่รอรับหรือรอเข้าหน้างาน" : jobView === "progress" ? "ไม่มีงานที่กำลังซ่อม" : "ยังไม่มีประวัติงานที่เสร็จแล้ว"}</p></div>
             )}
           </div>
         )}

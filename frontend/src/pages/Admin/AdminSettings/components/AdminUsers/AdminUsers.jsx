@@ -31,6 +31,40 @@ function AdminUsers() {
   const [specialties, setSpecialties] = useState([]); 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const validateUserForm = (allowEmptyPassword = false) => {
+    const trimmedUsername = username.trim();
+    const trimmedFullName = fullName.trim();
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedUsername || !/^[A-Za-z0-9._-]{3,30}$/.test(trimmedUsername)) {
+      return "username ต้องมี 3-30 ตัวอักษร และใช้ได้เฉพาะ a-z, A-Z, 0-9, '.', '_', '-'";
+    }
+    if (!trimmedFullName || trimmedFullName.length < 2) {
+      return "กรุณาระบุชื่อ-นามสกุลจริงอย่างน้อย 2 ตัวอักษร";
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      return "อีเมลไม่ถูกต้อง กรุณากรอกเป็นรูปแบบ email ที่ถูกต้อง";
+    }
+    if (trimmedPassword !== "") {
+      if (trimmedPassword.length < 3 || trimmedPassword.length > 30) {
+        return "password ต้องมีความยาว 3-30 ตัวอักษร";
+      }
+    } else if (!allowEmptyPassword) {
+      return "password ต้องมีความยาว 3-30 ตัวอักษร";
+    }
+    if (role === "technician" && !departmentId) {
+      return "ช่างเทคนิคจำเป็นต้องเลือกสาขาวิชา";
+    }
+    if (role === "technician" && specialties.length === 0) {
+      return "ช่างเทคนิคต้องเลือกความถนัดอย่างน้อย 1 หมวดหมู่";
+    }
+    if (role === "technician" && specialties.length > 3) {
+      return "ช่างเทคนิคสามารถเลือกความถนัดได้สูงสุด 3 หมวดหมู่";
+    }
+    return null;
+  };
+
   // ดึงข้อมูลหลักจาก Backend พร้อมกัน
   const fetchMasterData = async () => {
     try {
@@ -112,6 +146,11 @@ function AdminUsers() {
 
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
+    const validationMessage = validateUserForm();
+    if (validationMessage) {
+      toast.warning("ข้อมูลไม่ถูกต้อง", { description: validationMessage });
+      return;
+    }
     setIsSubmitting(true);
     try {
       const response = await fetch("http://localhost:8080/api/users", {
@@ -146,8 +185,9 @@ function AdminUsers() {
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
-    if (!password) {
-      toast.warning("กรุณาระบุรหัสผ่าน", { description: "กำหนดรหัสผ่านใหม่ หรือกรอกรหัสเดิมเพื่อยืนยันการแก้ไข" });
+    const validationMessage = validateUserForm(true);
+    if (validationMessage) {
+      toast.warning("ข้อมูลไม่ถูกต้อง", { description: validationMessage });
       return;
     }
 
@@ -161,6 +201,7 @@ function AdminUsers() {
           password, 
           full_name: fullName,
           email,
+          role,
           department_id: departmentId ? parseInt(departmentId) : null,
           is_central: role === "technician" ? isCentral : false,
           specialties: role === "technician" ? specialties : []
@@ -334,9 +375,9 @@ function AdminUsers() {
 
               {/* 🔥 เพิ่มฟิลด์สาขา */}
               <div className="input-group">
-                <label>สาขาวิชา / สังกัด <span className="required">*</span></label>
-                <select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} required>
-                  <option value="">-- โปรดเลือกสาขาวิชา --</option>
+                <label>สาขาวิชา / สังกัด {role === "technician" && <span className="required">*</span>}</label>
+                <select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} required={role === "technician"}>
+                  <option value="">{role === "technician" ? "-- โปรดเลือกสาขาวิชา --" : "-- ไม่บังคับสำหรับแอดมิน --"}</option>
                   {departments.map(dept => (
                     <option key={dept.id} value={dept.id}>{dept.name}</option>
                   ))}
@@ -391,7 +432,7 @@ function AdminUsers() {
                 <label>รหัสผ่าน (Password) <span className="required">*</span></label>
                 <input 
                   type="password" 
-                  placeholder="ตั้งรหัสผ่านเบื้องต้น"
+                  placeholder="ตั้งรหัสผ่านเบื้องต้น (3-30 ตัว)"
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)} 
                   required 
@@ -449,9 +490,9 @@ function AdminUsers() {
               </div>
 
               <div className="input-group">
-                <label>สาขาวิชา / สังกัด <span className="required">*</span></label>
-                <select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} required>
-                  <option value="">-- โปรดเลือกสาขาวิชา --</option>
+                <label>สาขาวิชา / สังกัด {role === "technician" && <span className="required">*</span>}</label>
+                <select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} required={role === "technician"}>
+                  <option value="">{role === "technician" ? "-- โปรดเลือกสาขาวิชา --" : "-- ไม่บังคับสำหรับแอดมิน --"}</option>
                   {departments.map(dept => (
                     <option key={dept.id} value={dept.id}>{dept.name}</option>
                   ))}
@@ -501,16 +542,15 @@ function AdminUsers() {
               </div>
 
               <div className="input-group">
-                <label>รีเซ็ตรหัสผ่านใหม่เพื่อยืนยัน <span className="required">*</span></label>
+                <label>รีเซ็ตรหัสผ่านใหม่ (เว้นว่างไว้หากไม่ต้องการเปลี่ยน)</label>
                 <input 
-                  type="text" 
-                  placeholder="ระบุรหัสผ่านใหม่ (หรือพิมพ์รหัสเดิม)"
+                  type="password" 
+                  placeholder="ระบุรหัสผ่านใหม่หากต้องการเปลี่ยน (3-30 ตัว)"
                   value={password} 
-                  onChange={(e) => setPassword(e.target.value)} 
-                  required 
+                  onChange={(e) => setPassword(e.target.value)}
                 />
                 <small className="password-warning-text">
-                  * เนื่องจากความปลอดภัยของระบบฐานข้อมูลหลัก กรุณาระบุรหัสผ่านใหม่หรือรหัสผ่านเดิมเพื่อยืนยันการทำรายการอัปเดตทุกครั้ง
+                  * หากปล่อยว่างไว้ ระบบจะคงรหัสผ่านเดิมไว้ และถ้ากรอกใหม่ต้องอยู่ในช่วง 3-30 ตัว
                 </small>
               </div>
 

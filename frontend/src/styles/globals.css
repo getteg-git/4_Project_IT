@@ -8,13 +8,19 @@ html {
   min-width: 320px;
   overflow-y: scroll;
   scrollbar-gutter: stable;
-  background: var(--color-background);
+  background:
+    radial-gradient(circle at top left, rgba(0, 107, 79, 0.08), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(197, 163, 90, 0.12), transparent 30%),
+    var(--color-background);
 }
 
 body {
   min-width: 320px;
   margin: 0;
-  background: var(--color-background);
+  background:
+    radial-gradient(circle at top left, rgba(0, 107, 79, 0.08), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(197, 163, 90, 0.12), transparent 30%),
+    var(--color-background);
   color: var(--color-text);
   font-family: "Noto Sans Thai", "Leelawadee UI", "Thonburi", system-ui, sans-serif;
   font-size: 16px;

@@ -1,221 +1,589 @@
-@scope (.home-container) {
-/* =======================================
-   โครงสร้างพื้นหลังและเลย์เอาต์หลัก
-   ======================================= */
-.home-container {
-  min-height: 100vh;
-  background-color: var(--color-background);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 20px; 
-  box-sizing: border-box;
-  font-family: inherit;
-  position: relative; /* สำคัญ: เพื่อให้ยึด Top Nav ไว้ด้านบนได้ */
+  .home-container {
+    position: relative;
+    min-height: 100vh;
+    padding: 120px 24px 72px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    background:
+      radial-gradient(circle at top left, rgba(25, 135, 84, 0.14), transparent 26%),
+      radial-gradient(circle at right center, rgba(255, 198, 97, 0.18), transparent 18%),
+      linear-gradient(180deg, #f3f8f5 0%, #eef3f0 100%);
+    overflow: hidden;
+  }
+
+  .home-container::before,
+  .home-container::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .home-container::before {
+    background: linear-gradient(90deg, rgba(0, 107, 79, 0.08) 0%, rgba(0, 107, 79, 0) 30%, rgba(0, 107, 79, 0.08) 100%);
+    transform: skewY(-6deg) translateY(-15%);
+  }
+
+  .home-container::after {
+    width: 120%;
+    height: 290px;
+    left: -10%;
+    bottom: -120px;
+    border-radius: 50% 50% 0 0;
+    background: rgba(255, 255, 255, 0.38);
+    box-shadow: inset 0 18px 30px rgba(0, 0, 0, 0.02);
+  }
+
+  .top-band {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 150px;
+    background: linear-gradient(90deg, rgba(0, 107, 79, 0.12) 0%, rgba(0, 107, 79, 0.04) 30%, rgba(23, 71, 70, 0.12) 100%);
+    border-bottom: 1px solid rgba(0, 107, 79, 0.12);
+    overflow: hidden;
+  }
+
+  .top-band::before,
+  .top-band::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.34) 50%, transparent 100%);
+    opacity: 0.8;
+  }
+
+  .top-band::before {
+    transform: translateX(-14%) scaleX(1.05);
+  }
+
+  .top-band::after {
+    background: repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.18) 0,
+      rgba(255, 255, 255, 0.18) 70px,
+      transparent 70px,
+      transparent 140px
+    );
+  }
+
+  .tool-float {
+    position: absolute;
+    display: grid;
+    place-items: center;
+    width: 82px;
+    height: 82px;
+    border-radius: 24px;
+    color: rgba(0, 107, 79, 0.75);
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(0, 107, 79, 0.08);
+    opacity: 0.55;
+    backdrop-filter: blur(2px);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 10px 20px rgba(24, 51, 42, 0.04);
+    animation: floatTool 6s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .tool-float svg {
+    width: 34px;
+    height: 34px;
+  }
+
+  .tool-float-1 { top: 22px; left: 5%; animation-delay: 0s; }
+  .tool-float-2 { top: 18px; right: 8%; animation-delay: 1.5s; }
+  .tool-float-3 { top: 86px; right: 20%; animation-delay: 2.6s; }
+
+  .top-nav {
+    position: absolute;
+    top: 26px;
+    right: max(24px, calc((100vw - 1180px) / 2));
+    z-index: 2;
+  }
+
+  .btn-staff-login {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 46px;
+    padding: 10px 18px;
+    border: 1px solid rgba(0, 107, 79, 0.14);
+    border-radius: 999px;
+    color: #ffffff;
+    background: linear-gradient(135deg, #006b4f 0%, #0d7d5d 100%);
+    box-shadow: 0 12px 26px rgba(0, 107, 79, 0.18);
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .btn-staff-login:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 28px rgba(0, 107, 79, 0.22);
+  }
+
+  .home-header {
+    position: relative;
+    z-index: 1;
+    width: min(100%, 760px);
+    margin: 0 0 36px;
+    text-align: center;
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 14px;
+    border-radius: 999px;
+    color: var(--color-primary);
+    background: rgba(0, 107, 79, 0.08);
+    border: 1px solid rgba(0, 107, 79, 0.12);
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+  }
+
+  .home-header h1 {
+    margin: 14px 0 10px;
+    color: #1f2f2d;
+    font-size: clamp(2.1rem, 4vw, 3.4rem);
+    line-height: 1.18;
+    letter-spacing: -0.04em;
+  }
+
+  .home-header p {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 1.08rem;
+  }
+
+  .cards-grid {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    width: min(100%, 960px);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 26px;
+  }
+
+  .menu-card {
+    position: relative;
+    display: grid;
+    min-height: 270px;
+    padding: 28px 28px 24px;
+    text-align: left;
+    border: 1px solid rgba(0, 107, 79, 0.12);
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.88);
+    box-shadow: 0 18px 40px rgba(18, 39, 31, 0.08);
+    backdrop-filter: blur(8px);
+    cursor: pointer;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  }
+
+  .menu-card:hover {
+    transform: translateY(-6px);
+    border-color: rgba(0, 107, 79, 0.32);
+    box-shadow: 0 26px 46px rgba(18, 39, 31, 0.12);
+  }
+
+  .menu-card:active {
+    transform: translateY(-2px) scale(0.99);
+  }
+
+  .menu-card::after {
+    content: "";
+    position: absolute;
+    inset: auto 24px 18px 24px;
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(0, 107, 79, 0), rgba(0, 107, 79, 0.28), rgba(0, 107, 79, 0));
+  }
+
+  .card-user {
+    border-top: 4px solid var(--color-primary);
+  }
+
+  .card-icon {
+    display: grid;
+    place-items: center;
+    width: 68px;
+    height: 68px;
+    margin-bottom: 18px;
+    border-radius: 18px;
+    color: var(--color-primary);
+    background: rgba(0, 107, 79, 0.08);
+    transition: transform 0.25s ease, background 0.25s ease;
+  }
+
+  .card-icon svg {
+    width: 32px;
+    height: 32px;
+    stroke-width: 1.8;
+  }
+
+  .menu-card:hover .card-icon {
+    background: rgba(0, 107, 79, 0.12);
+  }
+
+  .menu-card:hover .card-icon svg {
+    animation: gearSpin 0.7s ease;
+  }
+
+  .menu-card h2 {
+    margin: 0;
+    color: var(--color-text);
+    font-size: 1.48rem;
+    line-height: 1.4;
+  }
+
+  .card-desc {
+    display: block;
+    margin-top: 10px;
+    padding: 0;
+    color: var(--color-text-muted);
+    background: transparent;
+    font-size: 1rem;
+  }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(14, 32, 26, 0.55);
+    backdrop-filter: blur(3px);
+  }
+
+  .modal-box {
+    position: relative;
+    width: min(100%, 470px);
+    padding: 38px 30px 28px;
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid rgba(0, 107, 79, 0.08);
+    border-top: 5px solid var(--color-primary);
+    border-radius: 20px;
+    box-shadow: 0 24px 50px rgba(15, 30, 24, 0.18);
+    animation: modalFade 0.22s ease-out;
+  }
+
+  .modal-box h3 {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 0 0 8px;
+    color: var(--color-text);
+    font-size: 1.5rem;
+    text-align: center;
+  }
+
+  .modal-subtitle {
+    margin: 0 0 22px;
+    color: var(--color-text-muted);
+    text-align: center;
+    font-size: 0.92rem;
+  }
+
+  .close-btn {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 107, 79, 0.06);
+    color: #66776e;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+
+  .close-btn:hover {
+    color: #d32f2f;
+    background: rgba(211, 47, 47, 0.1);
+  }
+
+  .input-group {
+    margin-bottom: 18px;
+  }
+
+  .input-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--color-text);
+    font-size: 0.92rem;
+    font-weight: 700;
+  }
+
+  .required {
+    color: var(--color-danger);
+  }
+
+  .input-group input,
+  .role-select {
+    width: 100%;
+    min-height: 48px;
+    padding: 12px 14px;
+    border: 1px solid rgba(0, 107, 79, 0.14);
+    border-radius: 12px;
+    background: rgba(245, 249, 247, 0.9);
+    color: var(--color-text);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  }
+
+  .input-group input:focus,
+  .role-select:focus {
+    outline: none;
+    border-color: rgba(0, 107, 79, 0.4);
+    background: #fff;
+    box-shadow: 0 0 0 4px rgba(0, 107, 79, 0.08);
+  }
+
+  .modal-actions {
+    margin-top: 26px;
+  }
+
+  .btn-submit {
+    width: 100%;
+    min-height: 48px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #006b4f 0%, #0a7c5d 100%);
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 12px 20px rgba(0, 107, 79, 0.2);
+  }
+
+  .btn-submit:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 24px rgba(0, 107, 79, 0.22);
+  }
+
+  @keyframes floatTool {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+
+  @keyframes gearSpin {
+    0% { transform: rotate(0deg) scale(1); }
+    30% { transform: rotate(20deg) scale(1.08); }
+    100% { transform: rotate(0deg) scale(1); }
+  }
+
+  @keyframes modalFade {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* =========================
+   Repair Steps Timeline
+========================= */
+
+.repair-steps {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 850px);
+  margin: 80px auto 90px;
+  padding: 0 24px;
 }
 
-/* แถบเมนูด้านบน (สำหรับปุ่มล็อกอินเจ้าหน้าที่) */
-.top-nav {
-  position: absolute;
-  top: 25px;
-  right: 30px;
-}
-
-.btn-staff-login {
-  background-color: transparent;
-  color: var(--color-primary);
-  border: 2px solid var(--color-primary);
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-staff-login:hover {
-  background-color: var(--color-primary);
-  color: white;
-  box-shadow: 0 4px 12px rgba(0, 122, 83, 0.15);
-}
-
-/* =======================================
-   ส่วนหัวและข้อความ
-   ======================================= */
-.home-header {
+.repair-steps > h2 {
+  margin: 0 0 8px;
+  color: #173d32;
+  font-size: 1.8rem;
   text-align: center;
-  margin-bottom: 30px; 
 }
 
-.home-header h1 {
-  color: var(--color-primary);
-  font-size: 2.5rem; /* ปรับให้ใหญ่ขึ้นนิดนึงเพราะเหลือ 2 กล่อง */
-  font-weight: 700;
-  margin-bottom: 5px;
+.steps-subtitle {
+  margin: 0 0 50px;
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
+  text-align: center;
 }
 
-.home-header p {
-  color: #555;
-  font-size: 1.2rem;
-  font-weight: 500;
-  margin: 0;
-}
-
-/* =======================================
-   ส่วนของ Grid การ์ดเมนู (ปรับสำหรับ 2 กล่อง)
-   ======================================= */
-.cards-grid {
-  display: grid;
-  gap: 30px; 
-  max-width: 900px; 
+.steps-container {
+  position: relative;
   width: 100%;
 }
 
-/* สั่งให้เหลือ 2 คอลัมน์ และขยายความกว้างกล่องให้สมดุล */
-.user-only-grid {
-  grid-template-columns: repeat(2, 1fr);
+/* เส้นแนวตั้ง */
+.steps-container::before {
+  content: "";
+  position: absolute;
+  top: 35px;
+  bottom: 35px;
+  left: 47px;
+  width: 2px;
+  background: #cfe3db;
 }
 
-.menu-card {
-  background: white;
-  padding: 40px 30px; /* เพิ่ม Padding ให้กล่องดูอวบอิ่มขึ้น */
-  border-radius: 12px;
-  text-align: center;
-  cursor: pointer;
-  box-shadow: 0 6px 15px rgba(0, 122, 83, 0.08);
-  transition: all 0.3s ease;
-  border: 1px solid #e0e8e4;
+/* แต่ละขั้นตอน */
+.step-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 95px 1fr;
+  gap: 28px;
+  min-height: 150px;
 }
 
-.card-user { border-top: 6px solid var(--color-primary); }
-
-.menu-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 12px 25px rgba(0, 122, 83, 0.15);
-  border-color: var(--color-primary);
+/* ฝั่งเลข + ไอคอน */
+.step-marker {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.card-icon img, .card-icon {
-  font-size: 3.5rem; /* ขยายไอคอนให้ใหญ่ขึ้น */
-  margin-bottom: 15px; 
+.step-number {
+  margin-bottom: 8px;
+  color: #007a53;
+  font-size: 0.85rem;
+  font-weight: 700;
 }
 
-.card-icon svg {
-  width: 54px;
-  height: 54px;
-  color: var(--color-primary);
-  stroke-width: 1.5;
+.step-icon {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border: 5px solid #f4f8f6;
+  border-radius: 18px;
+  background: #e8f4ef;
+  box-shadow: 0 3px 12px rgba(0, 80, 55, 0.08);
+  font-size: 25px;
 }
 
-.menu-card h2 {
-  color: #333;
-  font-size: 1.4rem;
-  margin-bottom: 10px;
+/* เนื้อหาด้านขวา */
+.step-content {
+  padding-top: 32px;
+  padding-bottom: 35px;
 }
 
-.card-desc {
-  display: block;
-  font-size: 1rem;
-  color: #666;
-  background-color: #f8f9fa;
-  padding: 8px 10px;
-  border-radius: 6px;
-  margin-top: 15px; 
+.step-content h3 {
+  margin: 0 0 8px;
+  color: #173d32;
+  font-size: 1.15rem;
 }
 
-/* =======================================
-   ส่วนของ POPUP LOGIN (Modal)
-   ======================================= */
-.modal-overlay {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex; justify-content: center; align-items: center;
-  z-index: 1000; backdrop-filter: blur(4px);
+.step-content p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
+  line-height: 1.7;
 }
 
-.modal-box {
-  background: white; padding: 40px; border-radius: 12px;
-  width: 90%; max-width: 450px; position: relative;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-  border-top: 6px solid var(--color-primary);
-  animation: fadeIn 0.3s ease-out;
+@media (max-width: 980px) {
+  .home-container {
+    padding-top: 124px;
+  }
+
+  .top-band {
+    height: 148px;
+  }
+
+  .cards-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .tool-float-1 { left: 8%; }
+  .tool-float-2 { right: 10%; }
+  .tool-float-3 { right: 24%; }
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
-}
+@media (max-width: 640px) {
+  .home-container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
 
-.close-btn { position: absolute; top: 15px; right: 20px; display: grid; width: 36px; height: 36px; padding: 0; place-items: center; border: 0; border-radius: 50%; background: transparent; cursor: pointer; color: #777; transition: color 0.2s, background-color 0.2s; }
-.close-btn:hover { color: #d32f2f; background-color: #fceceb; }
-
-.modal-box h3 { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--color-primary); font-size: 1.5rem; margin-bottom: 5px; text-align: center; }
-.modal-subtitle { text-align: center; color: #666; font-size: 0.9rem; margin-bottom: 25px; }
-
-.input-group { margin-bottom: 20px; }
-.input-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #333; }
-.required { color: #d32f2f; }
-
-/* ปรับแต่ง Dropdown และ Input ให้เข้าตีม */
-.input-group input, .role-select { 
-  width: 100%; 
-  padding: 14px 15px; 
-  border: 1px solid #ccd6d1; 
-  border-radius: 8px; 
-  font-size: 1rem; 
-  box-sizing: border-box; 
-  background-color: #fafbfc; 
-  transition: all 0.3s ease; 
-  font-family: inherit;
-}
-.input-group input:focus, .role-select:focus { 
-  outline: none; 
-  border-color: var(--color-primary);
-  background-color: white; 
-  box-shadow: 0 0 0 3px rgba(0, 122, 83, 0.15); 
-}
-
-.modal-actions { display: flex; gap: 15px; margin-top: 30px; }
-.modal-actions button { flex: 1; padding: 14px; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer; border: none; transition: all 0.2s ease; }
-.modal-actions button:disabled { opacity: 0.6; cursor: not-allowed; }
-.btn-cancel { background-color: #f1f3f4; color: #444; }
-.btn-cancel:hover:not(:disabled) { background-color: #e8eaed; color: #d32f2f; }
-.btn-submit { background-color: var(--color-primary); color: white; box-shadow: 0 4px 10px rgba(0, 122, 83, 0.2); }
-.btn-submit:hover:not(:disabled) { background-color: var(--color-primary-hover); transform: translateY(-2px); }
-
-/* =======================================
-   📱 Responsive 1: สำหรับ Notebook (จอเตี้ย)
-   ======================================= */
-@media (max-height: 800px) {
-  .home-header { margin-bottom: 20px; }
-  .home-header h1 { font-size: 2.2rem; }
-  .menu-card { padding: 30px 20px; }
-  .card-icon img, .card-icon { font-size: 2.8rem; margin-bottom: 10px; }
-}
-
-/* =======================================
-   📱 Responsive 2: สำหรับ Mobile/Tablet (จอแคบ)
-   ======================================= */
-@media (max-width: 768px) {
   .top-nav {
-    position: static; /* ปลดล็อกปุ่มล็อกอินให้ไหลไปตามปกติบนมือถือ */
+    position: static;
     width: 100%;
     display: flex;
     justify-content: flex-end;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
   }
+
+  .btn-staff-login {
+    width: auto;
+  }
+
   .cards-grid {
-    grid-template-columns: 1fr; /* บนมือถือเรียงเป็น 1 แถว */
-    gap: 20px;
+    grid-template-columns: 1fr;
   }
-  .home-header h1 { font-size: 1.8rem; }
-  .home-container {
-    height: auto; 
-    padding: 20px;
+
+  .menu-card {
+    min-height: 220px;
+    padding: 20px 18px 18px;
   }
-}
+
+  .card-icon {
+    width: 60px;
+    height: 60px;
+  }
+
+  .home-header h1 {
+    font-size: 2rem;
+  }
+
+    .repair-steps {
+    margin: 60px auto 70px;
+    padding: 0 10px;
+  }
+
+  .repair-steps > h2 {
+    font-size: 1.5rem;
+  }
+
+  .steps-subtitle {
+    margin-bottom: 40px;
+    font-size: 0.85rem;
+  }
+
+  .steps-container::before {
+    left: 34px;
+  }
+
+  .step-item {
+    grid-template-columns: 70px 1fr;
+    gap: 18px;
+    min-height: 140px;
+  }
+
+  .step-number {
+    font-size: 0.75rem;
+  }
+
+  .step-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 15px;
+    font-size: 21px;
+  }
+
+  .step-content {
+    padding-top: 30px;
+  }
+
+  .step-content h3 {
+    font-size: 1rem;
+  }
+
+  .step-content p {
+    font-size: 0.85rem;
+  }
 }

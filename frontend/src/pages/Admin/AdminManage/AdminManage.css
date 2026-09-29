@@ -127,6 +127,7 @@
 .status-progress { background-color: #2980b9; }
 .status-completed { background-color: var(--color-primary); }
 .status-failed { background-color: #e74c3c; }
+.status-outsourced { background-color: #2563eb; }
 
 .repair-title {
   font-size: 1.3rem;
@@ -341,6 +342,26 @@
   margin-top: 10px !important;
 }
 
+.repair-failure-note,
+.repair-outsourced-note {
+  margin-top: 14px;
+  padding: 13px 15px;
+  border: 1px solid #f4c7c7;
+  border-radius: 8px;
+  color: #7f1d1d;
+  background: #fff5f5;
+}
+.repair-outsourced-note { border-color: #bfdbfe; color: #1e3a8a; background: #eff6ff; }
+.repair-failure-note strong,
+.repair-outsourced-note strong { display: flex; align-items: center; gap: 7px; }
+.repair-failure-note p,
+.repair-outsourced-note p { margin: 6px 0 0; white-space: pre-wrap; }
+.technician-workload { margin: 12px 0 0; color: var(--color-primary); font-size: 0.9rem; }
+.technician-workload.has-open-jobs { color: #9a3412; }
+.outsource-context { margin: 8px 0 18px; color: #52625c; }
+.btn-outsource { display: inline-flex; min-height: 40px; padding: 8px 13px; align-items: center; gap: 7px; border: 1px solid #bfdbfe; border-radius: 8px; color: #1d4ed8; background: #eff6ff; cursor: pointer; }
+.btn-outsource:hover { background: #dbeafe; }
+
 /* Assign Modal Specific */
 .assign-modal-title { color: var(--color-primary); margin: 0 0 5px 0; }
 .assign-modal-subtitle { font-size: 14px; color: #666; margin-bottom: 20px; }
@@ -348,15 +369,181 @@
 .assign-modal-hint { display: block; margin-top: 8px; color: #666; font-size: 0.85rem; }
 .assign-actions { margin-top: 30px; }
 
-.input-group label { display: block; margin-bottom: 8px; font-weight: 600; color: #333; }
-.input-group select {
-  width: 100%; padding: 14px; border: 1px solid #ccd6d1; border-radius: 8px;
-  font-size: 1rem; background-color: #fafbfc;
-  white-space: normal;
+.assign-technician-modal { width: min(100%, 860px); max-width: 860px; max-height: 90vh; overflow-y: auto; }
+.technician-card-label { margin-bottom: 10px; color: #263b34; font-weight: 700; }
+.technician-card-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.technician-option-card {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-height: 120px;
+  padding: 15px;
+  grid-template-columns: 48px minmax(0, 1fr) 24px;
+  align-items: start;
+  gap: 12px;
   box-sizing: border-box;
+
+  border: 1px solid #d8e2dd;
+  border-radius: 12px;
+  color: #263b34;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+
+  transition: border-color 160ms ease, background-color 160ms ease,
+    box-shadow 160ms ease;
 }
-.input-group select:focus { outline: none; border-color: var(--color-primary); background-color: white; box-shadow: 0 0 0 3px rgba(0, 122, 83, 0.15); }
-.input-group select option { padding: 10px; }
+
+.technician-option-card:hover {
+  border-color: #68a98e;
+  background: #f8fcfa;
+}
+
+.technician-option-card:focus-visible {
+  outline: 3px solid rgba(0, 122, 83, 0.25);
+  outline-offset: 2px;
+}
+
+.technician-option-card.is-selected {
+  border: 2px solid #007a53;
+  padding: 14px;
+  background: #f2faf6;
+  box-shadow: 0 0 0 2px rgba(0, 122, 83, 0.08);
+}
+
+.technician-avatar {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 50%;
+  color: #007a53;
+  background: #e7f4ed;
+}
+
+.technician-option-content {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.technician-option-name {
+  color: #173b2e;
+  font-size: 0.96rem;
+  font-weight: 700;
+
+  /* ไม่ให้ชื่อภาษาไทยแตกทีละตัว */
+  overflow-wrap: normal;
+  word-break: normal;
+  white-space: normal;
+}
+
+.technician-option-specialties {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #627169;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.technician-option-status {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.technician-status-dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #16a34a;
+}
+
+.technician-option-status.is-working {
+  color: #946200;
+}
+
+.technician-option-status.is-working .technician-status-dot {
+  background: #eab308;
+}
+
+.technician-option-status.is-available {
+  color: #166534;
+}
+
+.technician-open-job-count {
+  color: #738078;
+  font-size: 0.76rem;
+}
+
+.technician-selected-check {
+  display: grid;
+  width: 24px;
+  min-height: 24px;
+  place-items: center;
+  color: #007a53;
+}
+
+.technician-empty-state {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 18px;
+  border: 1px dashed #cbd5d1;
+  border-radius: 8px;
+  color: #66736d;
+  text-align: center;
+}
+
+
+/* ============================= */
+/* Mobile */
+/* ============================= */
+
+@media (max-width: 768px) {
+
+  .admin-manage-container .technician-card-grid {
+    grid-template-columns: 1fr !important;
+    width: 100%;
+  }
+
+  .admin-manage-container .technician-option-card {
+    width: 100%;
+    min-width: 0;
+    min-height: 105px;
+
+    grid-template-columns: 48px minmax(0, 1fr) 24px;
+
+    padding: 15px;
+    gap: 12px;
+  }
+
+  .admin-manage-container .technician-option-name {
+    overflow-wrap: normal;
+    word-break: normal;
+    white-space: normal;
+  }
+
+  .admin-manage-container .technician-option-content {
+    min-width: 0;
+  }
+
+  .admin-manage-container .technician-option-specialties {
+    white-space: normal;
+    word-break: normal;
+  }
+
+  .admin-manage-container .technician-option-status {
+    white-space: nowrap;
+  }
+}
 
 /* 🌟 ฟอร์ม Textarea สำหรับ Reject Modal */
 .reject-textarea {
@@ -427,5 +614,117 @@
   .threshold-actions { flex-direction: column; }
   .admin-manage-container .modal-box.reject-modal-box { width: calc(100vw - 24px); padding: 32px 20px 24px; }
   .admin-manage-container .reject-modal-box .reject-textarea { min-height: 150px; }
+  .admin-manage-container .assign-technician-modal { width: calc(100vw - 24px); padding: 28px 18px 22px; }
+  .admin-manage-container .technician-card-grid { grid-template-columns: 1fr; }
 }
+}
+/* =========================================
+   Assign Technician Modal - Mobile Fix
+   ========================================= */
+@media (max-width: 768px) {
+  .assign-technician-modal {
+    width: calc(100vw - 24px) !important;
+    max-width: none !important;
+    padding: 28px 18px 22px !important;
+    box-sizing: border-box;
+  }
+
+  .technician-card-grid {
+    display: grid;
+    grid-template-columns: 1fr !important;
+    width: 100%;
+    gap: 12px;
+  }
+
+  .technician-option-card {
+    width: 100%;
+    min-width: 0;
+    min-height: 105px;
+    grid-template-columns: 48px minmax(0, 1fr) 24px;
+    padding: 15px;
+    gap: 12px;
+    box-sizing: border-box;
+  }
+
+  .technician-option-name {
+    overflow-wrap: normal;
+    word-break: normal;
+    white-space: normal;
+  }
+
+  .technician-option-content {
+    min-width: 0;
+  }
+
+  .technician-option-specialties {
+    white-space: normal;
+    word-break: normal;
+  }
+
+  .technician-option-status {
+    white-space: nowrap;
+  }
+}
+
+.technician-info-btn {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #007a53;
+  border-radius: 50%;
+  background: #fff;
+  color: #007a53;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.technician-info-btn:hover {
+  background: #007a53;
+  color: #fff;
+}
+
+.technician-detail-modal {
+  max-width: 500px;
+}
+
+.technician-detail-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.technician-detail-avatar {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 12px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #007a53;
+  background: #e7f4ed;
+}
+
+.technician-detail-header h3 {
+  margin: 0;
+  color: #173b2e;
+  font-size: 1.3rem;
+}
+
+.technician-detail-section {
+  padding: 14px 0;
+  border-bottom: 1px solid #e5ebe8;
+}
+
+.technician-detail-section strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #263b34;
+}
+
+.technician-detail-section p {
+  margin: 0;
+  color: #66736d;
 }
