@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { CheckCircle2, ClipboardPenLine, Cog, Hammer, LoaderCircle, LogIn, Search, ShieldCheck, Wrench, X } from "lucide-react";
 import useToast from "../../../hooks/useToast";
 import "./UserHome.css";
+import Swal from "sweetalert2";
 
 function UserHome() {
   const navigate = useNavigate();
@@ -46,9 +47,13 @@ function UserHome() {
       if (response.ok) {
         localStorage.setItem("user", JSON.stringify(data.user));
         setIsLoginSuccess(true);
-        toast.success("เข้าสู่ระบบสำเร็จ", {
-          description: `ยินดีต้อนรับ ${data.user?.role === "admin" ? "แอดมิน" : "ช่างเทคนิค"} ระบบพร้อมใช้งานแล้ว`,
-          duration: 3500,
+        Swal.fire({
+          icon: "success",
+          title: "เข้าสู่ระบบสำเร็จ",
+          text: `ยินดีต้อนรับ ${data.user?.role === "admin" ? "แอดมิน" : "ช่างเทคนิค"
+            }`,
+          confirmButtonText: "ตกลง",
+          confirmButtonColor: "#007A53",
         });
         await new Promise((resolve) => window.setTimeout(resolve, 650));
 
@@ -94,7 +99,7 @@ function UserHome() {
       <div className="cards-grid user-only-grid">
         <button type="button" className="menu-card card-user" onClick={() => navigate("/repair/create")}>
           <div className="card-icon"><ClipboardPenLine aria-hidden="true" /></div>
-          <h2>แจ้งซ่อมอุปกรณ์ / แจ้งปัญหาพื้นที่</h2>
+          <h2>แจ้งซ่อมอุปกรณ์ได้ที่นี่เลย ทันที!!!</h2>
           <span className="card-desc">คลิกเพื่อกรอกแบบฟอร์มแจ้งปัญหาใหม่</span>
         </button>
 
@@ -106,64 +111,64 @@ function UserHome() {
       </div>
 
       <section className="repair-steps">
-  <h2>วิธีการแจ้งซ่อม</h2>
+        <h2>วิธีการแจ้งซ่อม</h2>
 
-  <p className="steps-subtitle">
-    ขั้นตอนการแจ้งซ่อมตั้งแต่แจ้งปัญหาจนถึงปิดงาน
-  </p>
+        <p className="steps-subtitle">
+          ขั้นตอนการแจ้งซ่อมตั้งแต่แจ้งปัญหาจนถึงปิดงาน
+        </p>
 
-  <div className="steps-container">
+        <div className="steps-container">
 
-    <div className="step-item">
-      <div className="step-marker">
-        <span className="step-number">01</span>
-        <div className="step-icon">📝</div>
-      </div>
+          <div className="step-item">
+            <div className="step-marker">
+              <span className="step-number">01</span>
+              <div className="step-icon">📝</div>
+            </div>
 
-      <div className="step-content">
-        <h3>แจ้งปัญหา</h3>
-        <p>กรอกรายละเอียดปัญหาและสถานที่ที่พบปัญหา</p>
-      </div>
-    </div>
+            <div className="step-content">
+              <h3>แจ้งปัญหา</h3>
+              <p>กรอกรายละเอียดปัญหาและสถานที่ที่พบปัญหา</p>
+            </div>
+          </div>
 
-    <div className="step-item">
-      <div className="step-marker">
-        <span className="step-number">02</span>
-        <div className="step-icon">👨‍💼</div>
-      </div>
+          <div className="step-item">
+            <div className="step-marker">
+              <span className="step-number">02</span>
+              <div className="step-icon">👨‍💼</div>
+            </div>
 
-      <div className="step-content">
-        <h3>เจ้าหน้าที่รับเรื่อง</h3>
-        <p>เจ้าหน้าที่ตรวจสอบข้อมูลและรับเรื่องแจ้งซ่อม</p>
-      </div>
-    </div>
+            <div className="step-content">
+              <h3>เจ้าหน้าที่รับเรื่อง</h3>
+              <p>เจ้าหน้าที่ตรวจสอบข้อมูลและรับเรื่องแจ้งซ่อม</p>
+            </div>
+          </div>
 
-    <div className="step-item">
-      <div className="step-marker">
-        <span className="step-number">03</span>
-        <div className="step-icon">🔧</div>
-      </div>
+          <div className="step-item">
+            <div className="step-marker">
+              <span className="step-number">03</span>
+              <div className="step-icon">🔧</div>
+            </div>
 
-      <div className="step-content">
-        <h3>ดำเนินการซ่อม</h3>
-        <p>ช่างตรวจสอบปัญหาและดำเนินการซ่อมแซม</p>
-      </div>
-    </div>
+            <div className="step-content">
+              <h3>ดำเนินการซ่อม</h3>
+              <p>ช่างตรวจสอบปัญหาและดำเนินการซ่อมแซม</p>
+            </div>
+          </div>
 
-    <div className="step-item">
-      <div className="step-marker">
-        <span className="step-number">04</span>
-        <div className="step-icon">✅</div>
-      </div>
+          <div className="step-item">
+            <div className="step-marker">
+              <span className="step-number">04</span>
+              <div className="step-icon">✅</div>
+            </div>
 
-      <div className="step-content">
-        <h3>ปิดงาน</h3>
-        <p>ตรวจสอบผลการซ่อมและปิดรายการแจ้งซ่อม</p>
-      </div>
-    </div>
+            <div className="step-content">
+              <h3>ปิดงาน</h3>
+              <p>ตรวจสอบผลการซ่อมและทำแบบประเมินความพึงพอใจ</p>
+            </div>
+          </div>
 
-  </div>
-</section>
+        </div>
+      </section>
 
       {/* Footer */}
       <footer className="home-footer">

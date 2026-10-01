@@ -62,12 +62,17 @@ function AdminDashboard() {
   const pendingCount = filteredRepairs.filter(r => r.status === "รอซ่อม" || r.status === "รับงานแล้ว").length;
   const progressCount = filteredRepairs.filter(r => r.status === "กำลังซ่อม").length;
   const cannotRepairCount = filteredRepairs.filter(r => r.status === "ซ่อมไม่ได้" || r.status === "ส่งซ่อมภายนอก").length;
-  // เผื่อกรณี Database เก็บคำว่า 'เสร็จสิ้น' หรือ 'เสร็จเรียบร้อย'
   const completedCount = filteredRepairs.filter(r => r.status === "เสร็จเรียบร้อย" || r.status === "เสร็จสิ้น").length;
+
+  // ✅ [เพิ่มใหม่] คำนวณจำนวนงานที่รอการมอบหมาย (ตัวอย่างเช็กจากสถานะ "รอซ่อม" หรือปรับเปลี่ยนตามเงื่อนไข Backend ของคุณ)
+ const unassignedCount = repairs.filter(
+  (repair) =>
+    repair.status === "รอซ่อม" &&
+    !repair.technician_id
+).length;
 
   // ฟังก์ชันคำนวณหาเวลาซ่อมเฉลี่ย (MTTR)
   const calculateAverageRepairTime = (repairsList) => {
-    // 1. กรองเอาเฉพาะงานที่ "เสร็จเรียบร้อย" และมีเวลาบันทึกครบถ้วน
     const completedJobs = repairsList.filter(
       (repair) => (repair.status === "เสร็จเรียบร้อย" || repair.status === "เสร็จสิ้น") && repair.accepted_at && repair.completed_at
     );
@@ -76,28 +81,21 @@ function AdminDashboard() {
 
     let totalDiffMs = 0;
 
-    // 2. หาผลรวมของเวลาที่ใช้ซ่อมแต่ละงาน (มิลลิวินาที)
     completedJobs.forEach((repair) => {
       const startTime = new Date(repair.accepted_at);
       const endTime = new Date(repair.completed_at);
 
-      // ป้องกันกรณีเวลาติดลบหรือ Error
       if (!isNaN(startTime) && !isNaN(endTime) && endTime >= startTime) {
         totalDiffMs += (endTime - startTime);
       }
     });
 
-    // 3. แปลงจากมิลลิวินาที เป็น "ชั่วโมง"
     const totalHours = totalDiffMs / (1000 * 60 * 60);
-
-    // 4. หาค่าเฉลี่ย
     const averageHours = totalHours / completedJobs.length;
 
-    // คืนค่า ทศนิยม 2 ตำแหน่ง เพื่อให้เห็นแม้เศษนาที (เช่น 0.05 ชั่วโมง)
     return averageHours.toFixed(2);
   };
 
-  // ✅ [เพิ่มใหม่] ฟังก์ชันแปลงเวลาทศนิยม (ชั่วโมง) ให้อ่านง่าย
   const formatRepairTime = (hoursString) => {
     const hours = parseFloat(hoursString);
     if (!hours || isNaN(hours)) return "0 นาที";
@@ -118,17 +116,12 @@ function AdminDashboard() {
     return `${h} ชม. ${m} นาที`;
   };
 
-  // ✅ [อัปเดต] เติมตัวแปร filteredRepairs เข้าไปในฟังก์ชันเพื่อแก้ปัญหาหน้าขาว
   const mttrDays = calculateAverageRepairTime(filteredRepairs);
 
-  // 🔥 [อัปเดต] ดึงงานที่เกินคุ้มทุนโดยเช็กจาก admin_note ที่ Backend ส่งมาให้
   const warningRepairs = filteredRepairs.filter(r => {
     return r.status === "รอซ่อม" && r.admin_note && r.admin_note !== "";
   });
 
-  // ==========================================
-  // ข้อมูลสำหรับกราฟแต่ละแบบ
-  // ==========================================
   const statusChartData = [
     { name: "รอรับงาน/เข้าหน้างาน", value: pendingCount, color: "#f39c12" },
     { name: "กำลังซ่อม", value: progressCount, color: "#2980b9" },
@@ -142,7 +135,6 @@ function AdminDashboard() {
     return Object.keys(counts).map(key => ({ name: key, จำนวน: counts[key] })).sort((a, b) => b.จำนวน - a.จำนวน);
   }, [filteredRepairs]);
 
-  // ✅ [อัปเดต] กรองขยะ/ค่าว่างออกจากกราฟอุปกรณ์ (ไม่เอา "ไม่ระบุ")
   const equipmentData = useMemo(() => {
     const counts = {};
     filteredRepairs.forEach(r => {
@@ -153,9 +145,6 @@ function AdminDashboard() {
     return Object.keys(counts).map(key => ({ name: key, จำนวน: counts[key] })).sort((a, b) => b.จำนวน - a.จำนวน).slice(0, 10);
   }, [filteredRepairs]);
 
-  // ==========================================
-  // โครงสร้างเมนู Tabs
-  // ==========================================
   const TABS_CONFIG = [
     { id: "status", label: "สัดส่วนสถานะ", icon: CircleDot },
     { id: "problem", label: "ปัญหาที่พบบ่อย", icon: TrendingUp },
@@ -187,15 +176,27 @@ function AdminDashboard() {
       </header>
 
       <div className="admin-action-bar">
-        <button className="btn-users" onClick={() => navigate("/admin/settings")}>
+        <button
+          className="btn-users"
+          onClick={() => navigate("/admin/settings")}
+        >
           <Settings size={17} aria-hidden="true" /> ตั้งค่าระบบ
         </button>
-        <button className="btn-manage" onClick={() => navigate("/admin/manage")}>
-          <ClipboardList size={17} aria-hidden="true" /> มอบหมายงานซ่อม
-        </button>
+
+        <div className="assign-btn-wrapper">
+          <button
+            className="btn-manage"
+            onClick={() => navigate("/admin/manage")}
+          >
+            <ClipboardList size={17} aria-hidden="true" /> มอบหมายงานซ่อม
+          </button>
+
+          {unassignedCount > 0 && (
+            <span className="notification-dot"></span>
+          )}
+        </div>
       </div>
 
-      {/* ส่วนตัวกรอง เดือน/ปี */}
       <div className="filter-section">
         <div className="filter-group">
           <div className="filter-heading">
@@ -206,7 +207,6 @@ function AdminDashboard() {
             <label>
               <span>เดือน</span>
               <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="filter-select">
-                
                 <option value="all">ทุกเดือน</option>
                 {thaiMonths.map((monthName, i) => (
                   <option key={i + 1} value={i + 1}>{monthName}</option>
@@ -230,7 +230,6 @@ function AdminDashboard() {
         <div className="loading-state">กำลังโหลดข้อมูล...</div>
       ) : (
         <>
-          {/* การ์ดสรุปตัวเลข */}
           <div className="summary-cards-grid">
             <div className="summary-card total"><h3>รวมทั้งหมด</h3><div className="number">{totalRepairs}</div><span>รายการ</span></div>
             <div className="summary-card pending"><h3>รอรับงาน/เข้าหน้างาน</h3><div className="number">{pendingCount}</div><span>รายการ</span></div>
@@ -244,7 +243,6 @@ function AdminDashboard() {
             <div className="summary-card warning"><h3>งานรอพิจารณาคุ้มทุน</h3><div className="number">{warningRepairs.length}</div><span>รายการ</span></div>
           </div>
 
-          {/* ปุ่มเลือกสถิติ (Tabs) */}
           <div className="tabs-container">
             {TABS_CONFIG.map(tab => {
               const TabIcon = tab.icon;
@@ -260,9 +258,7 @@ function AdminDashboard() {
             })}
           </div>
 
-          {/* พื้นที่แสดงผลกราฟตาม Tab ที่เลือก */}
           <div className="chart-display-area">
-
             {activeTab === "status" && (
               <div className="chart-card">
                 <h3>สัดส่วนสถานะงานซ่อม</h3>
@@ -338,7 +334,6 @@ function AdminDashboard() {
                       <tbody>
                         {warningRepairs.map(r => (
                           <tr key={r.id}>
-                            {/* 🔥 [อัปเดต] นำ ticket_number มาโชว์ตรงนี้ */}
                             <td className="font-bold">{r.ticket_number || `#${r.id}`}</td>
                             <td>{r.equipment_name || "ไม่ระบุ"} <br /><span className="sub-text">{r.problem_type}</span></td>
                             <td>฿{Number(r.estimated_cost || 0).toLocaleString()}</td>
@@ -356,7 +351,6 @@ function AdminDashboard() {
                 </div>
               </div>
             )}
-
           </div>
         </>
       )}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os" // 🛠️ เพิ่มแพ็กเกจ os สำหรับดึง Environment Variable
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -34,7 +35,12 @@ func main() {
 	r.Static("/uploads", "./uploads")
 
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173", "http://192.168.0.11:5173"},
+		// 🛠️ แก้ไข: เพิ่ม URL ของ Vercel เข้าไปเพื่อให้เว็บดึงข้อมูลจาก API ได้
+		AllowOrigins: []string{
+			"http://localhost:5173", 
+			"http://192.168.0.11:5173",
+			"https://test-pro-mu.vercel.app", 
+		},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -43,5 +49,12 @@ func main() {
 
 	routes.SetupRoutes(r)
 
-	r.Run(":8080")
+	// 🛠️ แก้ไข: ดึง PORT จาก Railway (ถ้าหาไม่เจอให้ใช้ 8080 สำหรับรันในเครื่อง)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	fmt.Println("Server is running on port:", port)
+	r.Run(":" + port)
 }

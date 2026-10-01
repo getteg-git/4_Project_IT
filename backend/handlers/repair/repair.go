@@ -652,7 +652,11 @@ func UpdateRepairStatus(c *gin.Context) {
 					<p><strong>รายการ:</strong> %s</p>
 					<div class="box-success"><strong>สถานะ:</strong> งานซ่อมเสร็จเรียบร้อยแล้ว</div>
 					<div class="box-success"><strong>บันทึกจากช่าง:</strong><br>%s</div>
-					<a href="https://rb.gy/bjiuqq" class="btn btn-success">ให้คะแนนความพึงพอใจ</a>
+					<a href="https://rb.gy/bjiuqq"
+   class="btn btn-success"
+   style="display:inline-block; background-color:#007A53; color:#ffffff !important; text-decoration:none; padding:12px 20px; border-radius:6px; font-weight:bold;">
+   ให้คะแนนความพึงพอใจ
+</a>
 				`, description, techNoteStr)
 				if err := utils.SendEmailNotification([]string{reporterEmail}, fmt.Sprintf("🎉 งานซ่อม %s เรียบร้อยแล้ว", tNumber), wrapEmail(colorSuccess, "🎉 งานซ่อมของคุณเสร็จเรียบร้อยแล้ว", userBodyContent)); err != nil {
 					log.Printf("failed to email repair completion to reporter for repair %s: %v", repairID, err)
