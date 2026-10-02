@@ -37,9 +37,10 @@ func main() {
 	r.Use(cors.New(cors.Config{
 		// 🛠️ แก้ไข: เพิ่ม URL ของ Vercel เข้าไปเพื่อให้เว็บดึงข้อมูลจาก API ได้
 		AllowOrigins: []string{
-			"http://localhost:5173", 
+			"http://localhost:5173",
 			"http://192.168.0.11:5173",
-			"https://test-pro-mu.vercel.app", 
+			"https://test-pro-mu.vercel.app",
+			"https://4-project-it.vercel.app",
 		},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
