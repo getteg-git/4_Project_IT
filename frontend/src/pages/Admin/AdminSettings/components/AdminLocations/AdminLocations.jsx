@@ -26,7 +26,7 @@ function AdminLocations() {
   const fetchLocations = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("http://localhost:8080/api/locations");
+      const response = await fetch("https://4projectit-production.up.railway.app/api/locations");
       if (response.ok) {
         const data = await response.json();
         setLocations(data || []);
@@ -76,7 +76,7 @@ function AdminLocations() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const response = await fetch("http://localhost:8080/api/locations", {
+      const response = await fetch("https://4projectit-production.up.railway.app/api/locations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name })
@@ -102,7 +102,7 @@ function AdminLocations() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const response = await fetch(`http://localhost:8080/api/locations/${editId}`, {
+      const response = await fetch(`https://4projectit-production.up.railway.app/api/locations/${editId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name })
@@ -134,7 +134,7 @@ function AdminLocations() {
     if (!confirmDelete) return;
 
     try {
-      const response = await fetch(`http://localhost:8080/api/locations/${id}`, {
+      const response = await fetch(`https://4projectit-production.up.railway.app/api/locations/${id}`, {
         method: "DELETE"
       });
 

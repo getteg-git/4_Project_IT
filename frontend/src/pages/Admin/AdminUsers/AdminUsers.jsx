@@ -30,8 +30,8 @@ function AdminUsers() {
     try {
       setIsLoading(true);
       const [usersRes, typesRes] = await Promise.all([
-        fetch("http://localhost:8080/api/users"),
-        fetch("http://localhost:8080/api/problem-types")
+        fetch("https://4projectit-production.up.railway.app/api/users"),
+        fetch("https://4projectit-production.up.railway.app/api/problem-types")
       ]);
 
       if (usersRes.ok) setUsers(await usersRes.json() || []);
@@ -110,7 +110,7 @@ function AdminUsers() {
     }
     setIsSubmitting(true);
     try {
-      const response = await fetch("http://localhost:8080/api/users", {
+      const response = await fetch("https://4projectit-production.up.railway.app/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -147,7 +147,7 @@ function AdminUsers() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`http://localhost:8080/api/users/${editId}`, {
+      const response = await fetch(`https://4projectit-production.up.railway.app/api/users/${editId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -179,7 +179,7 @@ function AdminUsers() {
     if (!confirmDelete) return;
 
     try {
-      const response = await fetch(`http://localhost:8080/api/users/${id}`, {
+      const response = await fetch(`https://4projectit-production.up.railway.app/api/users/${id}`, {
         method: "DELETE"
       });
 

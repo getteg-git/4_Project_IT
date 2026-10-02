@@ -68,10 +68,10 @@ function AdminManage() {
     try {
       setIsLoading(true);
       const [repairsRes, usersRes, locationsRes, problemTypesRes] = await Promise.all([
-        fetch("http://localhost:8080/api/repairs"),
-        fetch("http://localhost:8080/api/users"),
-        fetch("http://localhost:8080/api/locations"),
-        fetch("http://localhost:8080/api/problem-types"),
+        fetch("https://4projectit-production.up.railway.app/api/repairs"),
+        fetch("https://4projectit-production.up.railway.app/api/users"),
+        fetch("https://4projectit-production.up.railway.app/api/locations"),
+        fetch("https://4projectit-production.up.railway.app/api/problem-types"),
       ]);
 
       if (repairsRes.ok) {
@@ -116,7 +116,7 @@ function AdminManage() {
     const fetchFloors = async () => {
       try {
         const response = await fetch(
-          `http://localhost:8080/api/locations/${selectedLocation.id}/floors`
+          `https://4projectit-production.up.railway.app/api/locations/${selectedLocation.id}/floors`
         );
 
         if (response.ok) {
@@ -143,7 +143,7 @@ function AdminManage() {
     const fetchRooms = async () => {
       try {
         const response = await fetch(
-          `http://localhost:8080/api/floors/${selectedFloor.id}/rooms`
+          `https://4projectit-production.up.railway.app/api/floors/${selectedFloor.id}/rooms`
         );
 
         if (response.ok) {
@@ -462,7 +462,7 @@ function AdminManage() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/repairs/${selectedRepair.id}/assign`,
+        `https://4projectit-production.up.railway.app/api/repairs/${selectedRepair.id}/assign`,
         {
           method: "PUT",
           headers: {
@@ -521,7 +521,7 @@ function AdminManage() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/repairs/${outsourceTarget.id}/outsource`,
+        `https://4projectit-production.up.railway.app/api/repairs/${outsourceTarget.id}/outsource`,
         {
           method: "PUT",
           headers: {
@@ -580,7 +580,7 @@ function AdminManage() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/repairs/${id}/revoke`,
+        `https://4projectit-production.up.railway.app/api/repairs/${id}/revoke`,
         {
           method: "PUT",
           headers: {
@@ -629,7 +629,7 @@ function AdminManage() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/repairs/${id}/approve`,
+        `https://4projectit-production.up.railway.app/api/repairs/${id}/approve`,
         {
           method: "PUT",
           headers: {
@@ -692,7 +692,7 @@ function AdminManage() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/repairs/${rejectTargetId}/cancel`,
+        `https://4projectit-production.up.railway.app/api/repairs/${rejectTargetId}/cancel`,
         {
           method: "PUT",
           headers: {
@@ -1333,7 +1333,7 @@ function AdminManage() {
                     (img, index) => (
                       <img
                         key={index}
-                        src={`http://localhost:8080${img.url}`}
+                        src={`https://4projectit-production.up.railway.app${img.url}`}
                         alt="รูปปัญหา"
                         className="repair-image"
                       />

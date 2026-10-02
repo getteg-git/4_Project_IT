@@ -57,7 +57,7 @@ function TechHome() {
     try {
       setIsLoading(true);
 
-      const response = await fetch("http://localhost:8080/api/repairs");
+      const response = await fetch("https://4projectit-production.up.railway.app/api/repairs");
 
       if (response.ok) {
         const allRepairs = await response.json();
@@ -221,7 +221,7 @@ function TechHome() {
       formData.append("technician_id", currentUser.id);
 
       const response = await fetch(
-        `http://localhost:8080/api/repairs/${repair.id}/status`,
+        `https://4projectit-production.up.railway.app/api/repairs/${repair.id}/status`,
         {
           method: "PUT",
           body: formData,
@@ -269,7 +269,7 @@ function TechHome() {
       formData.append("technician_id", currentUser.id);
 
       const response = await fetch(
-        `http://localhost:8080/api/repairs/${repair.id}/status`,
+        `https://4projectit-production.up.railway.app/api/repairs/${repair.id}/status`,
         {
           method: "PUT",
           body: formData,
@@ -311,7 +311,7 @@ function TechHome() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/repairs/${id}/reject`,
+        `https://4projectit-production.up.railway.app/api/repairs/${id}/reject`,
         {
           method: "PUT",
         }
@@ -353,7 +353,7 @@ function TechHome() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/repairs/${estimateTicketId}/estimate`,
+        `https://4projectit-production.up.railway.app/api/repairs/${estimateTicketId}/estimate`,
         {
           method: "PUT",
           headers: {
@@ -439,7 +439,7 @@ function TechHome() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/repairs/${currentTicket}/status`,
+        `https://4projectit-production.up.railway.app/api/repairs/${currentTicket}/status`,
         {
           method: "PUT",
           body: formData,
@@ -938,7 +938,7 @@ function TechHome() {
                     (img, index) => (
                       <img
                         key={index}
-                        src={`http://localhost:8080${img.url}`}
+                        src={`https://4projectit-production.up.railway.app${img.url}`}
                         alt="รูปปัญหา"
                         className="repair-image"
                       />

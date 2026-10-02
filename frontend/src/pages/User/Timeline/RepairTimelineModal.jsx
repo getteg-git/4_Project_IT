@@ -14,7 +14,7 @@ function RepairTimelineModal({ repairId, isOpen, onClose }) {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch(`http://localhost:8080/api/repairs/${repairId}/logs`);
+        const response = await fetch(`https://4projectit-production.up.railway.app/api/repairs/${repairId}/logs`);
         if (response.ok) {
           const data = await response.json();
           setLogs(data || []);
