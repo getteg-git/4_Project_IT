@@ -1,13 +1,11 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle2, ClipboardPenLine, Cog, Hammer, LoaderCircle, LogIn, Search, ShieldCheck, Wrench, X } from "lucide-react";
-import useToast from "../../../hooks/useToast";
 import "./UserHome.css";
 import Swal from "sweetalert2";
 
 function UserHome() {
   const navigate = useNavigate();
-  const { toast } = useToast();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loginRole, setLoginRole] = useState("admin");
@@ -65,11 +63,23 @@ function UserHome() {
 
         closeLoginModal();
       } else {
-        toast.error("เข้าสู่ระบบไม่สำเร็จ", { description: data.error || "กรุณาตรวจสอบชื่อผู้ใช้และรหัสผ่าน" });
+        Swal.fire({
+          icon: "error",
+          title: "เข้าสู่ระบบไม่สำเร็จ",
+          text: data.error || "กรุณาตรวจสอบชื่อผู้ใช้และรหัสผ่าน",
+          confirmButtonText: "ตกลง",
+          confirmButtonColor: "#007A53",
+        });
       }
     } catch (error) {
       console.error("Login Error:", error);
-      toast.error("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์", { description: "กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ" });
+      Swal.fire({
+        icon: "error",
+        title: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์",
+        text: "กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ",
+        confirmButtonText: "ตกลง",
+        confirmButtonColor: "#007A53",
+      });
     } finally {
       setIsLoading(false);
     }

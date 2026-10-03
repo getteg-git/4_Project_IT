@@ -709,8 +709,8 @@ function AdminManage() {
       if (response.ok) {
         await Swal.fire({
           icon: "success",
-          title: "ยกเลิกงานสำเร็จ",
-          text: "สถานะงานเปลี่ยนเป็นซ่อมไม่ได้แล้ว",
+          title: "ไม่อนุมัติการซ่อมแล้ว",
+          text: "อัปเดตสถานะงานและแจ้งผลให้ผู้แจ้งกับช่างทราบทางอีเมลแล้ว",
           confirmButtonText: "ตกลง",
           confirmButtonColor: "#007A53",
         });
@@ -860,17 +860,13 @@ function AdminManage() {
             type="button"
             role="tab"
             aria-selected={assignmentView === "review"}
-            className={
-              assignmentView === "review"
-                ? "is-active"
-                : ""
-            }
+            className={`${assignmentView === "review" ? "is-active" : ""} ${reviewRepairs.length > 0 ? "has-pending-review" : ""}`}
             onClick={() => {
               setAssignmentView("review");
               setCurrentPage(1);
             }}
           >
-            พิจารณา <span>{reviewRepairs.length}</span>
+            พิจารณา <span aria-label={`${reviewRepairs.length} งานรอพิจารณา`}>{reviewRepairs.length}</span>
           </button>
 
           <button
@@ -1059,10 +1055,8 @@ function AdminManage() {
 
                 {repair.status === "รอซ่อม" &&
                   repair.technician_name &&
-                  (repair.admin_note &&
-                  repair.admin_note.includes(
-                    "ระบบระงับอัตโนมัติ"
-                  ) ? (
+                  ((repair.admin_note?.includes("จุดคุ้มทุน") ||
+                    repair.admin_note?.includes("ระบบระงับอัตโนมัติ")) ? (
                     <div className="threshold-approval-box">
                       <div>
                         <p className="admin-warning-note">
@@ -1070,7 +1064,7 @@ function AdminManage() {
                             size={17}
                             aria-hidden="true"
                           />{" "}
-                          {repair.admin_note}
+                          ราคาประเมินเกินเกณฑ์จุดคุ้มทุน ระบบระงับงานชั่วคราวเพื่อรอการพิจารณาอนุมัติงบจากผู้ดูแลระบบ
                         </p>
 
                         <p>
@@ -1101,7 +1095,7 @@ function AdminManage() {
                             size={17}
                             aria-hidden="true"
                           />{" "}
-                          อนุมัติให้ซ่อม
+                          อนุมัติการซ่อม
                         </button>
 
                         <button
@@ -1114,7 +1108,7 @@ function AdminManage() {
                             size={17}
                             aria-hidden="true"
                           />{" "}
-                          ไม่อนุมัติ
+                          ไม่อนุมัติการซ่อม
                         </button>
                       </div>
                     </div>

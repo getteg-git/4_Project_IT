@@ -65,11 +65,16 @@ function AdminDashboard() {
   const completedCount = filteredRepairs.filter(r => r.status === "เสร็จเรียบร้อย" || r.status === "เสร็จสิ้น").length;
 
   // ✅ [เพิ่มใหม่] คำนวณจำนวนงานที่รอการมอบหมาย (ตัวอย่างเช็กจากสถานะ "รอซ่อม" หรือปรับเปลี่ยนตามเงื่อนไข Backend ของคุณ)
- const unassignedCount = repairs.filter(
-  (repair) =>
-    repair.status === "รอซ่อม" &&
-    !repair.technician_id
-).length;
+  const unassignedCount = repairs.filter(
+    (repair) =>
+      repair.status === "รอซ่อม" &&
+      !repair.technician_id
+  ).length;
+  const reviewCount = repairs.filter(
+    (repair) =>
+      repair.status === "รอซ่อม" &&
+      Boolean(repair.admin_note?.trim())
+  ).length;
 
   // ฟังก์ชันคำนวณหาเวลาซ่อมเฉลี่ย (MTTR)
   const calculateAverageRepairTime = (repairsList) => {
@@ -177,7 +182,7 @@ function AdminDashboard() {
 
       <div className="admin-action-bar">
         <button
-          className="btn-users"
+          className="btn-manage"
           onClick={() => navigate("/admin/settings")}
         >
           <Settings size={17} aria-hidden="true" /> ตั้งค่าระบบ
@@ -185,14 +190,17 @@ function AdminDashboard() {
 
         <div className="assign-btn-wrapper">
           <button
-            className="btn-manage"
+            className="btn-users"
             onClick={() => navigate("/admin/manage")}
           >
             <ClipboardList size={17} aria-hidden="true" /> มอบหมายงานซ่อม
           </button>
-
-          {unassignedCount > 0 && (
-            <span className="notification-dot"></span>
+          {(unassignedCount > 0 || reviewCount > 0) && (
+            <span
+              className="notification-dot"
+              role="img"
+              aria-label="มีงานรอมอบหมายหรือรอพิจารณา"
+            ></span>
           )}
         </div>
       </div>

@@ -559,6 +559,20 @@
   }
 
   @media (max-width: 640px) {
+    .modal-overlay {
+      height: 100dvh;
+      align-items: flex-start;
+      overflow-y: auto;
+      padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+      scroll-padding-block: 16px;
+    }
+
+    .modal-box {
+      max-height: calc(100dvh - 32px);
+      margin: 0 auto;
+      overflow-y: auto;
+    }
+
     .home-container {
       padding-left: 16px;
       padding-right: 16px;

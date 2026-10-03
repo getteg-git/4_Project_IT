@@ -251,51 +251,123 @@ function TechHome() {
   };
 
   const handleStartRepair = async (repair) => {
-    const approved = await confirm({
+    let basePrice = repair.base_price == null
+      ? null
+      : Number(repair.base_price);
+
+    if (repair.asset_code) {
+      try {
+        const response = await fetch(
+          "https://4projectit-production.up.railway.app/api/admin/dashboard/breakeven"
+        );
+        if (!response.ok) throw new Error("ไม่สามารถโหลดข้อมูลจุดคุ้มทุนได้");
+
+        const equipmentBudgets = await response.json();
+        const equipment = equipmentBudgets.find(
+          (item) => String(item.asset_code).trim() === String(repair.asset_code).trim()
+        );
+        if (!equipment) throw new Error("ไม่พบข้อมูลครุภัณฑ์ของงานนี้");
+
+        basePrice = Number(equipment.base_price);
+        if (!Number.isFinite(basePrice)) throw new Error("ราคาทุนครุภัณฑ์ไม่ถูกต้อง");
+      } catch (error) {
+        console.error("Load repair budget Error:", error);
+        toast.error("โหลดเพดานราคาประเมินไม่สำเร็จ", {
+          description: "ไม่สามารถเริ่มงานได้ กรุณาลองใหม่อีกครั้ง",
+        });
+        return;
+      }
+    }
+
+    const result = await Swal.fire({
+      icon: "question",
       title: "ยืนยันเริ่มดำเนินการซ่อม",
-      description: `เมื่อยืนยัน งาน ${
-        repair.ticket_number || `#${repair.id}`
-      } จะเปลี่ยนสถานะเป็น “กำลังซ่อม” และระบบจะเริ่มบันทึกเวลาซ่อม`,
-      confirmLabel: "เริ่มดำเนินการซ่อม",
-      cancelLabel: "ยกเลิก",
+      text: "เมื่อยืนยัน งานจะเปลี่ยนสถานะเป็น 'กำลังซ่อม' และระบบจะเริ่มบันทึกเวลาซ่อม คุณต้องการเริ่มดำเนินการซ่อมงานนี้หรือไม่?",
+      input: "number",
+      inputLabel: "ราคาประเมินเบื้องต้น (บาท)",
+      inputPlaceholder: "กรอกราคาประเมิน",
+      inputAttributes: {
+        min: "0",
+        step: "0.01",
+        inputmode: "decimal",
+      },
+      inputValidator: (value) => {
+        if (value === "" || !Number.isFinite(Number(value)) || Number(value) < 0) {
+          return "กรุณากรอกราคาประเมินตั้งแต่ 0 บาทขึ้นไป";
+        }
+      },
+      showCancelButton: true,
+      confirmButtonText: "ยืนยันเริ่มซ่อม",
+      cancelButtonText: "ยกเลิก",
+      confirmButtonColor: "#007A53",
+      showLoaderOnConfirm: true,
+      allowOutsideClick: () => !Swal.isLoading(),
+      didOpen: () => {
+        const input = Swal.getInput();
+        if (!input || !Number.isFinite(basePrice)) return;
+
+        const budgetNotes = document.createElement("div");
+        budgetNotes.style.cssText = "display: flex; width: calc(100% - 2em); max-width: 24rem; margin: 0 auto 8px; padding: 11px 14px; align-items: center; justify-content: space-between; gap: 12px; box-sizing: border-box; border: 1px solid #bbf7d0; border-radius: 10px; color: #166534; background: #f0fdf4; text-align: left; font-size: 0.88rem; line-height: 1.4;";
+
+        const costLabel = document.createElement("span");
+        costLabel.textContent = "ราคาทุนครุภัณฑ์";
+        budgetNotes.appendChild(costLabel);
+
+        const costValue = document.createElement("strong");
+        costValue.textContent = `${basePrice.toLocaleString()} บาท`;
+        costValue.style.cssText = "color: #14532d; font-size: 1rem; white-space: nowrap;";
+        budgetNotes.appendChild(costValue);
+
+        const warningNote = document.createElement("p");
+        warningNote.textContent = "แจ้งเตือน: หากราคาประเมินเกินจุดคุ้มทุน ระบบจะส่งงานให้ผู้ดูแลระบบพิจารณาอนุมัติงบ";
+        warningNote.setAttribute("role", "status");
+        warningNote.style.cssText = "width: calc(100% - 2em); max-width: 24rem; margin: 0 auto 8px; padding: 10px 12px; box-sizing: border-box; border: 1px solid #fecaca; border-radius: 9px; color: #b91c1c; background: #fef2f2; text-align: left; font-size: 0.84rem; font-weight: 700; line-height: 1.45;";
+
+        input.insertAdjacentElement("beforebegin", budgetNotes);
+        input.insertAdjacentElement("beforebegin", warningNote);
+      },
+      preConfirm: async (value) => {
+        try {
+          const response = await fetch(
+            `https://4projectit-production.up.railway.app/api/repairs/${repair.id}/estimate`,
+            {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                estimated_cost: Number(value),
+                tech_id: currentUser.id,
+              }),
+            }
+          );
+          const data = await response.json();
+
+          if (!response.ok) {
+            Swal.showValidationMessage(data.error || "ประเมินราคาไม่สำเร็จ กรุณาลองอีกครั้ง");
+            return false;
+          }
+
+          return data;
+        } catch (error) {
+          console.error("Start Repair Estimate Error:", error);
+          Swal.showValidationMessage("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองอีกครั้ง");
+          return false;
+        }
+      },
     });
 
-    if (!approved) return;
+    if (!result.isConfirmed) return;
 
-    try {
-      const formData = new FormData();
-
-      formData.append("status", "กำลังซ่อม");
-      formData.append("technician_id", currentUser.id);
-
-      const response = await fetch(
-        `https://4projectit-production.up.railway.app/api/repairs/${repair.id}/status`,
-        {
-          method: "PUT",
-          body: formData,
-        }
-      );
-
-      if (response.ok) {
-        await Swal.fire({
-          icon: "success",
-          title: "เริ่มดำเนินการซ่อมแล้ว",
-          text: "เปลี่ยนสถานะงานเป็นกำลังซ่อมและเริ่มบันทึกเวลาแล้ว",
-          confirmButtonText: "ตกลง",
-          confirmButtonColor: "#007A53",
-        });
-
-        fetchMyJobs(currentUser);
-      } else {
-        toast.error("เริ่มงานซ่อมไม่สำเร็จ", {
-          description: "กรุณาลองใหม่อีกครั้ง",
-        });
-      }
-    } catch (error) {
-      console.error("Start Repair Error:", error);
-
-      toast.error("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
-    }
+    const isPendingApproval = result.value.status === "รอซ่อม";
+    await Swal.fire({
+      icon: isPendingApproval ? "error" : "success",
+      title: isPendingApproval ? "ส่งงานให้ผู้ดูแลระบบพิจารณาแล้ว" : "เริ่มดำเนินการซ่อมแล้ว",
+      text: isPendingApproval
+        ? `ราคาประเมินเกินเกณฑ์จุดคุ้มทุน ระบบจะส่งเรื่องเพื่อพิจารณาอนุมัติงบ (Ticket ${repair.ticket_number || `#${repair.id}`})`
+        : result.value.message || "เปลี่ยนสถานะงานเป็นกำลังซ่อมและเริ่มบันทึกเวลาแล้ว",
+      confirmButtonText: "ตกลง",
+      confirmButtonColor: "#007A53",
+    });
+    fetchMyJobs(currentUser);
   };
 
   const handleReject = async (id) => {
@@ -1085,7 +1157,7 @@ function TechHome() {
 
                 <small className="cost-hint">
                   * หากค่าซ่อมเกินจุดคุ้มทุน
-                  งานนี้จะถูกระงับชั่วคราวและส่งให้แอดมินพิจารณาอนุมัติงบใหม่
+                  งานนี้จะถูกระบบส่งให้แอดมินพิจารณาอนุมัติงบใหม่
                 </small>
               </div>
 
