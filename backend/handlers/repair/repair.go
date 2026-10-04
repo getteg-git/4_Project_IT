@@ -177,7 +177,9 @@ func CreateRepair(c *gin.Context) {
 		userBody := wrapEmail(colorSuccess, "ระบบได้รับเรื่องแจ้งซ่อมของคุณเรียบร้อยแล้ว", userBodyContent)
 
 		if reporterEmail != "" {
-			utils.SendEmailNotification([]string{reporterEmail}, userSubject, userBody)
+			if err := utils.SendEmailNotification([]string{reporterEmail}, userSubject, userBody); err != nil {
+				log.Printf("failed to email repair receipt to reporter for repair %d: %v", repairID, err)
+			}
 		}
 
 		// 2. อีเมลสำหรับ Admin
@@ -544,7 +546,9 @@ func RejectRepair(c *gin.Context) {
 		if reporterEmail != "" {
 			recipients = append(recipients, reporterEmail)
 		}
-		utils.SendEmailNotification(recipients, fmt.Sprintf("⚠️ ช่างปฏิเสธงานซ่อม (%s)", tNumber), wrapEmail(colorDanger, "ช่างปฏิเสธงาน / ส่งกลับเข้าระบบ", bodyContent))
+		if err := utils.SendEmailNotification(recipients, fmt.Sprintf("⚠️ ช่างปฏิเสธงานซ่อม (%s)", tNumber), wrapEmail(colorDanger, "ช่างปฏิเสธงาน / ส่งกลับเข้าระบบ", bodyContent)); err != nil {
+			log.Printf("failed to email rejected repair notification for repair %s: %v", repairID, err)
+		}
 	}()
 
 	c.JSON(http.StatusOK, gin.H{"message": "ปฏิเสธงานและส่งคืนระบบสำเร็จ"})
@@ -691,7 +695,9 @@ func UpdateRepairStatus(c *gin.Context) {
 			if reporterEmail != "" {
 				recipients = append(recipients, reporterEmail)
 			}
-			utils.SendEmailNotification(recipients, fmt.Sprintf("⚠️ รายงานปัญหาการซ่อม (%s)", tNumber), wrapEmail(colorDanger, "ช่างไม่สามารถดำเนินการซ่อมได้", bodyContent))
+			if err := utils.SendEmailNotification(recipients, fmt.Sprintf("⚠️ รายงานปัญหาการซ่อม (%s)", tNumber), wrapEmail(colorDanger, "ช่างไม่สามารถดำเนินการซ่อมได้", bodyContent)); err != nil {
+				log.Printf("failed to email non-repairable notification for repair %s: %v", repairID, err)
+			}
 		}
 	}()
 

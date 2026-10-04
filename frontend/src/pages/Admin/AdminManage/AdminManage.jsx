@@ -19,7 +19,6 @@ import {
   X,
   Clock
 } from "lucide-react";
-import Swal from "sweetalert2";
 import BackButton from "../../../components/ui/BackButton";
 import SearchField from "../../../components/ui/SearchField";
 import Pagination from "../../../components/ui/Pagination";
@@ -476,12 +475,8 @@ function AdminManage() {
       );
 
       if (response.ok) {
-        await Swal.fire({
-          icon: "success",
-          title: "มอบหมายงานสำเร็จ",
-          text: "ระบบแจ้งช่างผู้รับผิดชอบแล้ว",
-          confirmButtonText: "ตกลง",
-          confirmButtonColor: "#007A53",
+        toast.success("มอบหมายงานสำเร็จ", {
+          description: "บันทึกข้อมูลการมอบหมายงานแล้ว",
         });
 
         setIsAssignOpen(false);
@@ -535,12 +530,8 @@ function AdminManage() {
       );
 
       if (response.ok) {
-        await Swal.fire({
-          icon: "success",
-          title: "บันทึกส่งซ่อมภายนอกแล้ว",
-          text: "ระบบบันทึกผู้รับจ้างและย้ายงานไปยังรายการส่งซ่อมภายนอก",
-          confirmButtonText: "ตกลง",
-          confirmButtonColor: "#007A53",
+        toast.success("บันทึกส่งซ่อมภายนอกแล้ว", {
+          description: "ระบบบันทึกผู้รับจ้างและย้ายงานไปยังรายการส่งซ่อมภายนอก",
         });
 
         setIsOutsourceOpen(false);
@@ -595,12 +586,8 @@ function AdminManage() {
       );
 
       if (response.ok) {
-        await Swal.fire({
-          icon: "success",
-          title: "ดึงงานกลับสำเร็จ",
-          text: "สถานะงานกลับเป็นรอซ่อมแล้ว",
-          confirmButtonText: "ตกลง",
-          confirmButtonColor: "#007A53",
+        toast.success("ดึงงานกลับสำเร็จ", {
+          description: "สถานะงานกลับเป็นรอซ่อมแล้ว",
         });
 
         fetchData();
@@ -642,12 +629,8 @@ function AdminManage() {
       );
 
       if (response.ok) {
-        await Swal.fire({
-          icon: "success",
-          title: "อนุมัติงานสำเร็จ",
-          text: "ช่างสามารถเริ่มดำเนินการได้แล้ว",
-          confirmButtonText: "ตกลง",
-          confirmButtonColor: "#007A53",
+        toast.success("อนุมัติงานสำเร็จ", {
+          description: "ช่างสามารถเริ่มดำเนินการได้แล้ว",
         });
 
         fetchData();
@@ -707,12 +690,8 @@ function AdminManage() {
       );
 
       if (response.ok) {
-        await Swal.fire({
-          icon: "success",
-          title: "ไม่อนุมัติการซ่อมแล้ว",
-          text: "อัปเดตสถานะงานและแจ้งผลให้ผู้แจ้งกับช่างทราบทางอีเมลแล้ว",
-          confirmButtonText: "ตกลง",
-          confirmButtonColor: "#007A53",
+        toast.success("ไม่อนุมัติการซ่อมแล้ว", {
+          description: "อัปเดตสถานะงานและแจ้งผลให้ผู้แจ้งกับช่างทราบทางอีเมลแล้ว",
         });
 
         setIsRejectModalOpen(false);
@@ -728,7 +707,7 @@ function AdminManage() {
   };
 
   return (
-    <div className="admin-manage-container">
+    <div className={`admin-manage-container ${!isLoading && displayedRepairs.length === 0 ? "has-empty-repairs" : ""}`}>
       <div className="admin-wrapper">
 
         <nav
@@ -754,6 +733,7 @@ function AdminManage() {
           </div>
         </div>
 
+        <div className="assignment-content">
         <div className="search-section">
           <SearchField
             id="admin-repair-search"
@@ -948,7 +928,7 @@ function AdminManage() {
           </button>
         </div>
 
-        <div className="repair-list">
+        <div className={`repair-list ${!isLoading && displayedRepairs.length === 0 ? "is-empty" : ""}`}>
           {isLoading ? (
             <div className="loading-state">
               กำลังโหลดข้อมูลงานซ่อม...
@@ -1056,7 +1036,7 @@ function AdminManage() {
                 {repair.status === "รอซ่อม" &&
                   repair.technician_name &&
                   ((repair.admin_note?.includes("จุดคุ้มทุน") ||
-                    repair.admin_note?.includes("ระบบระงับอัตโนมัติ")) ? (
+                    repair.admin_note?.includes("ระบบหยุดงานอัตโนมัติ")) ? (
                     <div className="threshold-approval-box">
                       <div>
                         <p className="admin-warning-note">
@@ -1064,7 +1044,7 @@ function AdminManage() {
                             size={17}
                             aria-hidden="true"
                           />{" "}
-                          ราคาประเมินเกินเกณฑ์จุดคุ้มทุน ระบบระงับงานชั่วคราวเพื่อรอการพิจารณาอนุมัติงบจากผู้ดูแลระบบ
+                          ราคาประเมินเกินเกณฑ์จุดคุ้มทุน ระบบหยุดงานชั่วคราวเพื่อรอการพิจารณาอนุมัติงบจากผู้ดูแลระบบ
                         </p>
 
                         <p>
@@ -1254,7 +1234,7 @@ function AdminManage() {
               </div>
             ))
           ) : (
-            <div className="no-results">
+            <div className="repair-empty-state">
               <p>
                 {assignmentView === "unassigned"
                   ? "ไม่มีงานที่รอมอบหมาย"
@@ -1277,11 +1257,14 @@ function AdminManage() {
           )}
         </div>
 
-        <Pagination
-          currentPage={currentPage}
-          totalItems={displayedRepairs.length}
-          onPageChange={setCurrentPage}
-        />
+        {displayedRepairs.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalItems={displayedRepairs.length}
+            onPageChange={setCurrentPage}
+          />
+        )}
+        </div>
       </div>
 
       {/* POPUP: ดูรายละเอียด */}

@@ -22,7 +22,6 @@ import { getPageItems } from "../../../components/ui/paginationUtils";
 import FilterBar from "../../../components/ui/FilterBar";
 import RepairTimelineModal from "../../User/Timeline/RepairTimelineModal";
 import "./TechHome.css";
-import Swal from "sweetalert2";
 
 function TechHome() {
   const navigate = useNavigate();
@@ -52,6 +51,8 @@ function TechHome() {
   const [estimateModalOpen, setEstimateModalOpen] = useState(false);
   const [estimateTicketId, setEstimateTicketId] = useState(null);
   const [estimatedCost, setEstimatedCost] = useState("");
+  const [isStartingRepair, setIsStartingRepair] = useState(false);
+  const [estimateBasePrice, setEstimateBasePrice] = useState(null);
 
   const fetchMyJobs = async (user) => {
     try {
@@ -229,12 +230,8 @@ function TechHome() {
       );
 
       if (response.ok) {
-        await Swal.fire({
-          icon: "success",
-          title: "รับงานสำเร็จ",
-          text: "งานจะอยู่ในรายการรอเข้าหน้างาน จนกว่าคุณจะกดเริ่มดำเนินการซ่อม",
-          confirmButtonText: "ตกลง",
-          confirmButtonColor: "#007A53",
+        toast.success("รับงานสำเร็จ", {
+          description: "งานจะอยู่ในรายการรอเข้าหน้างาน จนกว่าคุณจะกดเริ่มดำเนินการซ่อม",
         });
 
         fetchMyJobs(currentUser);
@@ -279,95 +276,11 @@ function TechHome() {
       }
     }
 
-    const result = await Swal.fire({
-      icon: "question",
-      title: "ยืนยันเริ่มดำเนินการซ่อม",
-      text: "เมื่อยืนยัน งานจะเปลี่ยนสถานะเป็น 'กำลังซ่อม' และระบบจะเริ่มบันทึกเวลาซ่อม คุณต้องการเริ่มดำเนินการซ่อมงานนี้หรือไม่?",
-      input: "number",
-      inputLabel: "ราคาประเมินเบื้องต้น (บาท)",
-      inputPlaceholder: "กรอกราคาประเมิน",
-      inputAttributes: {
-        min: "0",
-        step: "0.01",
-        inputmode: "decimal",
-      },
-      inputValidator: (value) => {
-        if (value === "" || !Number.isFinite(Number(value)) || Number(value) < 0) {
-          return "กรุณากรอกราคาประเมินตั้งแต่ 0 บาทขึ้นไป";
-        }
-      },
-      showCancelButton: true,
-      confirmButtonText: "ยืนยันเริ่มซ่อม",
-      cancelButtonText: "ยกเลิก",
-      confirmButtonColor: "#007A53",
-      showLoaderOnConfirm: true,
-      allowOutsideClick: () => !Swal.isLoading(),
-      didOpen: () => {
-        const input = Swal.getInput();
-        if (!input || !Number.isFinite(basePrice)) return;
-
-        const budgetNotes = document.createElement("div");
-        budgetNotes.style.cssText = "display: flex; width: calc(100% - 2em); max-width: 24rem; margin: 0 auto 8px; padding: 11px 14px; align-items: center; justify-content: space-between; gap: 12px; box-sizing: border-box; border: 1px solid #bbf7d0; border-radius: 10px; color: #166534; background: #f0fdf4; text-align: left; font-size: 0.88rem; line-height: 1.4;";
-
-        const costLabel = document.createElement("span");
-        costLabel.textContent = "ราคาทุนครุภัณฑ์";
-        budgetNotes.appendChild(costLabel);
-
-        const costValue = document.createElement("strong");
-        costValue.textContent = `${basePrice.toLocaleString()} บาท`;
-        costValue.style.cssText = "color: #14532d; font-size: 1rem; white-space: nowrap;";
-        budgetNotes.appendChild(costValue);
-
-        const warningNote = document.createElement("p");
-        warningNote.textContent = "แจ้งเตือน: หากราคาประเมินเกินจุดคุ้มทุน ระบบจะส่งงานให้ผู้ดูแลระบบพิจารณาอนุมัติงบ";
-        warningNote.setAttribute("role", "status");
-        warningNote.style.cssText = "width: calc(100% - 2em); max-width: 24rem; margin: 0 auto 8px; padding: 10px 12px; box-sizing: border-box; border: 1px solid #fecaca; border-radius: 9px; color: #b91c1c; background: #fef2f2; text-align: left; font-size: 0.84rem; font-weight: 700; line-height: 1.45;";
-
-        input.insertAdjacentElement("beforebegin", budgetNotes);
-        input.insertAdjacentElement("beforebegin", warningNote);
-      },
-      preConfirm: async (value) => {
-        try {
-          const response = await fetch(
-            `https://4projectit-production.up.railway.app/api/repairs/${repair.id}/estimate`,
-            {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                estimated_cost: Number(value),
-                tech_id: currentUser.id,
-              }),
-            }
-          );
-          const data = await response.json();
-
-          if (!response.ok) {
-            Swal.showValidationMessage(data.error || "ประเมินราคาไม่สำเร็จ กรุณาลองอีกครั้ง");
-            return false;
-          }
-
-          return data;
-        } catch (error) {
-          console.error("Start Repair Estimate Error:", error);
-          Swal.showValidationMessage("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองอีกครั้ง");
-          return false;
-        }
-      },
-    });
-
-    if (!result.isConfirmed) return;
-
-    const isPendingApproval = result.value.status === "รอซ่อม";
-    await Swal.fire({
-      icon: isPendingApproval ? "error" : "success",
-      title: isPendingApproval ? "ส่งงานให้ผู้ดูแลระบบพิจารณาแล้ว" : "เริ่มดำเนินการซ่อมแล้ว",
-      text: isPendingApproval
-        ? `ราคาประเมินเกินเกณฑ์จุดคุ้มทุน ระบบจะส่งเรื่องเพื่อพิจารณาอนุมัติงบ (Ticket ${repair.ticket_number || `#${repair.id}`})`
-        : result.value.message || "เปลี่ยนสถานะงานเป็นกำลังซ่อมและเริ่มบันทึกเวลาแล้ว",
-      confirmButtonText: "ตกลง",
-      confirmButtonColor: "#007A53",
-    });
-    fetchMyJobs(currentUser);
+    setEstimateTicketId(repair.id);
+    setEstimatedCost("");
+    setEstimateBasePrice(basePrice);
+    setIsStartingRepair(true);
+    setEstimateModalOpen(true);
   };
 
   const handleReject = async (id) => {
@@ -390,12 +303,8 @@ function TechHome() {
       );
 
       if (response.ok) {
-        await Swal.fire({
-          icon: "success",
-          title: "ส่งงานกลับผู้ดูแลแล้ว",
-          text: "ผู้ดูแลระบบจะพิจารณามอบหมายงานอีกครั้ง",
-          confirmButtonText: "ตกลง",
-          confirmButtonColor: "#007A53",
+        toast.success("ส่งงานกลับผู้ดูแลแล้ว", {
+          description: "ผู้ดูแลระบบจะพิจารณามอบหมายงานอีกครั้ง",
         });
 
         fetchMyJobs(currentUser);
@@ -413,6 +322,8 @@ function TechHome() {
   const openEstimateModal = (id) => {
     setEstimateTicketId(id);
     setEstimatedCost("");
+    setIsStartingRepair(false);
+    setEstimateBasePrice(null);
     setEstimateModalOpen(true);
   };
 
@@ -433,6 +344,7 @@ function TechHome() {
           },
           body: JSON.stringify({
             estimated_cost: costValue,
+            ...(isStartingRepair ? { tech_id: currentUser.id } : {}),
           }),
         }
       );
@@ -440,27 +352,28 @@ function TechHome() {
       if (response.ok) {
         const data = await response.json();
 
-        if (data.status === "รอซ่อม") {
-          await Swal.fire({
-            icon: "success",
-            title: "งานรอการอนุมัติ",
-            text:
-              data.message ||
-              "ระบบส่งเรื่องกลับให้ผู้ดูแลพิจารณาแล้ว",
-            confirmButtonText: "ตกลง",
-            confirmButtonColor: "#007A53",
+        if (isStartingRepair && data.status === "รอซ่อม") {
+          const ticket = repairs.find((repair) => repair.id === estimateTicketId);
+          toast.warning("ส่งงานให้ผู้ดูแลระบบพิจารณาแล้ว", {
+            description: `ราคาประเมินเกินเกณฑ์จุดคุ้มทุน (Ticket ${ticket?.ticket_number || `#${estimateTicketId}`})`,
+          });
+        } else if (isStartingRepair) {
+          toast.success("เริ่มดำเนินการซ่อมแล้ว", {
+            description: data.message || "เปลี่ยนสถานะงานเป็นกำลังซ่อมและเริ่มบันทึกเวลาแล้ว",
+          });
+        } else if (data.status === "รอซ่อม") {
+          toast.info("งานรอการอนุมัติ", {
+            description: data.message || "ระบบส่งเรื่องกลับให้ผู้ดูแลพิจารณาแล้ว",
           });
         } else {
-          await Swal.fire({
-            icon: "success",
-            title: "ประเมินราคาสำเร็จ",
-            text: "คุณสามารถดำเนินการซ่อมต่อได้เลย",
-            confirmButtonText: "ตกลง",
-            confirmButtonColor: "#007A53",
+          toast.success("ประเมินราคาสำเร็จ", {
+            description: "คุณสามารถดำเนินการซ่อมต่อได้เลย",
           });
         }
 
         setEstimateModalOpen(false);
+        setIsStartingRepair(false);
+        setEstimateBasePrice(null);
         fetchMyJobs(currentUser);
       } else {
         const errorData = await response.json();
@@ -473,7 +386,9 @@ function TechHome() {
     } catch (error) {
       console.error("Estimate Error:", error);
 
-      toast.error("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
+      toast.error("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้", {
+        description: "ส่งราคาประเมินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -519,12 +434,8 @@ function TechHome() {
       );
 
       if (response.ok) {
-        await Swal.fire({
-          icon: "success",
-          title: "บันทึกสถานะสำเร็จ",
-          text: `อัปเดตงานเป็นสถานะ “${newStatus}” แล้ว`,
-          confirmButtonText: "ตกลง",
-          confirmButtonColor: "#007A53",
+        toast.success("บันทึกสถานะสำเร็จ", {
+          description: `อัปเดตงานเป็นสถานะ “${newStatus}” แล้ว`,
         });
 
         setModalOpen(false);
@@ -804,7 +715,7 @@ function TechHome() {
   );
 
   return (
-    <div className="tech-container">
+    <div className={`tech-container ${!isLoading && displayedRepairs.length === 0 ? "has-empty-jobs" : ""}`}>
       <div className="tech-wrapper">
 
         <div className="tech-header page-header">
@@ -840,6 +751,7 @@ function TechHome() {
           </div>
         </div>
 
+        <div className="tech-workspace">
         <div className="search-section">
           <SearchField
             id="technician-repair-search"
@@ -873,7 +785,7 @@ function TechHome() {
             กำลังโหลดรายการงานของคุณ...
           </div>
         ) : (
-          <div className="job-view-area">
+          <div className={`job-view-area ${displayedRepairs.length === 0 ? "is-empty" : ""}`}>
             <div
               className="job-view-tabs"
               role="tablist"
@@ -957,7 +869,7 @@ function TechHome() {
                 />
               </>
             ) : (
-              <div className="no-results">
+              <div className="tech-empty-state">
                 <p>
                   {jobView === "active"
                     ? "ไม่มีงานที่รอรับหรือรอเข้าหน้างาน"
@@ -969,6 +881,7 @@ function TechHome() {
             )}
           </div>
         )}
+        </div>
       </div>
 
       {/* POPUP 1: ดูรายละเอียดงาน */}
@@ -1103,9 +1016,12 @@ function TechHome() {
             <button
               className="close-btn"
               type="button"
-              onClick={() =>
-                setEstimateModalOpen(false)
-              }
+              disabled={isSubmitting}
+              onClick={() => {
+                setEstimateModalOpen(false);
+                setIsStartingRepair(false);
+                setEstimateBasePrice(null);
+              }}
               aria-label="ปิดหน้าต่าง"
             >
               <X aria-hidden="true" />
@@ -1116,18 +1032,35 @@ function TechHome() {
                 size={23}
                 aria-hidden="true"
               />{" "}
-              ประเมินราคาก่อนดำเนินการซ่อม
+              {isStartingRepair ? "เริ่มซ่อมและประเมินราคา" : "ประเมินราคาก่อนดำเนินการซ่อม"}
             </h3>
 
             <p className="modal-subtitle">
-              รหัสใบงาน:{" "}
+              {isStartingRepair
+                ? "ยืนยันเริ่มซ่อมเพื่อเปลี่ยนสถานะงานและเริ่มบันทึกเวลา"
+                : "รหัสใบงาน: "}
+              {!isStartingRepair && (
+                <>
               {repairs.find(
                 (r) => r.id === estimateTicketId
               )?.ticket_number ||
                 `#${estimateTicketId}`}
+                </>
+              )}
             </p>
 
             <form onSubmit={handleSubmitEstimate}>
+              {isStartingRepair && Number.isFinite(estimateBasePrice) && (
+                <>
+                  <div className="estimate-budget-note">
+                    <span>ราคาทุนครุภัณฑ์</span>
+                    <strong>{estimateBasePrice.toLocaleString()} บาท</strong>
+                  </div>
+                  <p className="estimate-warning-note">
+                    หากราคาประเมินเกินจุดคุ้มทุน ระบบจะส่งงานให้ผู้ดูแลระบบพิจารณาอนุมัติงบ
+                  </p>
+                </>
+              )}
               <div className="input-group">
                 <label>
                   <Banknote
@@ -1162,20 +1095,34 @@ function TechHome() {
               </div>
 
               <div className="modal-actions">
+                {isStartingRepair && (
+                  <button
+                    type="button"
+                    className="btn-cancel"
+                    disabled={isSubmitting}
+                    onClick={() => {
+                      setEstimateModalOpen(false);
+                      setIsStartingRepair(false);
+                      setEstimateBasePrice(null);
+                    }}
+                  >
+                    ยกเลิก
+                  </button>
+                )}
                 <button
                   type="submit"
                   className="btn-accept"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
-                    "กำลังตรวจสอบ..."
+                    "กำลังบันทึก..."
                   ) : (
                     <>
                       <CircleCheck
                         size={18}
                         aria-hidden="true"
                       />{" "}
-                      บันทึกราคาประเมิน
+                      {isStartingRepair ? "ยืนยันเริ่มซ่อม" : "บันทึกราคาประเมิน"}
                     </>
                   )}
                 </button>

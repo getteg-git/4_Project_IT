@@ -302,6 +302,38 @@
 .cost-input:focus { outline: none; border-color: var(--color-primary); background-color: white; box-shadow: 0 0 0 3px rgba(0, 122, 83, 0.15); }
 .cost-hint { color: #666; font-size: 0.85rem; margin-top: 5px; display: block; }
 
+.tech-container .estimate-budget-note {
+  display: flex;
+  margin: 0 auto 10px;
+  padding: 11px 14px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #c6dfd3;
+  border-radius: 10px;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+  font-size: 0.9rem;
+}
+
+.tech-container .estimate-budget-note strong {
+  color: var(--color-primary);
+  font-size: 1rem;
+  white-space: nowrap;
+}
+
+.tech-container .estimate-warning-note {
+  margin: 0 auto 12px;
+  padding: 10px 12px;
+  border: 1px solid #f4c7c7;
+  border-radius: 9px;
+  color: #9f2525;
+  background: #fff5f5;
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
 .textarea-input {
   width: 100%; padding: 14px; border: 1px solid #ccd6d1; border-radius: 8px;
   font-size: 1rem; background-color: #fafbfc; font-family: inherit; box-sizing: border-box;

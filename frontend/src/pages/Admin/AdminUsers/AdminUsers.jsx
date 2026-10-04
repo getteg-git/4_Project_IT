@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import useToast from "../../../hooks/useToast";
 import "./AdminUsers.css";
 
 function AdminUsers() {
   const navigate = useNavigate();
+  const { toast, confirm } = useToast();
   const [users, setUsers] = useState([]);
   const [problemTypes, setProblemTypes] = useState([]); // ดึงข้อมูลประเภทปัญหาจาก DB
   const [isLoading, setIsLoading] = useState(true);
@@ -94,7 +96,9 @@ function AdminUsers() {
       setSpecialties(specialties.filter((id) => id !== typeId));
     } else {
       if (specialties.length >= 3) {
-        alert("⚠️ ช่าง 1 คน สามารถเลือกหมวดหมู่งานที่ถนัดได้สูงสุด 3 หมวดหมู่เท่านั้นครับ");
+        toast.warning("เลือกหมวดหมู่ได้สูงสุด 3 รายการ", {
+          description: "ช่าง 1 คนสามารถเลือกหมวดหมู่งานที่ถนัดได้ไม่เกิน 3 หมวดหมู่",
+        });
         return;
       }
       setSpecialties([...specialties, typeId]);
@@ -105,7 +109,9 @@ function AdminUsers() {
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
     if (!password || password.trim().length < 3 || password.trim().length > 30) {
-      alert("⚠️ รหัสผ่านต้องมีความยาว 3-30 ตัวอักษร");
+      toast.warning("รหัสผ่านไม่ถูกต้อง", {
+        description: "รหัสผ่านต้องมีความยาว 3-30 ตัวอักษร",
+      });
       return;
     }
     setIsSubmitting(true);
@@ -123,15 +129,17 @@ function AdminUsers() {
       });
 
       if (response.ok) {
-        alert("✅ สร้างผู้ใช้งานสำเร็จ");
+        toast.success("สร้างผู้ใช้งานสำเร็จ");
         fetchMasterData();
         resetForm();
       } else {
         const data = await response.json();
-        alert(`❌ ผิดพลาด: ${data.error}`);
+        toast.error("สร้างผู้ใช้งานไม่สำเร็จ", {
+          description: data.error || "กรุณาลองใหม่อีกครั้ง",
+        });
       }
-    } catch (error) {
-      alert("❌ ไม่สามารถติดต่อเซิร์ฟเวอร์ได้");
+    } catch {
+      toast.error("ไม่สามารถติดต่อเซิร์ฟเวอร์ได้");
     } finally {
       setIsSubmitting(false);
     }
@@ -141,7 +149,9 @@ function AdminUsers() {
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     if (password && (password.trim().length < 3 || password.trim().length > 30)) {
-      alert("⚠️ รหัสผ่านใหม่ต้องมีความยาว 3-30 ตัวอักษร");
+      toast.warning("รหัสผ่านไม่ถูกต้อง", {
+        description: "รหัสผ่านใหม่ต้องมีความยาว 3-30 ตัวอักษร",
+      });
       return;
     }
 
@@ -159,15 +169,17 @@ function AdminUsers() {
       });
 
       if (response.ok) {
-        alert("✅ อัปเดตข้อมูลสำเร็จ");
+        toast.success("อัปเดตข้อมูลสำเร็จ");
         fetchMasterData();
         resetForm();
       } else {
         const data = await response.json();
-        alert(`❌ ผิดพลาด: ${data.error}`);
+        toast.error("อัปเดตข้อมูลไม่สำเร็จ", {
+          description: data.error || "กรุณาลองใหม่อีกครั้ง",
+        });
       }
-    } catch (error) {
-      alert("❌ ไม่สามารถติดต่อเซิร์ฟเวอร์ได้");
+    } catch {
+      toast.error("ไม่สามารถติดต่อเซิร์ฟเวอร์ได้");
     } finally {
       setIsSubmitting(false);
     }
@@ -175,7 +187,12 @@ function AdminUsers() {
 
   // ลบผู้ใช้งาน (DELETE)
   const handleDelete = async (id, name) => {
-    const confirmDelete = window.confirm(`⚠️ คุณแน่ใจหรือไม่ที่จะลบบัญชี "${name}" ออกจากระบบถาวร?`);
+    const confirmDelete = await confirm({
+      title: "ลบบัญชีผู้ใช้งาน",
+      description: `คุณแน่ใจหรือไม่ที่จะลบบัญชี "${name}" ออกจากระบบถาวร?`,
+      confirmLabel: "ลบบัญชี",
+      variant: "danger",
+    });
     if (!confirmDelete) return;
 
     try {
@@ -184,14 +201,16 @@ function AdminUsers() {
       });
 
       if (response.ok) {
-        alert("✅ ลบผู้ใช้งานสำเร็จ");
+        toast.success("ลบผู้ใช้งานสำเร็จ");
         fetchMasterData();
       } else {
         const data = await response.json();
-        alert(`❌ ผิดพลาด: ${data.error}`);
+        toast.error("ลบผู้ใช้งานไม่สำเร็จ", {
+          description: data.error || "กรุณาลองใหม่อีกครั้ง",
+        });
       }
-    } catch (error) {
-      alert("❌ ไม่สามารถติดต่อเซิร์ฟเวอร์ได้");
+    } catch {
+      toast.error("ไม่สามารถติดต่อเซิร์ฟเวอร์ได้");
     }
   };
 

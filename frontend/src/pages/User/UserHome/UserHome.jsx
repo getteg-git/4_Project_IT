@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle2, ClipboardPenLine, Cog, Hammer, LoaderCircle, LogIn, Search, ShieldCheck, Wrench, X } from "lucide-react";
+import useToast from "../../../hooks/useToast";
 import "./UserHome.css";
-import Swal from "sweetalert2";
 
 function UserHome() {
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loginRole, setLoginRole] = useState("admin");
@@ -45,13 +46,8 @@ function UserHome() {
       if (response.ok) {
         localStorage.setItem("user", JSON.stringify(data.user));
         setIsLoginSuccess(true);
-        Swal.fire({
-          icon: "success",
-          title: "เข้าสู่ระบบสำเร็จ",
-          text: `ยินดีต้อนรับ ${data.user?.role === "admin" ? "แอดมิน" : "ช่างเทคนิค"
-            }`,
-          confirmButtonText: "ตกลง",
-          confirmButtonColor: "#007A53",
+        toast.success("เข้าสู่ระบบสำเร็จ", {
+          description: `ยินดีต้อนรับ ${data.user?.role === "admin" ? "แอดมิน" : "ช่างเทคนิค"}`,
         });
         await new Promise((resolve) => window.setTimeout(resolve, 650));
 
@@ -63,22 +59,14 @@ function UserHome() {
 
         closeLoginModal();
       } else {
-        Swal.fire({
-          icon: "error",
-          title: "เข้าสู่ระบบไม่สำเร็จ",
-          text: data.error || "กรุณาตรวจสอบชื่อผู้ใช้และรหัสผ่าน",
-          confirmButtonText: "ตกลง",
-          confirmButtonColor: "#007A53",
+        toast.error("เข้าสู่ระบบไม่สำเร็จ", {
+          description: data.error || "กรุณาตรวจสอบชื่อผู้ใช้และรหัสผ่าน",
         });
       }
     } catch (error) {
       console.error("Login Error:", error);
-      Swal.fire({
-        icon: "error",
-        title: "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์",
-        text: "กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ",
-        confirmButtonText: "ตกลง",
-        confirmButtonColor: "#007A53",
+      toast.error("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์", {
+        description: "กรุณาลองใหม่อีกครั้ง หรือติดต่อผู้ดูแลระบบ",
       });
     } finally {
       setIsLoading(false);

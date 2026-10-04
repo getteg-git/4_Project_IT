@@ -4,7 +4,6 @@ import { Camera, CheckCircle2, Image as ImageIcon, LoaderCircle, Send } from 'lu
 import BackButton from "../../../components/ui/BackButton";
 import useToast from "../../../hooks/useToast";
 import "./CreateRepair.css";
-import Swal from "sweetalert2";
 
 function CreateRepair() {
   const navigate = useNavigate();
@@ -185,13 +184,8 @@ function CreateRepair() {
 
       if (response.ok) {
         setIsSubmitSuccess(true);
-
-        await Swal.fire({
-          icon: "success",
-          title: "รับเรื่องแจ้งซ่อมแล้ว",
-          text: "คุณสามารถติดตามสถานะงานได้จากหน้ารายการแจ้งซ่อม",
-          confirmButtonText: "ตกลง",
-          confirmButtonColor: "#007A53",
+        toast.success("รับเรื่องแจ้งซ่อมแล้ว", {
+          description: "คุณสามารถติดตามสถานะงานได้จากหน้ารายการแจ้งซ่อม",
         });
 
         navigate("/repair/history", { replace: true });
