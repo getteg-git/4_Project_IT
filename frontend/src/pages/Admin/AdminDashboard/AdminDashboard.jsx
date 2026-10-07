@@ -167,8 +167,8 @@ function AdminDashboard() {
     <div className="admin-dashboard-container">
       <header className="dashboard-header page-header">
         <div>
-          <h1><LayoutDashboard size={25} aria-hidden="true" /> แผงควบคุมผู้ดูแลระบบ</h1>
-          <p>สรุปภาพรวมระบบแจ้งซ่อมบำรุง</p>
+          <h1><LayoutDashboard size={25} aria-hidden="true" /> แดชบอร์ดผู้ดูแลระบบ</h1>
+          <p>ดูภาพรวมงานแจ้งซ่อมและจัดการระบบได้จากที่นี่</p>
         </div>
         <div className="header-actions page-logout-group">
           <button className="btn-logout page-logout" onClick={async () => {

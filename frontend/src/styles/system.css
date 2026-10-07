@@ -950,6 +950,11 @@
     gap: 10px;
   }
 
+  .tech-container .page-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .admin-dashboard-container .page-header > div:first-child,
   .tech-container .page-header > div:first-child {
     min-width: 0;
@@ -963,6 +968,12 @@
     flex: 0 0 auto;
     flex-wrap: nowrap;
     margin-left: auto;
+  }
+
+  .tech-container .page-logout-group {
+    align-self: flex-start;
+    margin-left: 0;
+    order: -1;
   }
 
   .admin-dashboard-container .page-header .page-logout-group .page-logout,
