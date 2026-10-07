@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle2, ClipboardPenLine, Cog, Hammer, LoaderCircle, LogIn, Search, ShieldCheck, Wrench, X } from "lucide-react";
+import { CheckCircle2, ClipboardPenLine, Cog, Hammer, Info, LoaderCircle, LogIn, Search, ShieldCheck, Wrench, X } from "lucide-react";
 import useToast from "../../../hooks/useToast";
 import "./UserHome.css";
 
@@ -9,6 +9,7 @@ function UserHome() {
   const { toast } = useToast();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [loginRole, setLoginRole] = useState("admin");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -16,6 +17,18 @@ function UserHome() {
   const [isLoginSuccess, setIsLoginSuccess] = useState(false);
 
   const openLoginModal = () => setIsModalOpen(true);
+  const closeHelpModal = () => setIsHelpOpen(false);
+
+  useEffect(() => {
+    if (!isHelpOpen) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") closeHelpModal();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isHelpOpen]);
 
   const closeLoginModal = () => {
     setIsModalOpen(false);
@@ -82,6 +95,17 @@ function UserHome() {
       </div>
 
       <nav className="top-nav">
+        <button
+          className="btn-help"
+          type="button"
+          onClick={() => setIsHelpOpen(true)}
+          aria-label="วิธีใช้งานระบบ"
+          aria-haspopup="dialog"
+          aria-expanded={isHelpOpen}
+        >
+          <Info size={20} aria-hidden="true" />
+          <span>วิธีใช้งาน</span>
+        </button>
         <button className="btn-staff-login" onClick={openLoginModal}>
           <span className="lock-icon" aria-hidden="true">🔐</span>
           เข้าสู่ระบบเจ้าหน้าที่
@@ -108,66 +132,6 @@ function UserHome() {
         </button>
       </div>
 
-      <section className="repair-steps">
-        <h2>วิธีการแจ้งซ่อม</h2>
-
-        <p className="steps-subtitle">
-          ขั้นตอนการแจ้งซ่อมตั้งแต่แจ้งปัญหาจนถึงปิดงาน
-        </p>
-
-        <div className="steps-container">
-
-          <div className="step-item">
-            <div className="step-marker">
-              <span className="step-number">01</span>
-              <div className="step-icon">📝</div>
-            </div>
-
-            <div className="step-content">
-              <h3>แจ้งปัญหา</h3>
-              <p>กรอกรายละเอียดปัญหาและสถานที่ที่พบปัญหา</p>
-            </div>
-          </div>
-
-          <div className="step-item">
-            <div className="step-marker">
-              <span className="step-number">02</span>
-              <div className="step-icon">👨‍💼</div>
-            </div>
-
-            <div className="step-content">
-              <h3>เจ้าหน้าที่รับเรื่อง</h3>
-              <p>เจ้าหน้าที่ตรวจสอบข้อมูลและรับเรื่องแจ้งซ่อม</p>
-            </div>
-          </div>
-
-          <div className="step-item">
-            <div className="step-marker">
-              <span className="step-number">03</span>
-              <div className="step-icon">🔧</div>
-            </div>
-
-            <div className="step-content">
-              <h3>ดำเนินการซ่อม</h3>
-              <p>ช่างตรวจสอบปัญหาและดำเนินการซ่อมแซม</p>
-            </div>
-          </div>
-
-          <div className="step-item">
-            <div className="step-marker">
-              <span className="step-number">04</span>
-              <div className="step-icon">✅</div>
-            </div>
-
-            <div className="step-content">
-              <h3>ปิดงาน</h3>
-              <p>ตรวจสอบผลการซ่อมและทำแบบประเมินความพึงพอใจ</p>
-            </div>
-          </div>
-
-        </div>
-      </section>
-
       {/* Footer */}
       <footer className="home-footer">
         <div className="footer-content">
@@ -176,6 +140,40 @@ function UserHome() {
           <span>© 2026 Faculty of Science</span>
         </div>
       </footer>
+
+      {isHelpOpen && (
+        <div className="modal-overlay" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) closeHelpModal();
+        }}>
+          <section
+            className="modal-box help-modal-box"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="help-modal-title"
+            aria-describedby="help-modal-description"
+          >
+            <button className="close-btn" type="button" onClick={closeHelpModal} aria-label="ปิดวิธีใช้งาน">
+              <X aria-hidden="true" />
+            </button>
+            <h3 id="help-modal-title"><Info size={22} aria-hidden="true" /> วิธีใช้งานระบบ</h3>
+            <p className="modal-subtitle" id="help-modal-description">เลือกเมนูให้ตรงกับสิ่งที่ต้องการทำ</p>
+            <ol className="help-steps">
+              <li>
+                <strong>แจ้งซ่อม</strong>
+                <span>เลือก “แจ้งซ่อมอุปกรณ์” แล้วกรอกรายละเอียดปัญหาและสถานที่</span>
+              </li>
+              <li>
+                <strong>ติดตามงาน</strong>
+                <span>เลือก “ติดตามสถานะงานแจ้งซ่อม” เพื่อดูความคืบหน้าของรายการที่แจ้งไว้</span>
+              </li>
+              <li>
+                <strong>รอรับการซ่อม</strong>
+                <span>เจ้าหน้าที่รับเรื่องและช่างจะดำเนินการ ก่อนแจ้งผลเพื่อให้ตรวจสอบและประเมินงาน</span>
+              </li>
+            </ol>
+          </section>
+        </div>
+      )}
 
       {isModalOpen && (
         <div className="modal-overlay">

@@ -65,9 +65,20 @@
 .admin-action-bar {
   display: flex;
   justify-content: space-between;
+  align-items: stretch;
   gap: 12px;
   margin-bottom: 18px;
   flex-wrap: nowrap;
+}
+
+.admin-action-bar > .btn-manage,
+.admin-action-bar > .assign-btn-wrapper {
+  min-width: 0;
+  flex: 1 1 0;
+}
+
+.admin-action-bar .assign-btn-wrapper .btn-users {
+  width: 100%;
 }
 
 /* =======================================

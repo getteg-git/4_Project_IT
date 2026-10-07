@@ -110,7 +110,12 @@
   position: absolute;
   z-index: 2;
   top: 28px;
-  right: max(24px, calc((100vw - 1180px) / 2));
+  left: 50%;
+  display: flex;
+  width: min(calc(100% - 48px), 1180px);
+  align-items: center;
+  justify-content: space-between;
+  transform: translateX(-50%);
 }
 
 .home-container .btn-staff-login {
@@ -245,6 +250,7 @@
 
 .create-repair-container .page-navigation,
 .tracking-container .page-navigation,
+.admin-settings-container .page-navigation,
 .admin-manage-container .page-navigation,
 .admin-users-container .page-navigation {
   display: flex;
@@ -254,6 +260,7 @@
 
 .create-repair-container .page-navigation .system-back-button,
 .tracking-container .page-navigation .system-back-button,
+.admin-settings-container .page-navigation .system-back-button,
 .admin-manage-container .page-navigation .system-back-button,
 .admin-users-container .page-navigation .system-back-button {
   min-height: 40px;
@@ -264,6 +271,7 @@
 
 .create-repair-container .page-navigation .system-back-button:hover,
 .tracking-container .page-navigation .system-back-button:hover,
+.admin-settings-container .page-navigation .system-back-button:hover,
 .admin-manage-container .page-navigation .system-back-button:hover,
 .admin-users-container .page-navigation .system-back-button:hover {
   color: var(--color-primary);
@@ -739,7 +747,13 @@
   .system-filter-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .system-filter-menu { width: min(560px, calc(100vw - 24px)); padding: 14px; }
   .home-container { padding: 92px 16px 42px; }
-  .home-container .top-nav { top: 16px; right: 16px; }
+  .home-container .top-nav {
+    top: 16px;
+    right: 16px;
+    left: 16px;
+    width: auto;
+    transform: none;
+  }
   .home-container .btn-staff-login { min-height: 42px; padding: 8px 12px; font-size: 0.84rem; }
   .home-container .home-header { margin-bottom: 28px; }
   .home-container .home-header::before { font-size: 0.68rem; }
@@ -754,7 +768,9 @@
 
   .create-repair-container { padding: 10px 12px 50px; }
   .create-repair-container .page-navigation,
-  .tracking-container .page-navigation { margin-bottom: 10px; padding: 0 4px; }
+  .tracking-container .page-navigation,
+  .admin-settings-container .page-navigation,
+  .admin-manage-container .page-navigation { margin-bottom: 10px; padding: 0 4px; }
   .create-repair-container .repair-card { padding: 24px 18px; border-radius: 14px; }
   .create-repair-container .form-back-link { margin-bottom: 22px; }
   .create-repair-container .repair-header { margin-bottom: 28px; }
@@ -795,7 +811,8 @@
   .admin-manage-container .header-actions button,
   .admin-users-container .header-actions button,
   .tech-container .header-actions button { width: 100%; }
-  .admin-manage-container .system-back-button,
+  .admin-settings-container .system-back-button,
+  .admin-manage-container .system-back-button { width: auto; }
   .admin-users-container .system-back-button { width: 100%; }
   .admin-dashboard-container .filter-group { width: 100%; flex-wrap: wrap; }
   .admin-dashboard-container .filter-heading,
@@ -807,7 +824,7 @@
   .admin-dashboard-container .summary-card:last-child { grid-column: 1 / -1; }
 
   .admin-manage-container .assignment-view-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .admin-manage-container .assignment-view-tabs button:last-child { grid-column: 1 / -1; }
+  .admin-manage-container .assignment-view-tabs button:last-child { grid-column: auto; }
   .admin-manage-container .reject-modal-box { width: min(100%, 640px); padding: 30px 22px 24px; }
 
   .tech-container .action-buttons { width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -859,10 +876,11 @@
   .tech-container .tech-header .header-actions { display: flex; }
   .tech-container .tech-header .header-actions button { width: 42px; min-width: 42px; min-height: 42px; padding: 0; justify-content: center; }
   .tech-container .tech-header .btn-logout span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .tech-container .page-logout-group { align-self: flex-start; }
   .tech-container .search-section { margin-bottom: 10px; gap: 7px; }
   .tech-container .system-search-meta { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .tech-container .job-view-tabs { margin-bottom: 10px; }
-  .tech-container .job-view-tabs button { min-height: 42px; padding: 6px 5px; font-size: 0.78rem; white-space: nowrap; }
+  .tech-container .job-view-tabs button { min-height: 42px; padding: 6px 5px; font-size: 0.78rem; line-height: 1.25; white-space: normal; }
   .tech-container .job-view-tabs button span { min-width: 20px; height: 20px; }
   .tech-container .repair-item-card { padding: 14px; }
   .tech-container .card-top { margin-bottom: 10px; }
@@ -906,14 +924,14 @@
     min-width: 0;
     min-height: 48px;
     padding: 8px 10px;
-    justify-content: space-between;
+    justify-content: center;
     gap: 6px;
     line-height: 1.3;
     white-space: normal;
   }
 
   .admin-manage-container .assignment-view-tabs button:last-child {
-    grid-column: 1 / -1;
+    grid-column: auto;
   }
 
   .admin-manage-container .assignment-view-tabs button.has-pending-review span {
@@ -985,6 +1003,11 @@
   margin: 0 auto;
 }
 
+.admin-settings-container .page-navigation,
+.admin-manage-container .page-navigation {
+  margin-bottom: 16px;
+}
+
 .admin-settings-container .settings-header,
 .admin-manage-container .admin-header,
 .tech-container .tech-header {
@@ -1013,6 +1036,10 @@
 .tech-container .tech-header h2 {
   margin: 0 0 8px;
   font-size: 1.6rem;
+}
+
+.tech-container .page-logout-group {
+  align-self: flex-start;
 }
 
 .admin-manage-container .assignment-content {
