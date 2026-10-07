@@ -876,7 +876,7 @@
   .tech-container .tech-header .header-actions { display: flex; }
   .tech-container .tech-header .header-actions button { width: 42px; min-width: 42px; min-height: 42px; padding: 0; justify-content: center; }
   .tech-container .tech-header .btn-logout span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .tech-container .page-logout-group { align-self: flex-start; }
+  .tech-container .page-logout-group { align-self: flex-end; }
   .tech-container .search-section { margin-bottom: 10px; gap: 7px; }
   .tech-container .system-search-meta { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .tech-container .job-view-tabs { margin-bottom: 10px; }
@@ -971,7 +971,7 @@
   }
 
   .tech-container .page-logout-group {
-    align-self: flex-start;
+    align-self: flex-end;
     margin-left: 0;
     order: -1;
   }
