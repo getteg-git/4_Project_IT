@@ -742,12 +742,15 @@ function TechHome() {
             <button
               className="btn-logout page-logout"
               onClick={handleLogout}
+              aria-label="ออกจากระบบ"
+              title="ออกจากระบบ"
             >
               <LogOut
                 size={17}
                 aria-hidden="true"
-              />{" "}
-              <span>ออกจากระบบ</span>
+                className="logout-icon"
+              />
+              <span className="logout-label">ออกจากระบบ</span>
             </button>
           </div>
         </div>

@@ -171,11 +171,12 @@ function AdminDashboard() {
           <p>ดูภาพรวมงานแจ้งซ่อมและจัดการระบบได้จากที่นี่</p>
         </div>
         <div className="header-actions page-logout-group">
-          <button className="btn-logout page-logout" onClick={async () => {
+          <button className="btn-logout page-logout" aria-label="ออกจากระบบ" title="ออกจากระบบ" onClick={async () => {
             const approved = await confirm({ title: "ยืนยันออกจากระบบ", description: "คุณแน่ใจหรือไม่ว่าต้องการออกจากระบบผู้ดูแล?", confirmLabel: "ออกจากระบบ", cancelLabel: "ยกเลิก", variant: "danger" });
             if (approved) { localStorage.removeItem("user"); navigate("/"); }
           }}>
-            <LogOut size={17} aria-hidden="true" /> ออกจากระบบ
+            <LogOut size={17} aria-hidden="true" className="logout-icon" />
+            <span className="logout-label">ออกจากระบบ</span>
           </button>
         </div>
       </header>

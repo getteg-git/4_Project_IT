@@ -868,15 +868,13 @@
   .system-search-field > svg { left: 12px; }
 
   .tech-container { padding: 6px 10px 36px; }
-  .tech-container .tech-header { display: grid; margin-bottom: 12px; padding: 8px 0 12px; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; text-align: left; }
+  .tech-container .tech-header { display: grid; margin-bottom: 12px; padding: 8px 0 12px; grid-template-columns: minmax(0, 1fr); align-items: center; gap: 8px; text-align: left; }
   .tech-container .tech-header > div:first-child { min-width: 0; }
   .tech-container .tech-header h2 { font-size: 1.18rem; line-height: 1.3; }
   .tech-container .tech-header h2 svg { width: 20px; height: 20px; }
   .tech-container .tech-header p { margin-top: 2px; font-size: 0.82rem; }
   .tech-container .tech-header .header-actions { display: flex; }
   .tech-container .tech-header .header-actions button { width: 42px; min-width: 42px; min-height: 42px; padding: 0; justify-content: center; }
-  .tech-container .tech-header .btn-logout span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-  .tech-container .page-logout-group { align-self: flex-end; }
   .tech-container .search-section { margin-bottom: 10px; gap: 7px; }
   .tech-container .system-search-meta { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .tech-container .job-view-tabs { margin-bottom: 10px; }
@@ -970,34 +968,56 @@
     margin-left: auto;
   }
 
+  .admin-dashboard-container .page-logout-group,
   .tech-container .page-logout-group {
-    align-self: flex-end;
-    margin-left: 0;
-    order: -1;
+    position: absolute;
+    z-index: 2;
+    top: 8px;
+    right: 0;
+    align-self: auto;
+    margin: 0;
+    order: initial;
+  }
+
+  .tech-container .page-header > div:first-child {
+    padding-top: 0;
+    padding-right: 52px;
+  }
+
+  .admin-dashboard-container .page-header > div:first-child {
+    padding-top: 0;
+    padding-right: 52px;
   }
 
   .admin-dashboard-container .page-header .page-logout-group .page-logout,
   .tech-container .page-header .page-logout-group .page-logout {
-    width: auto;
-    min-width: max-content;
+    width: 42px;
+    min-width: 42px;
+    min-height: 42px;
+    padding: 0;
     flex: 0 0 auto;
+    justify-content: center;
     white-space: nowrap;
   }
 
-  .tech-container .page-header .page-logout-group .page-logout span {
-    position: static;
-    width: auto;
-    height: auto;
-    overflow: visible;
-    clip-path: none;
-    white-space: nowrap;
+  .admin-dashboard-container .page-logout .logout-label,
+  .tech-container .page-logout .logout-label {
+    display: none;
+  }
+
+  .admin-dashboard-container .page-logout .logout-icon,
+  .tech-container .page-logout .logout-icon {
+    display: block;
+    width: 17px;
+    height: 17px;
   }
 }
 
 /* Keep the admin settings and assignment workspaces on the same page grid. */
 .admin-settings-container,
 .admin-manage-container,
-.tech-container {
+.tech-container,
+.admin-dashboard-container {
   min-height: 100svh;
   padding: 32px clamp(18px, 3vw, 44px) 72px;
   background:
@@ -1149,33 +1169,9 @@
   background: #fff;
 }
 
-.admin-dashboard-container {
-  background:
-    radial-gradient(circle at top left, rgba(25, 135, 84, 0.14), transparent 26%),
-    radial-gradient(circle at right center, rgba(255, 198, 97, 0.18), transparent 18%),
-    linear-gradient(180deg, #f3f8f5 0%, #eef3f0 100%);
-}
-
-.admin-dashboard-container::before {
-  inset: 0 0 auto;
-  height: 150px;
-  background: linear-gradient(90deg, rgba(0, 107, 79, 0.12) 0%, rgba(0, 107, 79, 0.04) 30%, rgba(23, 71, 70, 0.12) 100%);
-  border-bottom: 1px solid rgba(0, 107, 79, 0.12);
-  transform: none;
-}
-
+.admin-dashboard-container::before,
 .admin-dashboard-container::after {
-  position: absolute;
-  right: -10%;
-  bottom: -120px;
-  left: -10%;
-  width: 120%;
-  height: 290px;
-  border-radius: 50% 50% 0 0;
-  background: rgba(255, 255, 255, 0.38);
-  box-shadow: inset 0 18px 30px rgba(0, 0, 0, 0.02);
-  content: "";
-  pointer-events: none;
+  content: none;
 }
 
 .admin-dashboard-container .summary-card,
@@ -1234,5 +1230,73 @@
   .admin-manage-container.has-empty-repairs .assignment-content,
   .tech-container.has-empty-jobs .tech-workspace {
     min-height: 0;
+  }
+}
+
+/* Dashboard palette overrides stay last so legacy and shared rules cannot replace them. */
+.admin-dashboard-container.admin-dashboard-container {
+  background:
+    radial-gradient(circle at 8% 0%, rgba(59, 130, 246, 0.14), transparent 30rem),
+    radial-gradient(circle at 96% 90%, rgba(249, 115, 22, 0.1), transparent 28rem),
+    #f4f7ff;
+}
+
+.admin-dashboard-container::before,
+.admin-dashboard-container::after {
+  content: none;
+}
+
+.admin-dashboard-container .dashboard-header {
+  padding: 24px 28px;
+  border: 0;
+  border-left: 7px solid #67e8f9;
+  border-radius: 18px;
+  color: #f8fbff;
+  background: linear-gradient(120deg, #312e81 0%, #4338ca 52%, #2563eb 100%);
+  box-shadow: 0 16px 34px rgba(49, 46, 129, 0.2);
+}
+
+.admin-dashboard-container .dashboard-header h1 { color: #fff; }
+.admin-dashboard-container .dashboard-header p { color: rgba(239, 246, 255, 0.86); }
+
+.admin-dashboard-container .btn-manage {
+  border: 1px solid #c4b5fd;
+  color: #4338ca;
+  background: linear-gradient(135deg, #fff, #f3f0ff);
+}
+
+.admin-dashboard-container .btn-users {
+  border: 1px solid #a5f3fc;
+  color: #0e7490;
+  background: linear-gradient(135deg, #fff, #ecfeff);
+}
+
+.admin-dashboard-container .filter-group,
+.admin-dashboard-container .chart-card,
+.admin-dashboard-container .summary-card {
+  border-color: #e0e7ff;
+  box-shadow: 0 10px 24px rgba(49, 46, 129, 0.06);
+}
+
+.admin-dashboard-container .filter-icon { color: #4338ca; background: #eef2ff; }
+.admin-dashboard-container .summary-card.total { border-top-color: #6366f1; }
+.admin-dashboard-container .summary-card.total .number { color: #4f46e5; }
+.admin-dashboard-container .summary-card.pending { border-top-color: #f59e0b; }
+.admin-dashboard-container .summary-card.pending .number { color: #d97706; }
+.admin-dashboard-container .summary-card.progress { border-top-color: #06b6d4; }
+.admin-dashboard-container .summary-card.progress .number { color: #0891b2; }
+.admin-dashboard-container .summary-card.mttr { border-top-color: #22c55e; }
+.admin-dashboard-container .summary-card.mttr .number { color: #16a34a; }
+.admin-dashboard-container .summary-card.warning { border-top-color: #f97316; }
+.admin-dashboard-container .summary-card.warning .number { color: #ea580c; }
+.admin-dashboard-container .tabs-container { border-bottom-color: #dbe3ff; }
+.admin-dashboard-container .tab-button:hover { color: #4338ca; background: #eef2ff; }
+.admin-dashboard-container .tab-button.active { color: #4338ca; background: #fff; border-color: #c7d2fe; }
+.admin-dashboard-container .tab-button.active::after { background: linear-gradient(90deg, #6366f1, #06b6d4); }
+
+@media (max-width: 768px) {
+  .admin-dashboard-container .dashboard-header {
+    padding: 20px 18px;
+    background: linear-gradient(120deg, #312e81 0%, #4338ca 52%, #2563eb 100%);
   }
 }

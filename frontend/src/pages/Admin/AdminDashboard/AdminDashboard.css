@@ -5,15 +5,15 @@
   max-width: 100%;
   overflow-x: hidden;
   background:
-    radial-gradient(circle at top left, rgba(25, 135, 84, 0.14), transparent 26%),
-    radial-gradient(circle at right center, rgba(255, 198, 97, 0.16), transparent 18%),
-    linear-gradient(180deg, #f3f8f5 0%, #eef3f0 100%);
+    radial-gradient(circle at 10% 0%, rgba(0, 107, 79, 0.08), transparent 28rem),
+    radial-gradient(circle at bottom right, rgba(197, 163, 90, 0.1), transparent 30%),
+    var(--color-background);
   padding: 30px 40px;
   font-family: inherit;
 }
 
 .admin-dashboard-container::before {
-  content: "";
+  content: none;
   position: absolute;
   inset: 0;
   background: linear-gradient(90deg, rgba(0, 107, 79, 0.06) 0%, rgba(0, 107, 79, 0) 30%, rgba(0, 107, 79, 0.06) 100%);
