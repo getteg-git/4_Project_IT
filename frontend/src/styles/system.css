@@ -12,7 +12,7 @@
   min-height: 100svh;
   color: var(--color-text);
   background:
-    radial-gradient(circle at 10% 0%, rgba(0, 107, 79, 0.08), transparent 28rem),
+    radial-gradient(circle at 10% 0%, var(--page-glow-color, rgba(0, 107, 79, 0.08)), transparent 28rem),
     var(--color-background);
   animation: system-page-in 180ms ease-out both;
 }
@@ -549,10 +549,10 @@
 .admin-manage-container .waiting-assignment span { display: flex; min-width: 0; flex-direction: column; }
 .admin-manage-container .waiting-assignment strong { color: var(--color-text); font-size: 0.84rem; }
 .admin-manage-container .waiting-assignment small { margin-top: 1px; font-size: 0.75rem; }
-.admin-manage-container .assignment-view-tabs { display: grid; width: 100%; margin-bottom: 14px; padding: 4px; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; border: 1px solid var(--color-border); border-radius: 11px; background: #eef2f0; }
+.admin-manage-container .assignment-view-tabs { display: grid; width: 100%; margin-bottom: 14px; padding: 4px; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; border: 1px solid var(--color-border); border-radius: 11px; background: #e4f1ff; }
 .admin-manage-container .assignment-view-tabs button { display: inline-flex; width: 100%; min-height: 42px; padding: 8px 13px; align-items: center; justify-content: center; gap: 7px; border: 0; border-radius: 8px; color: var(--color-text-muted); background: transparent; font-weight: 700; }
 .admin-manage-container .assignment-view-tabs button:hover { color: var(--color-primary); background: rgba(255, 255, 255, 0.7); }
-.admin-manage-container .assignment-view-tabs button.is-active { color: var(--color-primary); background: #fff; box-shadow: 0 1px 4px rgba(24, 51, 42, 0.09); }
+.admin-manage-container .assignment-view-tabs button.is-active { color: var(--color-primary); background: #fff; box-shadow: 0 1px 4px rgba(21, 101, 181, 0.12); }
 .admin-manage-container .assignment-view-tabs button span { display: inline-grid; min-width: 22px; height: 22px; padding: 0 5px; place-items: center; border-radius: 999px; color: inherit; background: var(--color-primary-soft); font-size: 0.72rem; }
 .admin-manage-container .assign-select,
 .admin-manage-container .reject-textarea { width: 100%; min-height: 50px; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: #fbfcfb; }
@@ -1021,8 +1021,8 @@
   min-height: 100svh;
   padding: 32px clamp(18px, 3vw, 44px) 72px;
   background:
-    radial-gradient(circle at 10% 0%, rgba(0, 107, 79, 0.08), transparent 28rem),
-    radial-gradient(circle at bottom right, rgba(197, 163, 90, 0.1), transparent 30%),
+    radial-gradient(circle at 10% 0%, var(--page-glow-color, rgba(0, 107, 79, 0.08)), transparent 28rem),
+    radial-gradient(circle at bottom right, var(--page-glow-secondary-color, rgba(197, 163, 90, 0.1)), transparent 30%),
     var(--color-background);
 }
 
@@ -1047,9 +1047,9 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-left: 10px solid var(--color-accent);
   border-radius: 16px;
-  color: #f0f8f5;
-  background: linear-gradient(135deg, rgba(6, 42, 34, 0.98), rgba(10, 83, 66, 0.98) 48%, rgba(15, 100, 76, 0.98));
-  box-shadow: 0 12px 26px rgba(8, 46, 35, 0.16);
+  color: var(--page-header-text, #f0f8f5);
+  background: linear-gradient(135deg, var(--page-header-start, rgba(6, 42, 34, 0.98)), var(--page-header-mid, rgba(10, 83, 66, 0.98)) 48%, var(--page-header-end, rgba(15, 100, 76, 0.98)));
+  box-shadow: 0 12px 26px var(--page-header-shadow, rgba(8, 46, 35, 0.16));
 }
 
 .admin-settings-container .settings-header h2,
@@ -1078,9 +1078,9 @@
   min-height: 420px;
   flex-direction: column;
   padding: 24px;
-  border: 1px solid rgba(0, 107, 79, 0.08);
+  border: 1px solid #c8def5;
   border-radius: var(--radius-surface);
-  background: var(--color-surface);
+  background: linear-gradient(145deg, #f1f8ff, #eaf4ff);
   box-shadow: var(--shadow-sm);
 }
 
@@ -1149,9 +1149,9 @@
 
 .admin-manage-container .assignment-view-tabs {
   padding: 5px;
-  border-color: rgba(0, 107, 79, 0.1);
+  border-color: #bfd9f5;
   border-radius: 12px;
-  background: #f2f6f4;
+  background: #e4f1ff;
 }
 
 .admin-manage-container .assignment-view-tabs button {
@@ -1161,12 +1161,22 @@
 .admin-manage-container .assignment-view-tabs button.is-active {
   color: #fff;
   background: var(--color-primary);
-  box-shadow: 0 4px 10px rgba(0, 107, 79, 0.16);
+  box-shadow: 0 4px 10px rgba(21, 101, 181, 0.24);
 }
 
 .admin-manage-container .assignment-view-tabs button.is-active span {
   color: var(--color-primary);
   background: #fff;
+}
+
+.admin-manage-container .repair-item-card {
+  border-color: #c8def5;
+  background: #f7fbff;
+}
+
+.admin-manage-container .repair-item-card:hover {
+  border-color: #90caf9;
+  box-shadow: 0 8px 20px rgba(21, 101, 181, 0.12);
 }
 
 .admin-dashboard-container::before,
@@ -1293,6 +1303,219 @@
 .admin-dashboard-container .tab-button:hover { color: #4338ca; background: #eef2ff; }
 .admin-dashboard-container .tab-button.active { color: #4338ca; background: #fff; border-color: #c7d2fe; }
 .admin-dashboard-container .tab-button.active::after { background: linear-gradient(90deg, #6366f1, #06b6d4); }
+
+/* Keep the admin workspaces visually distinct from legacy shared styles. */
+.admin-settings-container.admin-settings-container {
+  --color-primary: #64748b;
+  --color-primary-hover: #475569;
+  --color-primary-soft: #e8eef7;
+  --color-accent: #60a5fa;
+  --color-background: #f1f4f8;
+  --color-border: #d5deea;
+  --color-text: #293548;
+  --color-text-muted: #64748b;
+  --page-header-start: #475569;
+  --page-header-mid: #64748b;
+  --page-header-end: #77869b;
+  --page-header-text: #fff;
+  --page-header-shadow: rgba(51, 65, 85, 0.2);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(96, 165, 250, 0.18), transparent 28rem),
+    radial-gradient(circle at 96% 90%, rgba(148, 163, 184, 0.16), transparent 30rem),
+    #f1f4f8;
+}
+
+.admin-settings-container.admin-settings-container .settings-header {
+  border-left-color: #60a5fa;
+  background: linear-gradient(120deg, #475569 0%, #64748b 58%, #77869b 100%);
+  box-shadow: 0 14px 30px rgba(51, 65, 85, 0.2);
+}
+
+.admin-settings-container.admin-settings-container .settings-tabs {
+  border-color: #d5deea;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.admin-settings-container.admin-settings-container .tab-button.active {
+  color: #fff;
+  background: #64748b;
+  box-shadow: 0 4px 12px rgba(71, 85, 105, 0.22);
+}
+
+.admin-settings-container.admin-settings-container .tab-content {
+  border-color: #d5deea;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.admin-manage-container.admin-manage-container {
+  --color-primary: #0878d1;
+  --color-primary-hover: #0563b0;
+  --color-primary-soft: #dceeff;
+  --color-accent: #67c8ff;
+  --color-background: #e6f3ff;
+  --color-border: #b9daf7;
+  --color-text: #17395c;
+  --color-text-muted: #547391;
+  --page-glow-color: rgba(14, 143, 230, 0.2);
+  --page-glow-secondary-color: rgba(103, 200, 255, 0.22);
+  --page-header-text: #fff;
+  --page-header-start: #07549a;
+  --page-header-mid: #0878d1;
+  --page-header-end: #1699ec;
+  --page-header-shadow: rgba(7, 84, 154, 0.24);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(14, 143, 230, 0.2), transparent 30rem),
+    radial-gradient(circle at 96% 88%, rgba(103, 200, 255, 0.22), transparent 32rem),
+    #e6f3ff;
+}
+
+.admin-manage-container.admin-manage-container .admin-header {
+  border: 0;
+  border-left: 8px solid #67c8ff;
+  color: #fff;
+  background: linear-gradient(120deg, #07549a, #0878d1 58%, #1699ec);
+  box-shadow: 0 14px 30px rgba(7, 84, 154, 0.22);
+}
+
+.admin-manage-container.admin-manage-container .admin-header h2 {
+  color: #fff;
+}
+
+.admin-manage-container.admin-manage-container .admin-header p {
+  color: #e4f4ff;
+}
+
+.admin-manage-container.admin-manage-container .assignment-content {
+  border-color: #b9daf7;
+  background: linear-gradient(145deg, #f0f8ff 0%, #e1f1ff 100%);
+  box-shadow: 0 8px 24px rgba(7, 84, 154, 0.1);
+}
+
+.admin-manage-container.admin-manage-container .assignment-view-tabs {
+  border-color: #a8d2f5;
+  background: #d4eaff;
+}
+
+.admin-manage-container.admin-manage-container .assignment-view-tabs button.is-active {
+  color: #fff;
+  background: #0878d1;
+  box-shadow: 0 5px 14px rgba(7, 84, 154, 0.28);
+}
+
+.admin-manage-container.admin-manage-container .repair-item-card {
+  border-color: #b9daf7;
+  background: #f6fbff;
+}
+
+.admin-manage-container.admin-manage-container .repair-item-card:hover {
+  border-color: #67b9f2;
+  box-shadow: 0 9px 22px rgba(7, 84, 154, 0.14);
+}
+
+.admin-manage-container.admin-manage-container .btn-assign,
+.admin-manage-container.admin-manage-container .btn-approve {
+  background-color: #0878d1;
+  box-shadow: 0 4px 12px rgba(7, 84, 154, 0.24);
+}
+
+.admin-manage-container.admin-manage-container .btn-assign:hover:not(:disabled),
+.admin-manage-container.admin-manage-container .btn-approve:hover {
+  background-color: #0563b0;
+}
+
+.admin-manage-container.admin-manage-container .technician-option-card.is-selected {
+  border-color: #0878d1;
+  background: #e4f3ff;
+}
+
+.tech-container.tech-container {
+  --color-primary: #f59e0b;
+  --color-primary-hover: #e8870a;
+  --color-primary-soft: #ffedd0;
+  --color-accent: #f97316;
+  --color-background: #fffbf5;
+  --color-border: #f6dfc3;
+  --color-text: #51351f;
+  --color-text-muted: #80664e;
+  --page-glow-color: rgba(251, 146, 60, 0.15);
+  --page-glow-secondary-color: rgba(250, 204, 21, 0.12);
+  --page-header-text: #713f12;
+  --page-header-start: #ffedd5;
+  --page-header-mid: #fed7aa;
+  --page-header-end: #fb923c;
+  --page-header-shadow: rgba(194, 105, 25, 0.1);
+  --shadow-sm: 0 2px 8px rgba(194, 105, 25, 0.06);
+  --shadow-md: 0 14px 32px rgba(194, 105, 25, 0.1);
+  background:
+    radial-gradient(circle at 8% 0%, rgba(251, 146, 60, 0.15), transparent 30rem),
+    radial-gradient(circle at 96% 88%, rgba(250, 204, 21, 0.12), transparent 32rem),
+    #fffbf5;
+}
+
+.tech-container.tech-container .tech-header {
+  border: 0;
+  border-left: 9px solid #f97316;
+  color: #fffaf4;
+  background: linear-gradient(110deg, #cf5015 0%, #ed812b 52%, #fdddb9 100%);
+  box-shadow: 0 14px 30px rgba(194, 105, 25, 0.1);
+}
+
+.tech-container.tech-container .tech-header h2 {
+  color: #fff;
+}
+
+.tech-container.tech-container .tech-header p {
+  color: #fff7ed;
+}
+
+.tech-container.tech-container .tech-workspace {
+  border-color: #f6dfc3;
+  background: linear-gradient(145deg, #fffefa 0%, #fff8ed 100%);
+  box-shadow: 0 8px 24px rgba(194, 105, 25, 0.06);
+}
+
+.tech-container.tech-container .job-view-tabs {
+  border-color: #f6dfc3;
+  background: #fff4e5;
+}
+
+.tech-container.tech-container .job-view-tabs button.is-active {
+  color: #713f12;
+  background: #f59e0b;
+  box-shadow: 0 4px 11px rgba(194, 105, 25, 0.12);
+}
+
+.tech-container.tech-container .repair-item-card {
+  border-color: #f6dfc3;
+  background: #fffefa;
+}
+
+.tech-container.tech-container .repair-item-card:hover {
+  border-color: #f6b76f;
+  box-shadow: 0 9px 22px rgba(194, 105, 25, 0.1);
+}
+
+.tech-container.tech-container .action-buttons .btn-accept,
+.tech-container.tech-container .job-decision-row .btn-accept,
+.tech-container.tech-container .job-completion-row .btn-complete {
+  border-color: #f59e0b;
+  color: #713f12;
+  background: #f59e0b;
+}
+
+.tech-container.tech-container .action-buttons .btn-accept:hover,
+.tech-container.tech-container .job-decision-row .btn-accept:hover,
+.tech-container.tech-container .job-completion-row .btn-complete:hover {
+  border-color: #e8870a;
+  color: #713f12;
+  background: #fbbf24;
+}
+
+.tech-container.tech-container .action-buttons .btn-details:hover {
+  border-color: #f59e0b !important;
+  color: #9a4d10;
+  background: #fff4e5;
+}
 
 @media (max-width: 768px) {
   .admin-dashboard-container .dashboard-header {

@@ -1,10 +1,27 @@
 .admin-settings-container {
+  --color-primary: #59636e;
+  --color-primary-hover: #414a54;
+  --color-primary-soft: #e9edf1;
+  --color-accent: #a4acb5;
+  --color-background: #f2f4f6;
+  --color-text: #29313a;
+  --color-text-muted: #68727d;
+  --color-border: #d7dce1;
+  --page-glow-color: rgba(100, 116, 139, 0.1);
+  --page-glow-secondary-color: rgba(148, 163, 184, 0.13);
+  --page-header-text: #f5f6f7;
+  --page-header-start: #353c44;
+  --page-header-mid: #505963;
+  --page-header-end: #626c77;
+  --page-header-shadow: rgba(41, 49, 58, 0.16);
+  --shadow-sm: 0 2px 8px rgba(41, 49, 58, 0.08);
+  --shadow-md: 0 14px 32px rgba(41, 49, 58, 0.16);
   min-height: 100vh;
   padding: 30px 40px;
   background:
-    radial-gradient(circle at top left, rgba(25, 135, 84, 0.14), transparent 26%),
-    radial-gradient(circle at right center, rgba(255, 198, 97, 0.16), transparent 18%),
-    linear-gradient(180deg, #f3f8f5 0%, #eef3f0 100%);
+    radial-gradient(circle at top left, rgba(100, 116, 139, 0.11), transparent 26%),
+    radial-gradient(circle at right center, rgba(148, 163, 184, 0.13), transparent 18%),
+    linear-gradient(180deg, #f5f6f7 0%, #eceff2 100%);
 }
 
 .admin-settings-wrapper {
@@ -19,12 +36,12 @@
 .settings-header {
   margin: 0 0 20px;
   padding: 25px 30px;
-  color: #f0f8f5;
-  background: linear-gradient(135deg, rgba(6, 42, 34, 0.98), rgba(10, 83, 66, 0.98) 48%, rgba(15, 100, 76, 0.98));
+  color: var(--page-header-text);
+  background: linear-gradient(135deg, var(--page-header-start), var(--page-header-mid) 48%, var(--page-header-end));
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-left: 10px solid var(--color-accent);
   border-radius: 16px;
-  box-shadow: 0 12px 26px rgba(8, 46, 35, 0.16);
+  box-shadow: 0 12px 26px var(--page-header-shadow);
 }
 
 .settings-header h2 {
@@ -32,13 +49,13 @@
   align-items: center;
   gap: 10px;
   margin: 0 0 8px;
-  color: #f7faf9;
+  color: #fff;
   font-size: 1.6rem;
 }
 
 .settings-header p {
   margin: 0;
-  color: rgba(240, 248, 245, 0.82);
+  color: rgba(255, 255, 255, 0.8);
   font-size: 0.95rem;
 }
 
@@ -50,7 +67,7 @@
   overflow-x: auto;
   white-space: nowrap;
   background: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(0, 107, 79, 0.1);
+  border: 1px solid rgba(71, 85, 105, 0.12);
   border-radius: 12px;
   box-shadow: var(--shadow-sm);
 }
@@ -60,7 +77,7 @@
 }
 
 .settings-tabs::-webkit-scrollbar-thumb {
-  background: #b7cfc4;
+  background: #c4cbd2;
   border-radius: 4px;
 }
 
@@ -87,14 +104,14 @@
 .tab-button.active {
   color: #fff;
   background: var(--color-primary);
-  box-shadow: 0 4px 10px rgba(0, 107, 79, 0.2);
+  box-shadow: 0 4px 10px rgba(65, 74, 84, 0.2);
 }
 
 .tab-content {
   padding: 24px;
   overflow: hidden;
   background: var(--color-surface);
-  border: 1px solid rgba(0, 107, 79, 0.08);
+  border: 1px solid rgba(71, 85, 105, 0.1);
   border-radius: var(--radius-surface);
   box-shadow: var(--shadow-sm);
 }
@@ -144,7 +161,7 @@
   background: var(--color-primary);
   border: 0;
   border-radius: 10px;
-  box-shadow: 0 4px 10px rgba(0, 107, 79, 0.2);
+  box-shadow: 0 4px 10px rgba(65, 74, 84, 0.2);
   font: inherit;
   font-size: 0.98rem;
   font-weight: 700;
@@ -158,7 +175,7 @@
 .admin-settings-container .btn-create-problem:hover,
 .admin-settings-container .btn-create-equipment:hover {
   background: var(--color-primary-hover);
-  box-shadow: 0 6px 14px rgba(0, 82, 61, 0.24);
+  box-shadow: 0 6px 14px rgba(65, 74, 84, 0.24);
   transform: translateY(-1px);
 }
 
@@ -171,7 +188,7 @@
   padding: 12px 18px;
   color: var(--color-primary);
   background: var(--color-primary-soft);
-  border: 1px solid rgba(0, 107, 79, 0.18);
+  border: 1px solid rgba(71, 85, 105, 0.18);
   border-radius: 10px;
   font: inherit;
   font-weight: 700;
@@ -180,7 +197,7 @@
 }
 
 .admin-settings-container .btn-import-equipment:hover:not(:disabled) {
-  background: #d9eee5;
+  background: #dfe3e7;
 }
 
 .admin-settings-container .btn-import-equipment:disabled {
@@ -193,9 +210,9 @@
 .admin-settings-container .problem-item-card,
 .admin-settings-container .equipments-list-wrapper {
   background: var(--color-surface);
-  border: 1px solid #e0e8e4;
+  border: 1px solid #dfe3e7;
   border-radius: 12px;
-  box-shadow: 0 4px 15px rgba(24, 51, 42, 0.05);
+  box-shadow: 0 4px 15px rgba(41, 49, 58, 0.05);
 }
 
 .admin-settings-container .user-item-card,
@@ -208,8 +225,8 @@
 .admin-settings-container .user-item-card:hover,
 .admin-settings-container .location-item-card:hover,
 .admin-settings-container .problem-item-card:hover {
-  border-color: #b7cfc4;
-  box-shadow: 0 7px 18px rgba(24, 51, 42, 0.08);
+  border-color: #c4cbd2;
+  box-shadow: 0 7px 18px rgba(41, 49, 58, 0.08);
   transform: translateY(-2px);
 }
 
@@ -251,17 +268,17 @@
 
 .admin-settings-container .equipments-table th {
   color: var(--color-primary);
-  background: #edf5f1;
+  background: #f1f3f5;
   border-bottom-color: var(--color-border);
 }
 
 .admin-settings-container .equipments-table td {
   color: var(--color-text);
-  border-bottom-color: #edf1ef;
+  border-bottom-color: #e7eaee;
 }
 
 .admin-settings-container .equipments-table tbody tr:hover {
-  background: #f7faf8;
+  background: #f6f7f8;
 }
 
 .admin-settings-container .badge-category {
@@ -280,7 +297,7 @@
 }
 
 .admin-settings-container .modal-overlay {
-  background: rgba(10, 38, 30, 0.58);
+  background: rgba(31, 36, 42, 0.58);
   backdrop-filter: blur(3px);
 }
 
@@ -311,13 +328,13 @@
 .admin-settings-container .input-group input:focus,
 .admin-settings-container .input-group select:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(0, 107, 79, 0.12);
+  box-shadow: 0 0 0 3px rgba(89, 99, 110, 0.16);
 }
 
 .admin-settings-container .btn-submit {
   color: #fff;
   background: var(--color-primary);
-  box-shadow: 0 4px 10px rgba(0, 107, 79, 0.18);
+  box-shadow: 0 4px 10px rgba(65, 74, 84, 0.18);
 }
 
 .admin-settings-container .btn-submit:hover:not(:disabled) {
@@ -325,7 +342,7 @@
 }
 
 .admin-settings-container .btn-submit:disabled {
-  background: #9bbcaf;
+  background: #b5bcc4;
 }
 
 .admin-settings-container .loading-state,
@@ -339,7 +356,7 @@
 .admin-settings-container .import-loading-state {
   color: var(--color-primary);
   background: var(--color-primary-soft);
-  border-color: #c6dfd3;
+  border-color: #d7dce1;
   border-radius: 12px;
 }
 

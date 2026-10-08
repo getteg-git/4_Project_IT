@@ -1,6 +1,23 @@
 @scope (.admin-manage-container) {
 /* โครงสร้างพื้นฐาน */
 .admin-manage-container {
+  --color-primary: #1976d2;
+  --color-primary-hover: #125ca8;
+  --color-primary-soft: #e2f0ff;
+  --color-accent: #90caf9;
+  --color-background: #eaf4ff;
+  --color-text: #1e293b;
+  --color-text-muted: #64748b;
+  --color-border: #c8def5;
+  --page-glow-color: rgba(25, 118, 210, 0.14);
+  --page-glow-secondary-color: rgba(144, 202, 249, 0.2);
+  --page-header-text: #eff6ff;
+  --page-header-start: #10345b;
+  --page-header-mid: #1565b5;
+  --page-header-end: #1976d2;
+  --page-header-shadow: rgba(21, 101, 181, 0.22);
+  --shadow-sm: 0 2px 8px rgba(21, 101, 181, 0.1);
+  --shadow-md: 0 14px 32px rgba(21, 101, 181, 0.18);
   min-height: 100vh;
   background-color: var(--color-background);
   padding: 30px 40px;
@@ -21,7 +38,7 @@
   padding: 25px 30px;
   border-radius: 12px;
   margin-bottom: 30px;
-  box-shadow: 0 4px 15px rgba(0, 122, 83, 0.08);
+  box-shadow: 0 4px 15px rgba(21, 101, 181, 0.1);
   border-left: 8px solid var(--color-primary);
 }
 
@@ -56,7 +73,7 @@
 .btn-back-dashboard:hover {
   background-color: var(--color-primary);
   color: white;
-  box-shadow: 0 4px 12px rgba(0, 122, 83, 0.15);
+  box-shadow: 0 4px 12px rgba(21, 101, 181, 0.18);
   transform: translateY(-2px);
 }
 
@@ -65,7 +82,7 @@
 .search-input {
   width: 100%;
   padding: 16px 20px;
-  border: 2px solid #ccd6d1;
+  border: 2px solid #c8def5;
   border-radius: 12px;
   font-size: 1.1rem;
   box-shadow: 0 4px 10px rgba(0,0,0,0.03);
@@ -75,7 +92,15 @@
 .search-input:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 4px rgba(0, 122, 83, 0.15);
+  box-shadow: 0 0 0 4px rgba(25, 118, 210, 0.16);
+}
+
+.admin-manage-container .system-search-field input:focus {
+  box-shadow: 0 0 0 4px rgba(25, 118, 210, 0.16);
+}
+
+.admin-manage-container .system-filter-fields select:focus {
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.16);
 }
 
 /* รายการแจ้งซ่อม (Card Style) */
@@ -134,13 +159,13 @@
   padding: 25px;
   border-radius: 12px;
   box-shadow: 0 4px 15px rgba(0,0,0,0.04);
-  border: 1px solid #e0e8e4;
+  border: 1px solid #c8def5;
   transition: transform 0.2s;
 }
 
 .repair-item-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(0, 122, 83, 0.1);
+  box-shadow: 0 8px 25px rgba(21, 101, 181, 0.14);
 }
 
 .card-top {
@@ -238,23 +263,23 @@
   height: fit-content; 
   background-color: white;
   color: #374151;
-  border: 1px solid #10b981;
+  border: 1px solid #90caf9;
   white-space: nowrap; 
 }
 .btn-details:hover { 
-  background-color: #f0fdf4; 
+  background-color: #eff6ff;
   color: var(--color-primary);
 }
 
 .btn-assign {
-  background-color: #10b981;
+  background-color: #1976d2;
   color: white;
   border: none;
-  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 4px 10px rgba(25, 118, 210, 0.22);
   height: fit-content;
 }
 .btn-assign:hover:not(:disabled) { 
-  background-color: #059669; 
+  background-color: #125ca8;
   transform: translateY(-2px); 
 }
 
@@ -287,7 +312,7 @@
 }
 
 .btn-approve {
-  background-color: #10b981;
+  background-color: #1976d2;
   color: white;
   border: none;
   flex: 1;
@@ -296,10 +321,10 @@
   font-weight: bold;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 4px 10px rgba(25, 118, 210, 0.22);
 }
 .btn-approve:hover {
-  background-color: #059669;
+  background-color: #125ca8;
   transform: translateY(-2px);
 }
 
@@ -362,7 +387,7 @@
 
 .info-grid { display: grid; gap: 10px; margin-bottom: 20px; color: #444; }
 .issue-desc-box { background: #fafbfc; padding: 15px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px; }
-.tech-info-box { background: #f2f9f6; padding: 15px; border-radius: 8px; border-left: 5px solid var(--color-primary); margin-bottom: 20px; }
+.tech-info-box { background: #eff6ff; padding: 15px; border-radius: 8px; border-left: 5px solid var(--color-primary); margin-bottom: 20px; }
 
 /* 🌟 กล่องแสดงข้อมูลประเมินราคาและแจ้งเตือนสำหรับ Admin */
 .admin-cost-info-box {
@@ -427,7 +452,7 @@
   gap: 12px;
   box-sizing: border-box;
 
-  border: 1px solid #d8e2dd;
+  border: 1px solid #c8def5;
   border-radius: 12px;
   color: #263b34;
   background: #fff;
@@ -439,20 +464,20 @@
 }
 
 .technician-option-card:hover {
-  border-color: #68a98e;
-  background: #f8fcfa;
+  border-color: #64a7e8;
+  background: #f2f8ff;
 }
 
 .technician-option-card:focus-visible {
-  outline: 3px solid rgba(0, 122, 83, 0.25);
+  outline: 3px solid rgba(25, 118, 210, 0.25);
   outline-offset: 2px;
 }
 
 .technician-option-card.is-selected {
-  border: 2px solid #007a53;
+  border: 2px solid #1976d2;
   padding: 14px;
-  background: #f2faf6;
-  box-shadow: 0 0 0 2px rgba(0, 122, 83, 0.08);
+  background: #eaf4ff;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.1);
 }
 
 .technician-avatar {
@@ -461,8 +486,8 @@
   height: 48px;
   place-items: center;
   border-radius: 50%;
-  color: #007a53;
-  background: #e7f4ed;
+  color: #1976d2;
+  background: #e2f0ff;
 }
 
 .technician-option-content {
@@ -533,7 +558,7 @@
   width: 24px;
   min-height: 24px;
   place-items: center;
-  color: #007a53;
+  color: #1976d2;
 }
 
 .technician-empty-state {
@@ -718,16 +743,16 @@
   height: 28px;
   display: grid;
   place-items: center;
-  border: 1px solid #007a53;
+  border: 1px solid #1976d2;
   border-radius: 50%;
   background: #fff;
-  color: #007a53;
+  color: #1976d2;
   cursor: pointer;
   z-index: 2;
 }
 
 .technician-info-btn:hover {
-  background: #007a53;
+  background: #1976d2;
   color: #fff;
 }
 
@@ -747,8 +772,8 @@
   display: grid;
   place-items: center;
   border-radius: 50%;
-  color: #007a53;
-  background: #e7f4ed;
+  color: #1976d2;
+  background: #e2f0ff;
 }
 
 .technician-detail-header h3 {
