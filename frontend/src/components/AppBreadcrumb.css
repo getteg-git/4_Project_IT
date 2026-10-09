@@ -1,0 +1,53 @@
+.app-breadcrumb {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 28px;
+  margin: 0 0 14px;
+  color: #64766f;
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.app-breadcrumb-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.app-breadcrumb-item svg {
+  flex: 0 0 auto;
+  color: #91a39c;
+}
+
+.app-breadcrumb a {
+  color: #08785b;
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+
+.app-breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.app-breadcrumb [aria-current="page"] {
+  color: #183c31;
+}
+
+@media (max-width: 480px) {
+  .app-breadcrumb {
+    gap: 5px;
+    margin-bottom: 10px;
+    font-size: 0.76rem;
+  }
+
+  .app-breadcrumb-item {
+    gap: 5px;
+  }
+}

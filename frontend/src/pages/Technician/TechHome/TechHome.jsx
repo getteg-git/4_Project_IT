@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import AppBreadcrumb from "../../../components/AppBreadcrumb";
+import RepairImageGallery from "../../../components/RepairImageGallery";
 import {
   Banknote,
   CalendarDays,
@@ -18,7 +20,8 @@ import {
 import useToast from "../../../hooks/useToast";
 import SearchField from "../../../components/ui/SearchField";
 import Pagination from "../../../components/ui/Pagination";
-import { getPageItems } from "../../../components/ui/paginationUtils";
+import { getPageItems, REPAIR_PAGE_SIZE } from "../../../components/ui/paginationUtils";
+import RepairCardNotes from "../../../components/RepairCardNotes";
 import FilterBar from "../../../components/ui/FilterBar";
 import RepairTimelineModal from "../../User/Timeline/RepairTimelineModal";
 import "./TechHome.css";
@@ -53,6 +56,7 @@ function TechHome() {
   const [estimatedCost, setEstimatedCost] = useState("");
   const [isStartingRepair, setIsStartingRepair] = useState(false);
   const [estimateBasePrice, setEstimateBasePrice] = useState(null);
+  const [priceCheckStatus, setPriceCheckStatus] = useState("idle");
 
   const fetchMyJobs = async (user) => {
     try {
@@ -279,6 +283,7 @@ function TechHome() {
     setEstimateTicketId(repair.id);
     setEstimatedCost("");
     setEstimateBasePrice(basePrice);
+    setPriceCheckStatus("idle");
     setIsStartingRepair(true);
     setEstimateModalOpen(true);
   };
@@ -327,8 +332,7 @@ function TechHome() {
     setEstimateModalOpen(true);
   };
 
-  const handleSubmitEstimate = async (e) => {
-    e.preventDefault();
+  const submitEstimate = async () => {
     setIsSubmitting(true);
 
     const costValue =
@@ -392,6 +396,35 @@ function TechHome() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmitEstimate = async (event) => {
+    event.preventDefault();
+    if (isStartingRepair && priceCheckStatus !== "approved") return;
+    await submitEstimate();
+  };
+
+  const handleCheckBreakEven = async () => {
+    const cost = Number(estimatedCost);
+    if (estimatedCost === "" || !Number.isFinite(cost) || cost < 0) {
+      toast.error("กรุณากรอกราคาประเมินให้ถูกต้อง");
+      return;
+    }
+
+    setPriceCheckStatus("checking");
+    await new Promise((resolve) => window.setTimeout(resolve, 350));
+
+    const singleRepairLimit = Number.isFinite(estimateBasePrice)
+      ? estimateBasePrice * 0.5
+      : Infinity;
+
+    if (cost <= singleRepairLimit) {
+      setPriceCheckStatus("approved");
+      return;
+    }
+
+    setPriceCheckStatus("exceeded");
+    await submitEstimate();
   };
 
   // ปิดงานซ่อม
@@ -499,7 +532,8 @@ function TechHome() {
 
   const paginatedRepairs = getPageItems(
     displayedRepairs,
-    currentPage
+    currentPage,
+    REPAIR_PAGE_SIZE
   );
 
   const renderRepairCard = (repair) => (
@@ -544,6 +578,8 @@ function TechHome() {
           <strong>อาการที่แจ้ง:</strong>{" "}
           {repair.description}
         </p>
+
+        <RepairCardNotes repair={repair} />
       </div>
 
       <div className="card-actions-row">
@@ -718,6 +754,11 @@ function TechHome() {
     <div className={`tech-container ${!isLoading && displayedRepairs.length === 0 ? "has-empty-jobs" : ""}`}>
       <div className="tech-wrapper">
 
+        <AppBreadcrumb items={[
+          { label: "พื้นที่ช่าง" },
+          { label: "งานซ่อมที่ได้รับมอบหมาย" },
+        ]} />
+
         <div className="tech-header page-header">
           <div>
             <h2>
@@ -870,6 +911,7 @@ function TechHome() {
                   currentPage={currentPage}
                   totalItems={displayedRepairs.length}
                   onPageChange={setCurrentPage}
+                  pageSize={REPAIR_PAGE_SIZE}
                 />
               </>
             ) : (
@@ -920,25 +962,10 @@ function TechHome() {
             </div>
 
             <div className="modal-details-content">
-              <div className="image-gallery">
-                {selectedRepair.images &&
-                selectedRepair.images.length > 0 ? (
-                  selectedRepair.images.map(
-                    (img, index) => (
-                      <img
-                        key={index}
-                        src={`https://4projectit-production.up.railway.app${img.url}`}
-                        alt="รูปปัญหา"
-                        className="repair-image"
-                      />
-                    )
-                  )
-                ) : (
-                  <div className="no-image-box">
-                    ไม่มีรูปภาพประกอบ
-                  </div>
-                )}
-              </div>
+              <RepairImageGallery
+                images={selectedRepair.images}
+                ticketLabel={selectedRepair.ticket_number || `#${selectedRepair.id}`}
+              />
 
               <div className="info-list-container">
                 <p className="repair-info-item">
@@ -1057,11 +1084,23 @@ function TechHome() {
               {isStartingRepair && Number.isFinite(estimateBasePrice) && (
                 <>
                   <div className="estimate-budget-note">
-                    <span>ราคาทุนครุภัณฑ์</span>
-                    <strong>{estimateBasePrice.toLocaleString()} บาท</strong>
+                    <div>
+                      <span>ราคาทุนครุภัณฑ์</span>
+                      <strong>{estimateBasePrice.toLocaleString()} บาท</strong>
+                    </div>
+                    <div>
+                      <label htmlFor="break-even-point">จุดคุ้มทุนต่อรายการ (50%)</label>
+                      <input
+                        id="break-even-point"
+                        type="text"
+                        value={`${(estimateBasePrice * 0.5).toLocaleString()} บาท`}
+                        readOnly
+                        aria-describedby="break-even-help"
+                      />
+                    </div>
                   </div>
-                  <p className="estimate-warning-note">
-                    หากราคาประเมินเกินจุดคุ้มทุน ระบบจะส่งงานให้ผู้ดูแลระบบพิจารณาอนุมัติงบ
+                  <p id="break-even-help" className="estimate-warning-note">
+                    หากเกินจุดคุ้มทุน ระบบจะส่งรายการให้ผู้ดูแลระบบพิจารณา โดยตรวจสอบยอดสะสมร่วมด้วย
                   </p>
                 </>
               )}
@@ -1084,17 +1123,29 @@ function TechHome() {
                   className="cost-input"
                   placeholder="ใส่ราคาประเมิน (กรอก 0 หากไม่เสียค่าใช้จ่าย)"
                   value={estimatedCost}
-                  onChange={(e) =>
-                    setEstimatedCost(
-                      e.target.value
-                    )
-                  }
+                  onChange={(e) => {
+                    setEstimatedCost(e.target.value);
+                    setPriceCheckStatus("idle");
+                  }}
                   required
                 />
 
+                {isStartingRepair && estimatedCost !== "" && (
+                  <p
+                    className={`estimate-check-status estimate-check-${priceCheckStatus}`}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {priceCheckStatus === "checking" && "กำลังตรวจสอบราคา..."}
+                    {priceCheckStatus === "approved" && "ผ่านเกณฑ์ — ยืนยันการซ่อมได้"}
+                    {priceCheckStatus === "exceeded" && (isSubmitting
+                      ? "ไม่ผ่านเกณฑ์ — กำลังส่งให้ผู้ดูแลระบบพิจารณา..."
+                      : "ส่งให้ผู้ดูแลระบบพิจารณาไม่สำเร็จ")}
+                  </p>
+                )}
+
                 <small className="cost-hint">
-                  * หากค่าซ่อมเกินจุดคุ้มทุน
-                  งานนี้จะถูกระบบส่งให้แอดมินพิจารณาอนุมัติงบใหม่
+                  * กดตรวจสอบราคาก่อน ระบบจะประเมินยอดต่อรายการและตรวจยอดสะสมอีกครั้งที่เซิร์ฟเวอร์
                 </small>
               </div>
 
@@ -1113,23 +1164,40 @@ function TechHome() {
                     ยกเลิก
                   </button>
                 )}
-                <button
-                  type="submit"
-                  className="btn-accept"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    "กำลังบันทึก..."
-                  ) : (
-                    <>
-                      <CircleCheck
-                        size={18}
-                        aria-hidden="true"
-                      />{" "}
-                      {isStartingRepair ? "ยืนยันเริ่มซ่อม" : "บันทึกราคาประเมิน"}
-                    </>
-                  )}
-                </button>
+                {!isStartingRepair ? (
+                  <button type="submit" className="btn-accept" disabled={isSubmitting}>
+                    {isSubmitting ? "กำลังบันทึก..." : "บันทึกราคาประเมิน"}
+                  </button>
+                ) : priceCheckStatus === "approved" ? (
+                  <button type="submit" className="btn-accept" disabled={isSubmitting}>
+                    {isSubmitting ? "กำลังบันทึก..." : "ยืนยันการซ่อม"}
+                  </button>
+                ) : priceCheckStatus === "exceeded" && !isSubmitting ? (
+                  <button
+                    type="button"
+                    className="btn-accept"
+                    onClick={submitEstimate}
+                  >
+                    ส่งให้ผู้ดูแลพิจารณาอีกครั้ง
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn-accept"
+                    disabled={
+                      isSubmitting ||
+                      estimatedCost === "" ||
+                      priceCheckStatus === "checking"
+                    }
+                    onClick={handleCheckBreakEven}
+                  >
+                    {isSubmitting
+                      ? "กำลังส่งให้ผู้ดูแลพิจารณา..."
+                      : priceCheckStatus === "checking"
+                        ? "กำลังตรวจสอบราคา..."
+                        : "ตรวจสอบราคา"}
+                  </button>
+                )}
               </div>
             </form>
           </div>

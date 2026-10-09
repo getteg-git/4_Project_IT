@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Settings, UsersRound, MapPin, Wrench, Monitor } from "lucide-react"; // เพิ่มไอคอน Monitor
+import AppBreadcrumb from "../../../components/AppBreadcrumb";
 import BackButton from "../../../components/ui/BackButton"; // เช็ค path ให้ตรงกับโปรเจกต์คุณด้วยนะครับ
 
 import AdminUsers from "./components/AdminUsers/AdminUsers";
@@ -12,11 +13,22 @@ import "./AdminSettings.css";
 function AdminSettings() {
   // สร้าง State สำหรับเก็บว่าตอนนี้เลือก Tab ไหนอยู่ (ค่าเริ่มต้นคือหน้า users)
   const [activeTab, setActiveTab] = useState("users");
+  const activeTabLabel = {
+    users: "จัดการผู้ใช้งาน",
+    locations: "จัดการสถานที่",
+    equipments: "จัดการอุปกรณ์",
+    problems: "หมวดหมู่งานซ่อม",
+  }[activeTab];
 
   return (
     <div className="admin-settings-container">
       <div className="admin-settings-wrapper">
         <nav className="page-navigation" aria-label="การนำทางย้อนกลับ">
+          <AppBreadcrumb items={[
+            { label: "แดชบอร์ดผู้ดูแล", to: "/admin/home" },
+            { label: "ตั้งค่าระบบ", to: "/admin/settings" },
+            { label: activeTabLabel },
+          ]} />
           <BackButton to="/admin/home" label="กลับหน้าแดชบอร์ด" />
         </nav>
 

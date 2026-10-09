@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Camera, CheckCircle2, Image as ImageIcon, LoaderCircle, Send } from 'lucide-react';
+import AppBreadcrumb from "../../../components/AppBreadcrumb";
 import BackButton from "../../../components/ui/BackButton";
 import useToast from "../../../hooks/useToast";
 import "./CreateRepair.css";
@@ -215,6 +216,10 @@ function CreateRepair() {
     <div className="create-repair-container">
       <div className="create-repair-shell">
         <nav className="page-navigation" aria-label="การนำทางย้อนกลับ">
+          <AppBreadcrumb items={[
+            { label: "หน้าหลัก", to: "/" },
+            { label: "แจ้งซ่อม" },
+          ]} />
           <BackButton to="/" label="กลับหน้าหลัก" />
         </nav>
 

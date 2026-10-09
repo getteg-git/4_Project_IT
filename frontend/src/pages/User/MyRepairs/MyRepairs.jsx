@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Camera, CalendarDays, CircleX, Eye, FileText, MessageSquareText, UserRound, Wrench, X, ClipboardCheck, Clock } from "lucide-react";
+import { BarChart3, CalendarDays, CircleX, Eye, FileText, MessageSquareText, UserRound, Wrench, X, ClipboardCheck, Clock, ZoomIn } from "lucide-react";
+import AppBreadcrumb from "../../../components/AppBreadcrumb";
+import RepairImageGallery from "../../../components/RepairImageGallery";
 import BackButton from "../../../components/ui/BackButton";
 import SearchField from "../../../components/ui/SearchField";
 import Pagination from "../../../components/ui/Pagination";
-import { getPageItems } from "../../../components/ui/paginationUtils";
+import { getPageItems, REPAIR_PAGE_SIZE } from "../../../components/ui/paginationUtils";
+import RepairCardNotes from "../../../components/RepairCardNotes";
 import FilterBar from "../../../components/ui/FilterBar";
 import RepairTimelineModal from "../Timeline/RepairTimelineModal"; // 🔥 แก้ไข Path ให้ถูกต้องตามโครงสร้างโฟลเดอร์
 import "./MyRepairs.css";
@@ -27,6 +30,18 @@ function MyRepairs() {
   const [selectedRepair, setSelectedRepair] = useState(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [isDashboardOpen, setIsDashboardOpen] = useState(false);
+
+  useEffect(() => {
+    if (!isDashboardOpen) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setIsDashboardOpen(false);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isDashboardOpen]);
 
   // ดึงข้อมูลทั้งหมดจาก Backend
   useEffect(() => {
@@ -167,7 +182,7 @@ function MyRepairs() {
     { id: "failed", label: "ซ่อมไม่ได้", count: repairs.filter((repair) => matchesStatusFilter(repair, "failed")).length },
     { id: "outsourced", label: "ส่งซ่อมภายนอก", count: repairs.filter((repair) => matchesStatusFilter(repair, "outsourced")).length },
   ];
-  const paginatedRepairs = getPageItems(filteredRepairs, currentPage);
+  const paginatedRepairs = getPageItems(filteredRepairs, currentPage, REPAIR_PAGE_SIZE);
 
   const getStatusClass = (status) => {
     switch (status) {
@@ -200,8 +215,13 @@ function MyRepairs() {
   return (
     <div className="tracking-container">
       <div className="tracking-wrapper">
+        <AppBreadcrumb items={[
+          { label: "หน้าหลัก", to: "/" },
+          { label: "ติดตามสถานะการซ่อม" },
+        ]} />
+
         <section className="tracking-hero">
-          <nav className="page-navigation" aria-label="การนำทางย้อนกลับ">
+          <nav className="page-navigation" aria-label="Breadcrumb">
             <BackButton to="/" label="กลับหน้าหลัก" />
           </nav>
 
@@ -272,6 +292,8 @@ function MyRepairs() {
 
                   <p className="repair-desc"><strong>รายละเอียด:</strong> {repair.description}</p>
 
+                  <RepairCardNotes repair={repair} />
+
                   {repair.technician_name && (
                     <p className="repair-tech-badge"><strong><UserRound size={15} aria-hidden="true" /> ช่าง:</strong> {repair.technician_name}</p>
                   )}
@@ -319,7 +341,27 @@ function MyRepairs() {
           )}
         </div>
 
-        <Pagination currentPage={currentPage} totalItems={filteredRepairs.length} onPageChange={setCurrentPage} />
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredRepairs.length}
+          onPageChange={setCurrentPage}
+          pageSize={REPAIR_PAGE_SIZE}
+        />
+
+        <button
+          className="mini-dashboard"
+          type="button"
+          onClick={() => setIsDashboardOpen(true)}
+          aria-haspopup="dialog"
+          aria-label={`เปิด Dashboard รายการแจ้งซ่อมทั้งหมด ${repairs.length} รายการ`}
+        >
+          <span className="mini-dashboard-title"><BarChart3 size={17} /> ภาพรวมงานซ่อม <ZoomIn size={15} /></span>
+          <span className="mini-dashboard-count">{repairs.length}<small>รายการทั้งหมด</small></span>
+          <span className="mini-dashboard-summary">
+            <span>กำลังซ่อม <strong>{statusFilters.find((filter) => filter.id === "progress")?.count ?? 0}</strong></span>
+            <span>เสร็จแล้ว <strong>{statusFilters.find((filter) => filter.id === "completed")?.count ?? 0}</strong></span>
+          </span>
+        </button>
       </div>
 
       {/* ==========================================
@@ -334,24 +376,10 @@ function MyRepairs() {
             <hr />
 
             <div className="modal-details-content">
-              <div className="image-gallery">
-                {selectedRepair.images && selectedRepair.images.length > 0 ? (
-                  selectedRepair.images.map((img, index) => (
-                    <div key={index} className="image-container" style={{ position: 'relative', display: 'inline-block' }}>
-                      <img
-                        src={`https://4projectit-production.up.railway.app${img.url}`}
-                        alt="รูปปัญหาหน้างาน"
-                        className="repair-image"
-                      />
-                      <span style={{ position: 'absolute', top: 5, left: 5, display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(0,0,0,0.6)', color: '#fff', padding: '2px 6px', borderRadius: '4px', fontSize: '0.8rem' }}>
-                        <Camera size={13} aria-hidden="true" /> {img.type === 'after' ? 'หลังซ่อม' : 'ก่อนซ่อม'}
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="no-image-box">ไม่มีรูปภาพประกอบ</div>
-                )}
-              </div>
+              <RepairImageGallery
+                images={selectedRepair.images}
+                ticketLabel={selectedRepair.ticket_number || `#${selectedRepair.id}`}
+              />
 
               <div className="info-grid">
                 <p><strong>สถานะปัจจุบัน:</strong> <span className={`status-badge ${getStatusClass(selectedRepair.status)}`}>{selectedRepair.status}</span></p>
@@ -397,6 +425,63 @@ function MyRepairs() {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {isDashboardOpen && (
+        <div
+          className="dashboard-overlay"
+          onClick={() => setIsDashboardOpen(false)}
+        >
+          <section
+            className="dashboard-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="dashboard-modal-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              className="dashboard-close"
+              type="button"
+              onClick={() => setIsDashboardOpen(false)}
+              aria-label="ปิด Dashboard"
+            >
+              <X size={20} />
+            </button>
+            <p className="dashboard-eyebrow"><BarChart3 size={17} /> สรุปสถานะงาน</p>
+            <h2 id="dashboard-modal-title">ภาพรวมการแจ้งซ่อม</h2>
+            <p className="dashboard-description">สรุปจากรายการแจ้งซ่อมทั้งหมดในระบบ</p>
+            <div className="dashboard-metrics">
+              {statusFilters.slice(0, 4).map((filter) => (
+                <article className={`dashboard-metric metric-${filter.id}`} key={filter.id}>
+                  <span>{filter.label}</span>
+                  <strong>{filter.count}</strong>
+                  <small>
+                    {repairs.length > 0
+                      ? `${Math.round((filter.count / repairs.length) * 100)}% ของทั้งหมด`
+                      : "ยังไม่มีรายการ"}
+                  </small>
+                </article>
+              ))}
+            </div>
+            <div className="dashboard-breakdown">
+              <h3>สถานะรายการ</h3>
+              {statusFilters.slice(1).map((filter) => {
+                const percent = repairs.length > 0
+                  ? Math.round((filter.count / repairs.length) * 100)
+                  : 0;
+                return (
+                  <div className="dashboard-bar-row" key={filter.id}>
+                    <span>{filter.label}</span>
+                    <div className="dashboard-bar-track" aria-label={`${filter.label} ${percent}%`}>
+                      <span className={`dashboard-bar-fill bar-${filter.id}`} style={{ width: `${percent}%` }} />
+                    </div>
+                    <strong>{filter.count}</strong>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
         </div>
       )}
 

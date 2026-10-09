@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import Pagination from "../../../components/ui/Pagination";
+import { getPageItems, REPAIR_PAGE_SIZE } from "../../../components/ui/paginationUtils";
+import AppBreadcrumb from "../../../components/AppBreadcrumb";
 import {
   PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend
@@ -19,6 +22,7 @@ function AdminDashboard() {
   const [selectedMonth, setSelectedMonth] = useState("all");
   const [selectedYear, setSelectedYear] = useState(dayjs().year().toString());
   const [activeTab, setActiveTab] = useState("status");
+  const [warningPage, setWarningPage] = useState(1);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -126,6 +130,7 @@ function AdminDashboard() {
   const warningRepairs = filteredRepairs.filter(r => {
     return r.status === "รอซ่อม" && r.admin_note && r.admin_note !== "";
   });
+  const paginatedWarningRepairs = getPageItems(warningRepairs, warningPage, REPAIR_PAGE_SIZE);
 
   const statusChartData = [
     { name: "รอรับงาน/เข้าหน้างาน", value: pendingCount, color: "#f39c12" },
@@ -165,6 +170,10 @@ function AdminDashboard() {
 
   return (
     <div className="admin-dashboard-container">
+      <AppBreadcrumb items={[
+        { label: "ผู้ดูแลระบบ" },
+        { label: "แดชบอร์ด" },
+      ]} />
       <header className="dashboard-header page-header">
         <div>
           <h1><LayoutDashboard size={25} aria-hidden="true" /> แดชบอร์ดผู้ดูแลระบบ</h1>
@@ -215,7 +224,7 @@ function AdminDashboard() {
           <div className="filter-controls">
             <label>
               <span>เดือน</span>
-              <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="filter-select">
+              <select value={selectedMonth} onChange={(e) => { setSelectedMonth(e.target.value); setWarningPage(1); }} className="filter-select">
                 <option value="all">ทุกเดือน</option>
                 {thaiMonths.map((monthName, i) => (
                   <option key={i + 1} value={i + 1}>{monthName}</option>
@@ -224,7 +233,7 @@ function AdminDashboard() {
             </label>
             <label>
               <span>ปี</span>
-              <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="filter-select">
+              <select value={selectedYear} onChange={(e) => { setSelectedYear(e.target.value); setWarningPage(1); }} className="filter-select">
                 <option value="all">ทุกปี</option>
                 {availableYears.map(year => (
                   <option key={year} value={year}>พ.ศ. {Number(year) + 543}</option>
@@ -259,7 +268,10 @@ function AdminDashboard() {
                 <button
                   key={tab.id}
                   className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    if (tab.id === "warning") setWarningPage(1);
+                  }}
                 >
                   <TabIcon size={17} aria-hidden="true" /> {tab.label}
                 </button>
@@ -341,14 +353,14 @@ function AdminDashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {warningRepairs.map(r => (
+                        {paginatedWarningRepairs.map(r => (
                           <tr key={r.id}>
                             <td className="font-bold">{r.ticket_number || `#${r.id}`}</td>
                             <td>{r.equipment_name || "ไม่ระบุ"} <br /><span className="sub-text">{r.problem_type}</span></td>
                             <td>฿{Number(r.estimated_cost || 0).toLocaleString()}</td>
                             <td className="warning-note-text">{r.admin_note}</td>
                             <td className="text-center">
-                              <button className="btn-cancel-repair" onClick={() => navigate(`/admin/manage/${r.id}`)}>
+                              <button className="btn-cancel-repair" onClick={() => navigate("/admin/manage?view=review")}>
                                 <Ban size={14} /> ตรวจสอบ
                               </button>
                             </td>
@@ -358,6 +370,12 @@ function AdminDashboard() {
                     </table>
                   ) : <p className="no-data-text">ไม่มีรายการที่รอพิจารณาในขณะนี้</p>}
                 </div>
+                <Pagination
+                  currentPage={warningPage}
+                  totalItems={warningRepairs.length}
+                  onPageChange={setWarningPage}
+                  pageSize={REPAIR_PAGE_SIZE}
+                />
               </div>
             )}
           </div>

@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import AppBreadcrumb from "../../../components/AppBreadcrumb";
+import RepairImageGallery from "../../../components/RepairImageGallery";
 import {
   AlertTriangle,
   Banknote,
@@ -22,7 +25,8 @@ import {
 import BackButton from "../../../components/ui/BackButton";
 import SearchField from "../../../components/ui/SearchField";
 import Pagination from "../../../components/ui/Pagination";
-import { getPageItems } from "../../../components/ui/paginationUtils";
+import { getPageItems, REPAIR_PAGE_SIZE } from "../../../components/ui/paginationUtils";
+import RepairCardNotes from "../../../components/RepairCardNotes";
 import FilterBar from "../../../components/ui/FilterBar";
 import useToast from "../../../hooks/useToast";
 import RepairTimelineModal from "../../User/Timeline/RepairTimelineModal";
@@ -30,6 +34,7 @@ import "./AdminManage.css";
 
 function AdminManage() {
   const { toast, confirm } = useToast();
+  const [searchParams] = useSearchParams();
 
   const [repairs, setRepairs] = useState([]);
   const [technicians, setTechnicians] = useState([]);
@@ -39,7 +44,9 @@ function AdminManage() {
   const [problemTypes, setProblemTypes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [assignmentView, setAssignmentView] = useState("unassigned");
+  const [assignmentView, setAssignmentView] = useState(
+    searchParams.get("view") === "review" ? "review" : "unassigned"
+  );
   const [locationFilter, setLocationFilter] = useState("");
   const [floorFilter, setFloorFilter] = useState("");
   const [roomFilter, setRoomFilter] = useState("");
@@ -101,6 +108,13 @@ function AdminManage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (searchParams.get("view") === "review") {
+      setAssignmentView("review");
+      setCurrentPage(1);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const selectedLocation = locations.find(
@@ -331,7 +345,8 @@ function AdminManage() {
 
   const paginatedRepairs = getPageItems(
     displayedRepairs,
-    currentPage
+    currentPage,
+    REPAIR_PAGE_SIZE
   );
 
   const getStatusClass = (status) => {
@@ -712,8 +727,12 @@ function AdminManage() {
 
         <nav
           className="page-navigation"
-          aria-label="การนำทางย้อนกลับ"
+          aria-label="การนำทางหน้าย่อย"
         >
+          <AppBreadcrumb items={[
+            { label: "แดชบอร์ดผู้ดูแล", to: "/admin/home" },
+            { label: "จัดการและมอบหมายงานซ่อม" },
+          ]} />
           <BackButton
             to="/admin/home"
             label="กลับหน้าแดชบอร์ด"
@@ -983,6 +1002,8 @@ function AdminManage() {
                     <strong>รายละเอียด:</strong>{" "}
                     {repair.description}
                   </p>
+
+                  <RepairCardNotes repair={repair} />
                 </div>
 
                 {repair.technician_name && (
@@ -997,41 +1018,6 @@ function AdminManage() {
                     {repair.technician_name}
                   </div>
                 )}
-
-                {needsRepairReview(repair) && (
-                  <div className="repair-failure-note">
-                    <strong>
-                      <AlertTriangle
-                        size={17}
-                        aria-hidden="true"
-                      />{" "}
-                      ช่างแจ้งว่าซ่อมไม่ได้
-                    </strong>
-                    <p>
-                      {repair.technician_note ||
-                        "ช่างไม่ได้ระบุรายละเอียดเพิ่มเติม"}
-                    </p>
-                  </div>
-                )}
-
-                {repair.status === "ส่งซ่อมภายนอก" &&
-                  repair.admin_note && (
-                    <div className="repair-outsourced-note">
-                      <strong>
-                        <Building2
-                          size={17}
-                          aria-hidden="true"
-                        />{" "}
-                        รายละเอียดการส่งซ่อม
-                      </strong>
-                      <p>
-                        {repair.admin_note.replace(
-                          /^ส่งซ่อมภายนอก:\s*/,
-                          ""
-                        )}
-                      </p>
-                    </div>
-                  )}
 
                 {repair.status === "รอซ่อม" &&
                   repair.technician_name &&
@@ -1262,6 +1248,7 @@ function AdminManage() {
             currentPage={currentPage}
             totalItems={displayedRepairs.length}
             onPageChange={setCurrentPage}
+            pageSize={REPAIR_PAGE_SIZE}
           />
         )}
         </div>
@@ -1303,25 +1290,10 @@ function AdminManage() {
             </div>
 
             <div className="modal-details-content">
-              <div className="image-gallery">
-                {selectedRepair.images &&
-                selectedRepair.images.length > 0 ? (
-                  selectedRepair.images.map(
-                    (img, index) => (
-                      <img
-                        key={index}
-                        src={`https://4projectit-production.up.railway.app${img.url}`}
-                        alt="รูปปัญหา"
-                        className="repair-image"
-                      />
-                    )
-                  )
-                ) : (
-                  <div className="no-image-box">
-                    ไม่มีรูปภาพประกอบ
-                  </div>
-                )}
-              </div>
+              <RepairImageGallery
+                images={selectedRepair.images}
+                ticketLabel={selectedRepair.ticket_number || `#${selectedRepair.id}`}
+              />
 
               <div className="info-list-container">
                 <p>

@@ -373,10 +373,6 @@
 }
 .close-btn:hover { color: #d32f2f; }
 
-.image-gallery { text-align: center; margin-bottom: 20px; }
-.repair-image { max-width: 100%; max-height: 250px; border-radius: 8px; border: 1px solid #ddd; }
-.no-image-box { padding: 30px; background: #f8f9fa; border-radius: 8px; color: #999; border: 2px dashed #ddd; }
-
 .info-list-container {
   display: flex;
   flex-direction: column;

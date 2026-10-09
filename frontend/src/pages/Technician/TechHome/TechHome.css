@@ -274,9 +274,7 @@
 .modal-subtitle { color: #666; font-size: 0.95rem; margin: 0 0 20px 0; }
 
 /* Image Gallery */
-.image-gallery { text-align: center; margin-bottom: 20px; }
-.repair-image { max-width: 100%; max-height: 250px; border-radius: 8px; border: 1px solid #ddd; }
-.no-image-box { padding: 30px; background: #f8f9fa; border-radius: 8px; color: #999; border: 2px dashed #ddd; }
+
 
 /* Details Info List */
 .info-list-container {
@@ -303,12 +301,12 @@
 .cost-hint { color: #666; font-size: 0.85rem; margin-top: 5px; display: block; }
 
 .tech-container .estimate-budget-note {
-  display: flex;
+  display: grid;
   margin: 0 auto 10px;
   padding: 11px 14px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 14px;
   border: 1px solid #c6dfd3;
   border-radius: 10px;
   color: var(--color-primary);
@@ -316,10 +314,61 @@
   font-size: 0.9rem;
 }
 
+.tech-container .estimate-budget-note > div {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.tech-container .estimate-budget-note > div > span,
+.tech-container .estimate-budget-note label {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+
 .tech-container .estimate-budget-note strong {
   color: var(--color-primary);
-  font-size: 1rem;
-  white-space: nowrap;
+  font-size: 1.05rem;
+}
+
+.tech-container .estimate-budget-note input {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid #c6dfd3;
+  border-radius: 8px;
+  color: #315e4d;
+  background: #fff;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+@media (max-width: 520px) {
+  .tech-container .estimate-budget-note {
+    grid-template-columns: 1fr;
+  }
+}
+
+.estimate-check-status {
+  margin: 12px 0 6px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.estimate-check-checking {
+  color: #73520b;
+  background: #fff8e1;
+}
+
+.estimate-check-approved {
+  color: #126240;
+  background: #e9f8ef;
+}
+
+.estimate-check-exceeded {
+  color: #9f2525;
+  background: #fff0f0;
 }
 
 .tech-container .estimate-warning-note {

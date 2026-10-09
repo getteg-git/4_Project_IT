@@ -114,7 +114,7 @@ function UserHome() {
 
       <header className="home-header">
         {/* <span className="eyebrow">SCIENCE FACULTY SERVICE</span> */}
-        <h1>ระบบแจ้งซ่อมและติดตามงาน</h1>
+        <h1>แจ้งซ่อมและติดตามงาน</h1>
         <p>คณะวิทยาศาสตร์ มหาวิทยาลัยศิลปากร</p>
       </header>
 
@@ -135,7 +135,7 @@ function UserHome() {
       {/* Footer */}
       <footer className="home-footer">
         <div className="footer-content">
-          <h3>ระบบแจ้งซ่อมและติดตามงาน</h3>
+          <h3>แจ้งซ่อมและติดตามงาน</h3>
           <p>คณะวิทยาศาสตร์ มหาวิทยาลัยศิลปากร</p>
           <span>© 2026 Faculty of Science</span>
         </div>
