@@ -44,6 +44,18 @@ func TestSendEmailNotificationRejectsInvalidPortAndRecipients(t *testing.T) {
 	}
 }
 
+func TestValidateSMTPConfiguration(t *testing.T) {
+	setValidSMTPEnvironment(t)
+	if err := ValidateSMTPConfiguration(); err != nil {
+		t.Fatalf("expected valid SMTP configuration, got: %v", err)
+	}
+
+	t.Setenv("SMTP_SENDER", "not-an-email")
+	if err := ValidateSMTPConfiguration(); err == nil || !strings.Contains(err.Error(), "SMTP_SENDER") {
+		t.Fatalf("expected invalid sender to identify SMTP_SENDER, got: %v", err)
+	}
+}
+
 func TestBuildEmailMessageEncodesUTF8HeadersAndBody(t *testing.T) {
 	sender, err := mail.ParseAddress("sender@example.com")
 	if err != nil {
@@ -54,7 +66,7 @@ func TestBuildEmailMessageEncodesUTF8HeadersAndBody(t *testing.T) {
 	for _, want := range []string{
 		"Subject: =?UTF-8?B?",
 		"Content-Transfer-Encoding: base64",
-		"To: recipient@example.com",
+		"To: undisclosed-recipients:;",
 	} {
 		if !strings.Contains(message, want) {
 			t.Errorf("expected email message to contain %q", want)

@@ -1,7 +1,9 @@
 package repair
 
 import (
+	"database/sql"
 	"fmt"
+	"html"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -88,6 +90,7 @@ const (
 	colorInfo    = "#2563eb" // ฟ้า: แจ้งเตือนทั่วไป / ข้อมูล
 	colorWarning = "#92400e" // ส้มเข้มเพื่อให้อ่านชัดบนพื้นขาว
 	colorDanger  = "#dc2626" // แดง: ปัญหา / ยกเลิก / ปฏิเสธ
+	frontendURL  = "https://4-project-it.vercel.app"
 )
 
 func emailHTMLStyle() string {
@@ -163,7 +166,7 @@ func CreateRepair(c *gin.Context) {
 
 	// ---------- ส่งอีเมลแจ้งเตือน ----------
 	go func() {
-		formURL := "http://localhost:5173/repair/history"
+		formURL := frontendURL + "/repair/history"
 
 		// 1. อีเมลสำหรับผู้แจ้ง
 		userBodyContent := fmt.Sprintf(`
@@ -172,7 +175,7 @@ func CreateRepair(c *gin.Context) {
 			<div class="box-warning">ขณะนี้อยู่ในสถานะ: <strong>รอซ่อม</strong></div>
 			<p>ทางเราจะแจ้งเตือนอีกครั้งเมื่อช่างเริ่มเข้าดำเนินการครับ</p>
 			<a href="%s" class="btn">ตรวจสอบรายการแจ้งซ่อมได้ที่นี่</a>
-		`, ticketNumber, description, formURL)
+		`, html.EscapeString(ticketNumber), html.EscapeString(description), formURL)
 		userSubject := fmt.Sprintf("✅ รับเรื่องแจ้งซ่อมเรียบร้อยแล้ว (%s)", ticketNumber)
 		userBody := wrapEmail(colorSuccess, "ระบบได้รับเรื่องแจ้งซ่อมของคุณเรียบร้อยแล้ว", userBodyContent)
 
@@ -180,10 +183,12 @@ func CreateRepair(c *gin.Context) {
 			if err := utils.SendEmailNotification([]string{reporterEmail}, userSubject, userBody); err != nil {
 				log.Printf("failed to email repair receipt to reporter for repair %d: %v", repairID, err)
 			}
+		} else {
+			log.Printf("cannot email repair receipt for repair %d: reporter has no email address", repairID)
 		}
 
 		// 2. อีเมลสำหรับ Admin
-		AdminLink := "http://localhost:5173"
+		adminLink := frontendURL + "/admin/manage"
 		adminBodyContent := fmt.Sprintf(`
 			<p>กรุณาเข้าสู่ระบบเพื่อพิจารณามอบหมายช่างดำเนินการ</p>
 			<p><strong>หมายเลขอ้างอิง:</strong> %s</p>
@@ -191,7 +196,7 @@ func CreateRepair(c *gin.Context) {
 			<p><strong>รายละเอียด:</strong> %s</p>
 			<div class="box-warning">ขณะนี้อยู่ในสถานะ: <strong>รอซ่อม</strong></div>
 			<a href="%s" class="btn">ตรวจสอบรายการได้ที่นี่</a>
-		`, ticketNumber, reporterEmail, description, AdminLink)
+		`, html.EscapeString(ticketNumber), html.EscapeString(reporterEmail), html.EscapeString(description), adminLink)
 		adminSubject := fmt.Sprintf("🔔 มีงานแจ้งซ่อมใหม่เข้ามา (%s)", ticketNumber)
 		adminBody := wrapEmail(colorInfo, "มีรายการแจ้งซ่อมใหม่เข้ามาในระบบ", adminBodyContent)
 
@@ -412,10 +417,25 @@ func AssignRepair(c *gin.Context) {
 		return
 	}
 
-	var currentStatus string
-	database.DB.QueryRow("SELECT status FROM repairs WHERE id = $1", repairID).Scan(&currentStatus)
+	tx, err := database.DB.Begin()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถเริ่มบันทึกการมอบหมายงานได้"})
+		return
+	}
+	defer tx.Rollback()
 
-	_, err := database.DB.Exec(
+	var currentStatus string
+	err = tx.QueryRow("SELECT status FROM repairs WHERE id = $1 FOR UPDATE", repairID).Scan(&currentStatus)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบรายการแจ้งซ่อม"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	_, err = tx.Exec(
 		`UPDATE repairs SET status = 'รอซ่อม', technician_id = $1, admin_note = NULL, accepted_at = NULL, completed_at = NULL WHERE id = $2`,
 		req.TechnicianID, repairID,
 	)
@@ -425,8 +445,18 @@ func AssignRepair(c *gin.Context) {
 		return
 	}
 
-	// 🔥 บันทึก Log การมอบหมายงาน
-	insertRepairLog(repairID, req.AdminID, "ASSIGNED", currentStatus, "รอซ่อม", fmt.Sprintf("Admin มอบหมายงานให้ช่าง ID: %d", req.TechnicianID))
+	_, err = tx.Exec(`
+		INSERT INTO repair_logs (repair_id, user_id, action, old_status, new_status, note)
+		VALUES ($1, $2, 'ASSIGNED', $3, 'รอซ่อม', $4)`,
+		repairID, req.AdminID, currentStatus, fmt.Sprintf("Admin มอบหมายงานให้ช่าง ID: %d", req.TechnicianID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกประวัติการมอบหมายงานได้"})
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกการมอบหมายงานได้"})
+		return
+	}
 
 	// ---------- ส่งอีเมลแจ้งเตือน ----------
 	go func() {
@@ -447,7 +477,7 @@ func AssignRepair(c *gin.Context) {
 				<p><strong>รายการ:</strong> %s</p>
 				<div class="box-info">ช่างผู้รับผิดชอบ: <strong>%s</strong></div>
 				<p>ช่างจะเข้าประเมินและดำเนินการต่อไปครับ</p>
-			`, description, techName)
+			`, html.EscapeString(description), html.EscapeString(techName))
 			if err := utils.SendEmailNotification([]string{reporterEmail}, fmt.Sprintf("⚙️ มอบหมายช่างซ่อมแล้ว (%s)", tNumber), wrapEmail(colorInfo, "มอบหมายช่างเข้าดูแลงานแล้ว", userBodyContent)); err != nil {
 				log.Printf("failed to email repair assignment to reporter for repair %s: %v", repairID, err)
 			}
@@ -458,8 +488,8 @@ func AssignRepair(c *gin.Context) {
 			techBodyContent := fmt.Sprintf(`
 				<p><strong>รหัสอ้างอิง:</strong> %s</p>
 				<p><strong>รายละเอียดงาน:</strong> %s</p>
-				<a href="http://localhost:5173" class="btn">ตรวจสอบรายการมอบหมายงานได้ที่นี่</a>
-			`, tNumber, description)
+				<a href="%s/tech/home" class="btn">เปิดรายการงานช่าง</a>
+			`, html.EscapeString(tNumber), html.EscapeString(description), frontendURL)
 			if err := utils.SendEmailNotification([]string{techEmail}, fmt.Sprintf("🔧 คุณได้รับมอบหมายงานซ่อมใหม่ (%s)", tNumber), wrapEmail(colorInfo, "คุณได้รับมอบหมายงานซ่อมใหม่", techBodyContent)); err != nil {
 				log.Printf("failed to email repair assignment to technician for repair %s: %v", repairID, err)
 			}
@@ -476,22 +506,55 @@ func AssignRepair(c *gin.Context) {
 // ---------------------------------------------------------
 func RevokeRepair(c *gin.Context) {
 	repairID := c.Param("id")
-	revokeReason := c.PostForm("rejection_reason")
+	revokeReason := strings.TrimSpace(c.PostForm("rejection_reason"))
 	adminID := nullIfEmpty(c.PostForm("admin_id"))
 
-	var techName, techEmail, description, tNumber, currentStatus string
-	database.DB.QueryRow(`
-		SELECT u.full_name, COALESCE(u.email, ''), r.description, r.ticket_number, r.status
-		FROM repairs r JOIN users u ON r.technician_id = u.id WHERE r.id = $1`, repairID).Scan(&techName, &techEmail, &description, &tNumber, &currentStatus)
+	if revokeReason == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาระบุเหตุผลในการดึงงานกลับ"})
+		return
+	}
 
-	_, err := database.DB.Exec(`UPDATE repairs SET status = 'รอซ่อม', technician_id = NULL, accepted_at = NULL, completed_at = NULL WHERE id = $1`, repairID)
+	tx, err := database.DB.Begin()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถเริ่มบันทึกการดึงงานกลับได้"})
+		return
+	}
+	defer tx.Rollback()
+
+	var techName, techEmail, description, tNumber, currentStatus string
+	var technicianID int
+	err = tx.QueryRow(`
+		SELECT u.id, u.full_name, COALESCE(u.email, ''), r.description, COALESCE(r.ticket_number, ''), r.status
+		FROM repairs r JOIN users u ON r.technician_id = u.id
+		WHERE r.id = $1 FOR UPDATE OF r`, repairID).
+		Scan(&technicianID, &techName, &techEmail, &description, &tNumber, &currentStatus)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบงานที่มอบหมายให้ช่าง"})
+		return
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	// 🔥 บันทึก Log ดึงงานกลับ
-	insertRepairLog(repairID, adminID, "REVOKED", currentStatus, "รอซ่อม", "Admin ดึงงานกลับจากช่าง. เหตุผล: "+revokeReason)
+	_, err = tx.Exec(`UPDATE repairs SET status = 'รอซ่อม', technician_id = NULL, admin_note = NULL, accepted_at = NULL, completed_at = NULL WHERE id = $1`, repairID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	_, err = tx.Exec(`
+		INSERT INTO repair_logs (repair_id, user_id, action, old_status, new_status, note)
+		VALUES ($1, $2, 'REVOKED', $3, 'รอซ่อม', $4)`,
+		repairID, adminID, currentStatus, "Admin ดึงงานกลับจากช่าง. เหตุผล: "+revokeReason)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกประวัติการดึงงานกลับได้"})
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกการดึงงานกลับได้"})
+		return
+	}
 
 	go func() {
 		if techEmail != "" {
@@ -501,10 +564,13 @@ func RevokeRepair(c *gin.Context) {
 				<p><strong>รหัสตั๋ว:</strong> %s</p>
 				<p><strong>รายละเอียดงาน:</strong> %s</p>
 				<div class="box-warning"><strong>📌 เหตุผล:</strong><br>%s</div>
-			`, techName, tNumber, description, revokeReason)
+				<a href="%s/tech/home" class="btn">เปิดหน้ารายการงานช่าง</a>
+			`, html.EscapeString(techName), html.EscapeString(tNumber), html.EscapeString(description), html.EscapeString(revokeReason), frontendURL)
 			if err := utils.SendEmailNotification([]string{techEmail}, fmt.Sprintf("⚠️ แจ้งเตือนการดึงงานซ่อมกลับ (%s)", tNumber), wrapEmail(colorDanger, "แจ้งเตือนการดึงงานซ่อมกลับ", bodyContent)); err != nil {
 				log.Printf("failed to email revoked repair assignment to technician for repair %s: %v", repairID, err)
 			}
+		} else {
+			log.Printf("cannot email revoked repair assignment for repair %s: technician %d has no email address", repairID, technicianID)
 		}
 	}()
 
@@ -540,7 +606,7 @@ func RejectRepair(c *gin.Context) {
 			<p><strong>รหัสตั๋ว:</strong> %s</p>
 			<p><strong>รายการ:</strong> %s</p>
 			<div class="box-danger"><strong>📌 เหตุผลในการปฏิเสธ:</strong><br>%s</div>
-		`, tNumber, description, rejectionReason)
+		`, html.EscapeString(tNumber), html.EscapeString(description), html.EscapeString(rejectionReason))
 
 		recipients := adminEmailRecipients()
 		if reporterEmail != "" {
@@ -635,7 +701,7 @@ func UpdateRepairStatus(c *gin.Context) {
 				<p><strong>หมายเลขใบงาน:</strong> %s</p>
 				<p><strong>รายละเอียดงาน:</strong> %s</p>
 				<div class="box-info">สถานะปัจจุบัน: <strong>กำลังซ่อม</strong></div>
-			`, tNumber, description)
+			`, html.EscapeString(tNumber), html.EscapeString(description))
 			recipients := adminEmailRecipients()
 			if reporterEmail != "" {
 				recipients = append(recipients, reporterEmail)
@@ -647,6 +713,8 @@ func UpdateRepairStatus(c *gin.Context) {
 				if err := utils.SendEmailNotification(recipients, fmt.Sprintf("🔧 ช่างเริ่มดำเนินการซ่อมแล้ว (%s)", tNumber), wrapEmail(colorInfo, "ช่างเริ่มดำเนินการซ่อมแล้ว", bodyContent)); err != nil {
 					log.Printf("failed to email repair start notification for repair %s: %v", repairID, err)
 				}
+			} else {
+				log.Printf("cannot email repair start notification for repair %s: no recipients have email addresses", repairID)
 			}
 		}
 
@@ -661,10 +729,12 @@ func UpdateRepairStatus(c *gin.Context) {
    style="display:inline-block; background-color:#007A53; color:#ffffff !important; text-decoration:none; padding:12px 20px; border-radius:6px; font-weight:bold;">
    ให้คะแนนความพึงพอใจ
 </a>
-				`, description, techNoteStr)
+				`, html.EscapeString(description), html.EscapeString(techNoteStr))
 				if err := utils.SendEmailNotification([]string{reporterEmail}, fmt.Sprintf("🎉 งานซ่อม %s เรียบร้อยแล้ว", tNumber), wrapEmail(colorSuccess, "🎉 งานซ่อมของคุณเสร็จเรียบร้อยแล้ว", userBodyContent)); err != nil {
 					log.Printf("failed to email repair completion to reporter for repair %s: %v", repairID, err)
 				}
+			} else {
+				log.Printf("cannot email repair completion for repair %s: reporter has no email address", repairID)
 			}
 
 			internalRecipients := adminEmailRecipients()
@@ -678,7 +748,7 @@ func UpdateRepairStatus(c *gin.Context) {
 					<p><strong>รายละเอียดงาน:</strong> %s</p>
 					<div class="box-success"><strong>สถานะ:</strong> เสร็จเรียบร้อย</div>
 					<div class="box-success"><strong>บันทึกจากช่าง:</strong><br>%s</div>
-				`, tNumber, description, techNoteStr)
+				`, html.EscapeString(tNumber), html.EscapeString(description), html.EscapeString(techNoteStr))
 				if err := utils.SendEmailNotification(internalRecipients, fmt.Sprintf("✅ งานซ่อมเสร็จเรียบร้อยแล้ว (%s)", tNumber), wrapEmail(colorSuccess, "งานซ่อมเสร็จเรียบร้อยแล้ว", internalBodyContent)); err != nil {
 					log.Printf("failed to email repair completion to admins and technician for repair %s: %v", repairID, err)
 				}
@@ -687,7 +757,7 @@ func UpdateRepairStatus(c *gin.Context) {
 			bodyContent := fmt.Sprintf(`
 				<p><strong>รายการ:</strong> %s</p>
 				<div class="box-danger"><strong>เหตุผล:</strong><br>%s</div>
-			`, description, techNoteStr)
+			`, html.EscapeString(description), html.EscapeString(techNoteStr))
 			recipients := adminEmailRecipients()
 			if techEmail != "" {
 				recipients = append(recipients, techEmail)
@@ -754,6 +824,7 @@ func CancelRepairByAdmin(c *gin.Context) {
 			recipients = append(recipients, technicianEmail)
 		}
 		if len(recipients) == 0 {
+			log.Printf("cannot email rejected repair notification for repair %s: no recipients have email addresses", repairID)
 			return
 		}
 
@@ -762,7 +833,7 @@ func CancelRepairByAdmin(c *gin.Context) {
 			<p><strong>รายการ:</strong> %s</p>
 			<div class="box-danger"><strong>ผลการพิจารณา:</strong> ไม่อนุมัติการซ่อม</div>
 			<div class="box-danger"><strong>เหตุผล:</strong><br>%s</div>
-		`, ticketNumber, description, req.AdminNote)
+		`, html.EscapeString(ticketNumber), html.EscapeString(description), html.EscapeString(req.AdminNote))
 		if err := utils.SendEmailNotification(recipients,
 			fmt.Sprintf("ผลการพิจารณางานซ่อม: ไม่อนุมัติ (Ticket %s)", ticketNumber),
 			wrapEmail(colorDanger, "ไม่อนุมัติการซ่อม", bodyContent)); err != nil {
@@ -809,6 +880,34 @@ func OutsourceRepair(c *gin.Context) {
 	}
 
 	insertRepairLog(repairID, req.AdminID, "OUTSOURCED", "ซ่อมไม่ได้", "ส่งซ่อมภายนอก", req.Details)
+	go func() {
+		var reporterEmail, ticketNumber, description string
+		if err := database.DB.QueryRow(`
+			SELECT reporter_email, ticket_number, description FROM repairs WHERE id = $1`,
+			repairID,
+		).Scan(&reporterEmail, &ticketNumber, &description); err != nil {
+			log.Printf("failed to load outsourced repair email details for %s: %v", repairID, err)
+			return
+		}
+		if strings.TrimSpace(reporterEmail) == "" {
+			log.Printf("cannot email outsourced repair update for %s: reporter has no email address", repairID)
+			return
+		}
+
+		bodyContent := fmt.Sprintf(`
+			<p><strong>หมายเลขใบแจ้ง:</strong> %s</p>
+			<p><strong>รายการ:</strong> %s</p>
+			<div class="box-info"><strong>สถานะ:</strong> ส่งซ่อมภายนอก</div>
+			<div class="box-info"><strong>รายละเอียด:</strong><br>%s</div>
+		`, html.EscapeString(ticketNumber), html.EscapeString(description), html.EscapeString(strings.TrimSpace(req.Details)))
+		if err := utils.SendEmailNotification(
+			[]string{reporterEmail},
+			fmt.Sprintf("อัปเดตงานซ่อมเป็นส่งซ่อมภายนอก (%s)", ticketNumber),
+			wrapEmail(colorInfo, "อัปเดตสถานะงานซ่อม", bodyContent),
+		); err != nil {
+			log.Printf("failed to email outsourced repair update for %s: %v", repairID, err)
+		}
+	}()
 	c.JSON(http.StatusOK, gin.H{"message": "บันทึกการส่งซ่อมภายนอกสำเร็จ"})
 }
 
@@ -829,21 +928,43 @@ func EstimateRepair(c *gin.Context) {
 	}
 
 	var currentStatus string
-	database.DB.QueryRow("SELECT status FROM repairs WHERE id = $1", repairID).Scan(&currentStatus)
+	if err := database.DB.QueryRow("SELECT status FROM repairs WHERE id = $1", repairID).Scan(&currentStatus); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบรายการแจ้งซ่อม"})
+		return
+	}
 
 	var eqID *int
 	var basePrice float64
 	err := database.DB.QueryRow(`SELECT r.equipment_id, e.base_price FROM repairs r JOIN equipments e ON r.equipment_id = e.id WHERE r.id = $1`, repairID).Scan(&eqID, &basePrice)
 
-	if err != nil || eqID == nil {
-		database.DB.Exec(`UPDATE repairs SET estimated_cost = $1, status = 'กำลังซ่อม', accepted_at = CURRENT_TIMESTAMP WHERE id = $2`, req.EstimatedCost, repairID)
+	if err != nil && err != sql.ErrNoRows {
+		log.Printf("failed to load equipment for repair estimate %s: %v", repairID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถตรวจสอบข้อมูลอุปกรณ์เพื่อประเมินราคาได้"})
+		return
+	}
+
+	if err == sql.ErrNoRows || eqID == nil {
+		result, err := database.DB.Exec(`UPDATE repairs SET estimated_cost = $1, status = 'กำลังซ่อม', accepted_at = CURRENT_TIMESTAMP WHERE id = $2`, req.EstimatedCost, repairID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกราคาประเมินได้"})
+			return
+		}
+		if rows, err := result.RowsAffected(); err != nil || rows == 0 {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบรายการแจ้งซ่อม"})
+			return
+		}
 		insertRepairLog(repairID, req.TechID, "ESTIMATED", currentStatus, "กำลังซ่อม", fmt.Sprintf("ประเมินราคา: %.2f บาท (เริ่มซ่อมได้เลยไม่มีเงื่อนไข)", req.EstimatedCost))
+		go sendEstimateEmail(repairID, "กำลังซ่อม", "")
 		c.JSON(http.StatusOK, gin.H{"message": "บันทึกราคาประเมินสำเร็จ", "status": "กำลังซ่อม"})
 		return
 	}
 
 	var accumulatedCost float64
-	database.DB.QueryRow(`SELECT COALESCE(SUM(actual_cost), 0) FROM repairs WHERE equipment_id = $1 AND status = 'เสร็จเรียบร้อย'`, *eqID).Scan(&accumulatedCost)
+	if err := database.DB.QueryRow(`SELECT COALESCE(SUM(actual_cost), 0) FROM repairs WHERE equipment_id = $1 AND status = 'เสร็จเรียบร้อย'`, *eqID).Scan(&accumulatedCost); err != nil {
+		log.Printf("failed to calculate accumulated repair cost for repair %s: %v", repairID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถตรวจสอบต้นทุนสะสมของอุปกรณ์ได้"})
+		return
+	}
 
 	newStatus := "กำลังซ่อม"
 	adminSystemNote := ""
@@ -854,9 +975,17 @@ func EstimateRepair(c *gin.Context) {
 	if isSingleExceed || isAccumulatedExceed {
 		newStatus = "รอซ่อม"
 		adminSystemNote = fmt.Sprintf("แจ้งเตือน: ราคาประเมินรวมเกินจุดคุ้มทุน (ฐาน %v บาท)", basePrice)
-		database.DB.Exec(`UPDATE repairs SET estimated_cost = $1, status = $2, admin_note = $3, accepted_at = NULL WHERE id = $4`, req.EstimatedCost, newStatus, adminSystemNote, repairID)
+		if _, err := database.DB.Exec(`UPDATE repairs SET estimated_cost = $1, status = $2, admin_note = $3, accepted_at = NULL WHERE id = $4`, req.EstimatedCost, newStatus, adminSystemNote, repairID); err != nil {
+			log.Printf("failed to save threshold repair estimate %s: %v", repairID, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกราคาประเมินได้"})
+			return
+		}
 	} else {
-		database.DB.Exec(`UPDATE repairs SET estimated_cost = $1, status = $2, accepted_at = CURRENT_TIMESTAMP WHERE id = $3`, req.EstimatedCost, newStatus, repairID)
+		if _, err := database.DB.Exec(`UPDATE repairs SET estimated_cost = $1, status = $2, accepted_at = CURRENT_TIMESTAMP WHERE id = $3`, req.EstimatedCost, newStatus, repairID); err != nil {
+			log.Printf("failed to save repair estimate %s: %v", repairID, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกราคาประเมินได้"})
+			return
+		}
 	}
 
 	// 🔥 บันทึก Log การประเมินราคา
@@ -889,7 +1018,7 @@ func sendEstimateEmail(repairID string, newStatus string, adminSystemNote string
 		FROM repairs r LEFT JOIN users u ON r.technician_id = u.id WHERE r.id = $1`, repairID).
 		Scan(&reporterEmail, &description, &ticketNumber, &estimatedCost, &techEmail)
 	if err != nil {
-		fmt.Println("❌ sendEstimateEmail query error:", err)
+		log.Printf("failed to load estimate email details for repair %s: %v", repairID, err)
 		return
 	}
 
@@ -901,12 +1030,28 @@ func sendEstimateEmail(repairID string, newStatus string, adminSystemNote string
 			<p><strong>ราคาประเมินจากช่าง:</strong> %.2f บาท</p>
 			<div class="box-danger"><strong>แจ้งเตือนจุดคุ้มทุน:</strong><br>%s</div>
 			<p>กรุณาเข้าสู่ระบบเพื่อพิจารณาอนุมัติหรือไม่อนุมัติงานนี้</p>
-		`, ticketNumber, description, estimatedCost, adminSystemNote)
+		`, html.EscapeString(ticketNumber), html.EscapeString(description), estimatedCost, html.EscapeString(adminSystemNote))
 		subject := fmt.Sprintf("แจ้งเตือนจุดคุ้มทุน: งานรอพิจารณา (Ticket %s)", ticketNumber)
 		body := wrapEmail(colorDanger, "งานซ่อมเกินเกณฑ์จุดคุ้มทุน", bodyContent)
 
 		if err := sendAdminEmail(subject, body); err != nil {
-			fmt.Println("❌ ส่งอีเมล sendEstimateEmail (รอซ่อม) ไม่สำเร็จ:", err)
+			log.Printf("failed to email threshold approval request for repair %s: %v", repairID, err)
+		}
+		recipients := make([]string, 0, 2)
+		if reporterEmail != "" {
+			recipients = append(recipients, reporterEmail)
+		}
+		if techEmail != "" {
+			recipients = append(recipients, techEmail)
+		}
+		statusBody := fmt.Sprintf(`
+			<p><strong>หมายเลขใบแจ้ง:</strong> %s</p>
+			<p><strong>รายการ:</strong> %s</p>
+			<p><strong>ราคาประเมิน:</strong> %.2f บาท</p>
+			<div class="box-warning">งานอยู่ระหว่างรอผู้ดูแลระบบพิจารณาจุดคุ้มทุน กรุณารอผลอนุมัติก่อนดำเนินการต่อ</div>
+		`, html.EscapeString(ticketNumber), html.EscapeString(description), estimatedCost)
+		if err := utils.SendEmailNotification(recipients, fmt.Sprintf("งานซ่อมรออนุมัติงบ (%s)", ticketNumber), wrapEmail(colorWarning, "งานซ่อมรอผู้ดูแลระบบพิจารณา", statusBody)); err != nil {
+			log.Printf("failed to email threshold pending status to reporter and technician for repair %s: %v", repairID, err)
 		}
 	} else {
 		// 🟢 ไม่เกินจุดคุ้มทุน -> แจ้งผู้แจ้ง + แจ้งกลุ่มภายใน (Admin + ช่าง)
@@ -916,13 +1061,15 @@ func sendEstimateEmail(repairID string, newStatus string, adminSystemNote string
 			bodyContent := fmt.Sprintf(`
 				<p><strong>หมายเลขใบแจ้ง:</strong> %s</p>
 				<p><strong>รายการ:</strong> %s</p>
-			`, ticketNumber, description)
+			`, html.EscapeString(ticketNumber), html.EscapeString(description))
 			subject := fmt.Sprintf("ช่างเริ่มดำเนินการซ่อมแล้ว (Ticket %s)", ticketNumber)
 			body := wrapEmail(colorInfo, "ช่างได้ประเมินราคาและเริ่มดำเนินการซ่อมแล้ว", bodyContent)
 
 			if err := utils.SendEmailNotification([]string{reporterEmail}, subject, body); err != nil {
-				fmt.Println("❌ ส่งอีเมลผู้แจ้ง (กำลังซ่อม) ไม่สำเร็จ:", err)
+				log.Printf("failed to email estimate update to reporter for repair %s: %v", repairID, err)
 			}
+		} else {
+			log.Printf("cannot email estimate update for repair %s: reporter has no email address", repairID)
 		}
 
 		// 2. ✨ [เพิ่มใหม่] ส่งหา Admin + ช่าง ยืนยันการรับงานและเริ่มซ่อม
@@ -934,12 +1081,12 @@ func sendEstimateEmail(repairID string, newStatus string, adminSystemNote string
 			<p><strong>หมายเลขใบแจ้ง:</strong> %s</p>
 			<p><strong>รายการ:</strong> %s</p>
 			<p>สถานะปัจจุบัน: <b>กำลังซ่อม</b> (ราคาประเมินผ่านเกณฑ์จุดคุ้มทุนเรียบร้อยแล้ว)</p>
-		`, ticketNumber, description)
+		`, html.EscapeString(ticketNumber), html.EscapeString(description))
 		internalSubject := fmt.Sprintf("ยืนยันการเริ่มซ่อม (Ticket %s)", ticketNumber)
 		internalBody := wrapEmail(colorInfo, "ช่างรับงานและเริ่มดำเนินการซ่อมแล้ว", internalBodyContent)
 
 		if err := utils.SendEmailNotification(internalRecipients, internalSubject, internalBody); err != nil {
-			fmt.Println("❌ ส่งอีเมล admin+ช่าง (เริ่มซ่อม) ไม่สำเร็จ:", err)
+			log.Printf("failed to email estimate update to admins and technician for repair %s: %v", repairID, err)
 		}
 	}
 }
@@ -957,7 +1104,10 @@ func ApproveRepairThreshold(c *gin.Context) {
 	c.ShouldBindJSON(&req) // ดึง admin_id ถ้าหน้าเว็บส่งมา
 
 	var currentStatus string
-	database.DB.QueryRow("SELECT status FROM repairs WHERE id = $1", repairID).Scan(&currentStatus)
+	if err := database.DB.QueryRow("SELECT status FROM repairs WHERE id = $1", repairID).Scan(&currentStatus); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบรายการแจ้งซ่อม"})
+		return
+	}
 
 	_, err := database.DB.Exec(`
 		UPDATE repairs 
@@ -974,17 +1124,25 @@ func ApproveRepairThreshold(c *gin.Context) {
 	insertRepairLog(repairID, req.AdminID, "APPROVED", currentStatus, "กำลังซ่อม", "Admin อนุมัติให้ซ่อมงานที่เกินจุดคุ้มทุนได้")
 
 	go func() {
-		var description, ticketNumber, techEmail string
+		var description, ticketNumber, techEmail, reporterEmail string
 		var estimatedCost float64
-		database.DB.QueryRow(`
-			SELECT r.description, r.ticket_number, r.estimated_cost, COALESCE(u.email, '')
+		if err := database.DB.QueryRow(`
+			SELECT r.description, r.ticket_number, r.estimated_cost, COALESCE(u.email, ''), r.reporter_email
 			FROM repairs r LEFT JOIN users u ON r.technician_id = u.id WHERE r.id = $1`, repairID).
-			Scan(&description, &ticketNumber, &estimatedCost, &techEmail)
+			Scan(&description, &ticketNumber, &estimatedCost, &techEmail, &reporterEmail); err != nil {
+			log.Printf("failed to load repair approval email details for %s: %v", repairID, err)
+			return
+		}
+		recipients := make([]string, 0, 2)
 		if techEmail != "" {
-			bodyContent := fmt.Sprintf(`<p><strong>หมายเลขใบแจ้ง:</strong> %s</p><p><strong>รายการ:</strong> %s</p><p><strong>ราคาประเมินที่อนุมัติ:</strong> %.2f บาท</p><p>ผู้ดูแลระบบอนุมัติงบแล้ว กรุณาเข้าดำเนินการซ่อมต่อ</p>`, ticketNumber, description, estimatedCost)
-			if err := utils.SendEmailNotification([]string{techEmail}, fmt.Sprintf("อนุมัติงานซ่อมแล้ว (Ticket %s)", ticketNumber), wrapEmail(colorSuccess, "อนุมัติให้ดำเนินการซ่อมต่อ", bodyContent)); err != nil {
-				log.Printf("failed to email repair approval to technician for repair %s: %v", repairID, err)
-			}
+			recipients = append(recipients, techEmail)
+		}
+		if reporterEmail != "" {
+			recipients = append(recipients, reporterEmail)
+		}
+		bodyContent := fmt.Sprintf(`<p><strong>หมายเลขใบแจ้ง:</strong> %s</p><p><strong>รายการ:</strong> %s</p><p><strong>ราคาประเมินที่อนุมัติ:</strong> %.2f บาท</p><p>ผู้ดูแลระบบอนุมัติงบแล้ว ช่างสามารถดำเนินการซ่อมต่อได้</p>`, html.EscapeString(ticketNumber), html.EscapeString(description), estimatedCost)
+		if err := utils.SendEmailNotification(recipients, fmt.Sprintf("อนุมัติงานซ่อมแล้ว (Ticket %s)", ticketNumber), wrapEmail(colorSuccess, "อนุมัติให้ดำเนินการซ่อมต่อ", bodyContent)); err != nil {
+			log.Printf("failed to email repair approval update to technician and reporter for repair %s: %v", repairID, err)
 		}
 	}()
 

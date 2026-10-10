@@ -74,7 +74,6 @@ func SetupRoutes(r *gin.Engine) {
 		api.GET("/departments", userHandler.GetDepartments)
 		// ดึงประวัติการแจ้งซ่อม (Timeline)
 		api.GET("/repairs/:id/logs", repairHandler.GetRepairLogs)
-
 		dashboard := api.Group("/admin/dashboard")
 		{
 			// ใช้สำหรับดึงข้อมูลสถิติเอามาไว้ในหน้า Dashboard

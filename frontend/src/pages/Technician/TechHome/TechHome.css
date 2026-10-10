@@ -451,6 +451,8 @@
 
   .header-actions {
     flex-shrink: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 
   .btn-logout {
@@ -480,4 +482,5 @@
   .modal-actions {
     flex-direction: column;
   }
+
 }

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"os" // 🛠️ เพิ่มแพ็กเกจ os สำหรับดึง Environment Variable
-	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -13,6 +12,7 @@ import (
 
 	"backend/database"
 	"backend/routes"
+	"backend/utils"
 )
 
 func main() {
@@ -22,14 +22,8 @@ func main() {
 		fmt.Println("No .env file found (using system env)")
 	}
 
-	missingSMTPSettings := make([]string, 0, 4)
-	for _, name := range []string{"SMTP_HOST", "SMTP_PORT", "SMTP_SENDER", "SMTP_PASSWORD"} {
-		if strings.TrimSpace(os.Getenv(name)) == "" {
-			missingSMTPSettings = append(missingSMTPSettings, name)
-		}
-	}
-	if len(missingSMTPSettings) > 0 {
-		log.Printf("email notifications are not configured; missing environment variables: %s", strings.Join(missingSMTPSettings, ", "))
+	if err := utils.ValidateSMTPConfiguration(); err != nil {
+		log.Printf("email notifications are unavailable: %v; configure SMTP variables on the Railway backend service and redeploy", err)
 	}
 
 	for {

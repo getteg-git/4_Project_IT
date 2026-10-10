@@ -638,6 +638,38 @@
   box-sizing: border-box;
 }
 
+.admin-manage-container .modal-box.revoke-modal-box {
+  width: min(calc(100vw - 40px), 620px);
+  max-width: 620px;
+  box-sizing: border-box;
+}
+
+.revoke-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #b45309;
+}
+
+.revoke-modal-help {
+  color: #475569;
+  line-height: 1.6;
+  margin: 0 0 18px;
+}
+
+.revoke-modal-box .modal-actions {
+  margin-top: 20px;
+}
+
+.btn-submit-revoke {
+  background: #b45309;
+  color: white;
+}
+
+.btn-submit-revoke:hover:not(:disabled) {
+  background: #92400e;
+}
+
 .admin-manage-container .reject-modal-box .reject-textarea {
   min-height: 190px;
   padding: 16px;

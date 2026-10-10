@@ -22,31 +22,14 @@ func SendEmailNotification(toRecipients []string, subject string, bodyHTML strin
 	sender := strings.TrimSpace(os.Getenv("SMTP_SENDER"))
 	password := strings.TrimSpace(os.Getenv("SMTP_PASSWORD"))
 
-	missing := make([]string, 0, 4)
-	for name, value := range map[string]string{
-		"SMTP_HOST":     host,
-		"SMTP_PORT":     port,
-		"SMTP_SENDER":   sender,
-		"SMTP_PASSWORD": password,
-	} {
-		if value == "" {
-			missing = append(missing, name)
-		}
-	}
-	if len(missing) > 0 {
-		return fmt.Errorf("email is not configured: missing %s", strings.Join(missing, ", "))
+	if err := ValidateSMTPConfiguration(); err != nil {
+		return err
 	}
 
-	portNumber, err := strconv.Atoi(port)
-	if err != nil || portNumber < 1 || portNumber > 65535 {
-		return fmt.Errorf("invalid SMTP_PORT: expected a port number from 1 to 65535")
-	}
-
-	senderAddress, err := mail.ParseAddress(sender)
-	if err != nil {
-		return fmt.Errorf("invalid SMTP_SENDER: %w", err)
-	}
+	portNumber, _ := strconv.Atoi(port)
+	senderAddress, _ := mail.ParseAddress(sender)
 	recipients := make([]string, 0, len(toRecipients))
+	seenRecipients := make(map[string]struct{}, len(toRecipients))
 	for _, recipient := range toRecipients {
 		recipient = strings.TrimSpace(recipient)
 		if recipient == "" {
@@ -56,6 +39,11 @@ func SendEmailNotification(toRecipients []string, subject string, bodyHTML strin
 		if parseErr != nil {
 			return fmt.Errorf("invalid email recipient %q: %w", recipient, parseErr)
 		}
+		key := strings.ToLower(parsed.Address)
+		if _, exists := seenRecipients[key]; exists {
+			continue
+		}
+		seenRecipients[key] = struct{}{}
 		recipients = append(recipients, parsed.Address)
 	}
 	if len(recipients) == 0 {
@@ -87,10 +75,11 @@ func SendEmailNotification(toRecipients []string, subject string, bodyHTML strin
 	defer client.Close()
 
 	if portNumber != 465 {
-		if supported, _ := client.Extension("STARTTLS"); supported {
-			if err := client.StartTLS(tlsConfig); err != nil {
-				return fmt.Errorf("start TLS with SMTP server: %w", err)
-			}
+		if supported, _ := client.Extension("STARTTLS"); !supported {
+			return fmt.Errorf("SMTP server does not support STARTTLS; use port 465 for implicit TLS or a TLS-enabled SMTP provider")
+		}
+		if err := client.StartTLS(tlsConfig); err != nil {
+			return fmt.Errorf("start TLS with SMTP server: %w", err)
 		}
 	}
 
@@ -123,6 +112,38 @@ func SendEmailNotification(toRecipients []string, subject string, bodyHTML strin
 	return nil
 }
 
+func ValidateSMTPConfiguration() error {
+	host := strings.TrimSpace(os.Getenv("SMTP_HOST"))
+	port := strings.TrimSpace(os.Getenv("SMTP_PORT"))
+	sender := strings.TrimSpace(os.Getenv("SMTP_SENDER"))
+	password := strings.TrimSpace(os.Getenv("SMTP_PASSWORD"))
+
+	missing := make([]string, 0, 4)
+	for name, value := range map[string]string{
+		"SMTP_HOST":     host,
+		"SMTP_PORT":     port,
+		"SMTP_SENDER":   sender,
+		"SMTP_PASSWORD": password,
+	} {
+		if value == "" {
+			missing = append(missing, name)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("email is not configured: missing %s", strings.Join(missing, ", "))
+	}
+
+	portNumber, err := strconv.Atoi(port)
+	if err != nil || portNumber < 1 || portNumber > 65535 {
+		return fmt.Errorf("invalid SMTP_PORT: expected a port number from 1 to 65535")
+	}
+
+	if _, err := mail.ParseAddress(sender); err != nil {
+		return fmt.Errorf("invalid SMTP_SENDER: %w", err)
+	}
+	return nil
+}
+
 func buildEmailMessage(sender *mail.Address, recipients []string, subject, bodyHTML string) string {
 	displayName := "ระบบแจ้งซ่อม SC-SCI"
 	from := mimeHeader(displayName) + " <" + sender.Address + ">"
@@ -138,7 +159,7 @@ func buildEmailMessage(sender *mail.Address, recipients []string, subject, bodyH
 	wrappedBody.WriteString(encodedBody)
 
 	return "From: " + from + "\r\n" +
-		"To: " + strings.Join(recipients, ", ") + "\r\n" +
+		"To: undisclosed-recipients:;\r\n" +
 		"Subject: " + encodedSubject + "\r\n" +
 		"MIME-Version: 1.0\r\n" +
 		"Content-Type: text/html; charset=UTF-8\r\n" +

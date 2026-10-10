@@ -69,6 +69,10 @@ function AdminManage() {
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [rejectTargetId, setRejectTargetId] = useState(null);
+  const [isRevokeModalOpen, setIsRevokeModalOpen] = useState(false);
+  const [revokeReason, setRevokeReason] = useState("");
+  const [revokeTargetId, setRevokeTargetId] = useState(null);
+  const [isRevoking, setIsRevoking] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -282,6 +286,9 @@ function AdminManage() {
     repair.status === "รอซ่อม" &&
     repair.admin_note &&
     repair.admin_note.trim() !== "";
+
+  const needsBudgetApproval = (repair) =>
+    isReviewRepair(repair) && Boolean(repair.technician_id);
 
   const unassignedRepairs = filteredRepairs.filter(
     (repair) =>
@@ -573,20 +580,25 @@ function AdminManage() {
   // ==============================
   // ดึงงานกลับ
   // ==============================
-  const handleRevoke = async (id) => {
-    const confirmRevoke = await confirm({
-      title: "ดึงงานกลับ",
-      description:
-        "งานซ่อมนี้จะกลับสู่สถานะรอซ่อม และช่างจะไม่สามารถดำเนินการต่อได้",
-      confirmLabel: "ดึงงานกลับ",
-      variant: "danger",
-    });
+  const handleRevoke = (id) => {
+    setRevokeTargetId(id);
+    setRevokeReason("");
+    setIsRevokeModalOpen(true);
+  };
 
-    if (!confirmRevoke) return;
+  const submitRevoke = async (e) => {
+    e.preventDefault();
+    if (!revokeReason.trim()) {
+      toast.warning("กรุณาระบุเหตุผล", {
+        description: "ช่างจะเห็นเหตุผลนี้ในกล่องข้อความแจ้งเตือน",
+      });
+      return;
+    }
 
+    setIsRevoking(true);
     try {
       const response = await fetch(
-        `https://4projectit-production.up.railway.app/api/repairs/${id}/revoke`,
+        `https://4projectit-production.up.railway.app/api/repairs/${revokeTargetId}/revoke`,
         {
           method: "PUT",
           headers: {
@@ -594,7 +606,7 @@ function AdminManage() {
               "application/x-www-form-urlencoded",
           },
           body: new URLSearchParams({
-            rejection_reason: "Admin เป็นผู้ดึงงานกลับ",
+            rejection_reason: revokeReason.trim(),
             admin_id: "1",
           }),
         }
@@ -602,17 +614,24 @@ function AdminManage() {
 
       if (response.ok) {
         toast.success("ดึงงานกลับสำเร็จ", {
-          description: "สถานะงานกลับเป็นรอซ่อมแล้ว",
+          description: "บันทึกเหตุผลและส่งข้อความแจ้งช่างแล้ว",
         });
 
+        setIsRevokeModalOpen(false);
         fetchData();
       } else {
+        const errorData = await response.json();
         toast.error("ดึงงานกลับไม่สำเร็จ", {
-          description: "กรุณาลองใหม่อีกครั้ง",
+          description: errorData.error || "กรุณาลองใหม่อีกครั้ง",
         });
       }
     } catch (error) {
       console.error("Revoke Error:", error);
+      toast.error("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้", {
+        description: "ดึงงานกลับไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+      });
+    } finally {
+      setIsRevoking(false);
     }
   };
 
@@ -1019,10 +1038,8 @@ function AdminManage() {
                   </div>
                 )}
 
-                {repair.status === "รอซ่อม" &&
-                  repair.technician_name &&
-                  ((repair.admin_note?.includes("จุดคุ้มทุน") ||
-                    repair.admin_note?.includes("ระบบหยุดงานอัตโนมัติ")) ? (
+                {isReviewRepair(repair) &&
+                  (needsBudgetApproval(repair) ? (
                     <div className="threshold-approval-box">
                       <div>
                         <p className="admin-warning-note">
@@ -1030,7 +1047,7 @@ function AdminManage() {
                             size={17}
                             aria-hidden="true"
                           />{" "}
-                          ราคาประเมินเกินเกณฑ์จุดคุ้มทุน ระบบหยุดงานชั่วคราวเพื่อรอการพิจารณาอนุมัติงบจากผู้ดูแลระบบ
+                          {repair.admin_note}
                         </p>
 
                         <p>
@@ -1079,21 +1096,24 @@ function AdminManage() {
                       </div>
                     </div>
                   ) : (
-                    <div
-                      className="waiting-assignment"
-                      role="status"
-                    >
-                      <Clock3
-                        size={18}
-                        aria-hidden="true"
-                      />
-
-                      <span>
-                        <strong>มอบหมายแล้ว</strong>
-                        <small>
-                          กำลังรอช่างกดรับงาน
-                        </small>
-                      </span>
+                    <div className="threshold-approval-box">
+                      <p className="admin-warning-note">
+                        <AlertTriangle size={17} aria-hidden="true" />{" "}
+                        {repair.admin_note}
+                      </p>
+                      {repair.status === "รอซ่อม" && !repair.technician_id ? (
+                        <p className="repair-info">
+                          ยังไม่มีช่างที่รับผิดชอบ จึงยังไม่สามารถอนุมัติให้เริ่มซ่อมได้
+                        </p>
+                      ) : (
+                        <div className="waiting-assignment" role="status">
+                          <Clock3 size={18} aria-hidden="true" />
+                          <span>
+                            <strong>มอบหมายแล้ว</strong>
+                            <small>กำลังรอช่างกดรับงาน</small>
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ))}
 
@@ -1201,7 +1221,9 @@ function AdminManage() {
                       </>
                     )}
 
-                    {repair.status === "กำลังซ่อม" && (
+                    {repair.technician_id &&
+                      ["รอซ่อม", "รับงานแล้ว", "กำลังซ่อม"].includes(repair.status) &&
+                      !isReviewRepair(repair) && (
                       <button
                         className="btn-revoke"
                         onClick={() =>
@@ -1789,6 +1811,70 @@ function AdminManage() {
                   {isOutsourceSubmitting
                     ? "กำลังบันทึก..."
                     : "ยืนยันส่งซ่อมภายนอก"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isRevokeModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-box revoke-modal-box">
+            <button
+              className="close-btn"
+              type="button"
+              disabled={isRevoking}
+              onClick={() => setIsRevokeModalOpen(false)}
+              aria-label="ปิดหน้าต่าง"
+            >
+              <X aria-hidden="true" />
+            </button>
+
+            <h3 className="assign-modal-title revoke-modal-title">
+              <RotateCcw size={22} aria-hidden="true" />{" "}
+              ดึงงานกลับจากช่าง
+            </h3>
+            <p className="assign-modal-subtitle">
+              Ticket:{" "}
+              {repairs.find((repair) => repair.id === revokeTargetId)?.ticket_number ||
+                `#${revokeTargetId}`}
+            </p>
+            <p className="revoke-modal-help">
+              ระบุสาเหตุเพื่อให้ช่างทราบ ระบบจะส่งข้อความนี้ไปยังกล่องข้อความแจ้งเตือนของช่าง
+            </p>
+
+            <form onSubmit={submitRevoke}>
+              <div className="input-group">
+                <label htmlFor="revoke-reason">
+                  เหตุผลที่ดึงงานกลับ <span className="required">*</span>
+                </label>
+                <textarea
+                  id="revoke-reason"
+                  className="reject-textarea"
+                  placeholder="เช่น มอบหมายผิดความถนัด ต้องปรับเปลี่ยนผู้รับผิดชอบ..."
+                  value={revokeReason}
+                  onChange={(e) => setRevokeReason(e.target.value)}
+                  required
+                  maxLength={1000}
+                />
+              </div>
+              <div className="modal-actions assign-actions">
+                <button
+                  type="button"
+                  className="btn-cancel"
+                  disabled={isRevoking}
+                  onClick={() => setIsRevokeModalOpen(false)}
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  className="btn-submit btn-submit-revoke"
+                  disabled={isRevoking || !revokeReason.trim()}
+                >
+                  <RotateCcw size={18} aria-hidden="true" />{" "}
+                  {isRevoking ? "กำลังดึงงานกลับ..." : "ยืนยันดึงงานกลับ"}
                 </button>
               </div>
             </form>
