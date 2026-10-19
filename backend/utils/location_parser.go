@@ -44,13 +44,14 @@ func ParseSmartLocation(rawText string) ParsedLocation {
 	reRoom := regexp.MustCompile(`ห้อง\s*([0-9A-Za-z/.-]+)`)
 	matchRoom := reRoom.FindStringSubmatch(rawText)
 	if len(matchRoom) > 1 {
-		loc.Room = matchRoom[1]
+		// ถ้าเจอคำว่าห้อง ให้จัดรูปเป็น "ห้อง " ตามด้วยเลขห้อง
+		loc.Room = "ห้อง " + strings.TrimSpace(matchRoom[1])
 	} else {
-		// ถ้าไม่มีคำว่าห้อง ลองหาตัวเลข 3-4 หลักที่โผล่มาโดดๆ
+		// ถ้าไม่มีคำว่าห้อง แต่เจอตัวเลข 3-4 หลัก ให้เติม "ห้อง " นำหน้าให้อัตโนมัติ
 		reNumbersOnly := regexp.MustCompile(`\b([0-9]{3,4}[/0-9]*)\b`)
 		matchNum := reNumbersOnly.FindStringSubmatch(rawText)
 		if len(matchNum) > 1 {
-			loc.Room = matchNum[1]
+			loc.Room = "ห้อง " + strings.TrimSpace(matchNum[1])
 		}
 	}
 
