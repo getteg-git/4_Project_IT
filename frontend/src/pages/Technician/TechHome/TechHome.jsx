@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import AppBreadcrumb from "../../../components/AppBreadcrumb";
 import RepairImageGallery from "../../../components/RepairImageGallery";
 import {
   Banknote,
+  Camera,
   CalendarDays,
   CircleCheck,
   CircleX,
@@ -11,8 +12,10 @@ import {
   Clock3,
   Eye,
   FileText,
+  Image as ImageIcon,
   LogOut,
   Save,
+  Trash2,
   Wrench,
   X,
   Clock
@@ -48,7 +51,11 @@ function TechHome() {
   const [closeType, setCloseType] = useState("");
   const [techDetail, setTechDetail] = useState("");
   const [actualCost, setActualCost] = useState("");
+  const [completionImages, setCompletionImages] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const imagePickerRef = useRef(null);
+  const cameraPickerRef = useRef(null);
+  const completionImageUrlsRef = useRef(new Set());
 
   // States สำหรับ Modal ประเมินราคา
   const [estimateModalOpen, setEstimateModalOpen] = useState(false);
@@ -57,6 +64,11 @@ function TechHome() {
   const [isStartingRepair, setIsStartingRepair] = useState(false);
   const [estimateBasePrice, setEstimateBasePrice] = useState(null);
   const [priceCheckStatus, setPriceCheckStatus] = useState("idle");
+
+  useEffect(() => () => {
+    completionImageUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    completionImageUrlsRef.current.clear();
+  }, []);
 
   const fetchMyJobs = async (user) => {
     try {
@@ -256,28 +268,11 @@ function TechHome() {
       ? null
       : Number(repair.base_price);
 
-    if (repair.asset_code) {
-      try {
-        const response = await fetch(
-          "https://4projectit-production.up.railway.app/api/admin/dashboard/breakeven"
-        );
-        if (!response.ok) throw new Error("ไม่สามารถโหลดข้อมูลจุดคุ้มทุนได้");
-
-        const equipmentBudgets = await response.json();
-        const equipment = equipmentBudgets.find(
-          (item) => String(item.asset_code).trim() === String(repair.asset_code).trim()
-        );
-        if (!equipment) throw new Error("ไม่พบข้อมูลครุภัณฑ์ของงานนี้");
-
-        basePrice = Number(equipment.base_price);
-        if (!Number.isFinite(basePrice)) throw new Error("ราคาทุนครุภัณฑ์ไม่ถูกต้อง");
-      } catch (error) {
-        console.error("Load repair budget Error:", error);
-        toast.error("โหลดเพดานราคาประเมินไม่สำเร็จ", {
-          description: "ไม่สามารถเริ่มงานได้ กรุณาลองใหม่อีกครั้ง",
-        });
-        return;
-      }
+    if (basePrice !== null && !Number.isFinite(basePrice)) {
+      toast.error("โหลดเพดานราคาประเมินไม่สำเร็จ", {
+        description: "ราคาทุนครุภัณฑ์ไม่ถูกต้อง กรุณาติดต่อผู้ดูแลระบบ",
+      });
+      return;
     }
 
     setEstimateTicketId(repair.id);
@@ -428,7 +423,18 @@ function TechHome() {
   };
 
   // ปิดงานซ่อม
+  const clearCompletionImages = () => {
+    completionImages.forEach(({ previewUrl }) => {
+      URL.revokeObjectURL(previewUrl);
+      completionImageUrlsRef.current.delete(previewUrl);
+    });
+    setCompletionImages([]);
+    if (imagePickerRef.current) imagePickerRef.current.value = "";
+    if (cameraPickerRef.current) cameraPickerRef.current.value = "";
+  };
+
   const openCloseModal = (id, type) => {
+    clearCompletionImages();
     setCurrentTicket(id);
     setCloseType(type);
     setTechDetail("");
@@ -436,8 +442,61 @@ function TechHome() {
     setModalOpen(true);
   };
 
+  const handleCompletionImageSelection = (event) => {
+    const selectedFiles = Array.from(event.target.files || []);
+    event.target.value = "";
+
+    const validFiles = selectedFiles.filter((file) => {
+      if (!file.type.startsWith("image/")) {
+        toast.warning("เลือกได้เฉพาะไฟล์รูปภาพ");
+        return false;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        toast.warning("ไฟล์รูปภาพมีขนาดใหญ่เกินไป", {
+          description: `ไฟล์ "${file.name}" ต้องมีขนาดไม่เกิน 10 MB`,
+        });
+        return false;
+      }
+      return true;
+    });
+    const uniqueFiles = validFiles.filter((file) =>
+      !completionImages.some((image) =>
+        image.file.name === file.name &&
+        image.file.size === file.size &&
+        image.file.lastModified === file.lastModified
+      )
+    );
+    const remainingSlots = 10 - completionImages.length;
+    const filesToAdd = uniqueFiles.slice(0, remainingSlots);
+
+    if (uniqueFiles.length > remainingSlots) {
+      toast.warning("แนบรูปได้สูงสุด 10 รูป");
+    }
+
+    if (filesToAdd.length > 0) {
+      const imagesToAdd = filesToAdd.map((file) => {
+        const previewUrl = URL.createObjectURL(file);
+        completionImageUrlsRef.current.add(previewUrl);
+        return { file, previewUrl };
+      });
+      setCompletionImages((current) => [...current, ...imagesToAdd]);
+    }
+  };
+
+  const removeCompletionImage = (index) => {
+    const image = completionImages[index];
+    if (!image) return;
+    URL.revokeObjectURL(image.previewUrl);
+    completionImageUrlsRef.current.delete(image.previewUrl);
+    setCompletionImages((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  };
+
   const handleSubmitClose = async (e) => {
     e.preventDefault();
+    if (completionImages.length === 0) {
+      toast.warning("กรุณาแนบรูปภาพประกอบอย่างน้อย 1 รูป");
+      return;
+    }
     setIsSubmitting(true);
 
     const newStatus =
@@ -456,6 +515,7 @@ function TechHome() {
     formData.append("technician_note", techDetail);
     formData.append("actual_cost", costValue);
     formData.append("technician_id", currentUser.id);
+    completionImages.forEach(({ file }) => formData.append("image", file));
 
     try {
       const response = await fetch(
@@ -472,6 +532,7 @@ function TechHome() {
         });
 
         setModalOpen(false);
+        clearCompletionImages();
         fetchMyJobs(currentUser);
       } else {
         const errorData = await response.json();
@@ -1207,13 +1268,14 @@ function TechHome() {
       {/* POPUP 3: ปิดงาน */}
       {modalOpen && (
         <div className="modal-overlay">
-          <div className="modal-box">
+          <div className="modal-box completion-modal-box">
             <button
               className="close-btn"
               type="button"
-              onClick={() =>
-                setModalOpen(false)
-              }
+              onClick={() => {
+                setModalOpen(false);
+                clearCompletionImages();
+              }}
               aria-label="ปิดหน้าต่าง"
             >
               <X aria-hidden="true" />
@@ -1314,6 +1376,70 @@ function TechHome() {
                 ></textarea>
               </div>
 
+              <div className="input-group">
+                <label>
+                  <Camera size={17} aria-hidden="true" /> รูปถ่ายหลังดำเนินการ
+                  <span className="required"> *</span>
+                </label>
+                <p className="completion-image-hint">
+                  แนบอย่างน้อย 1 รูป สูงสุด 10 รูป (ไม่เกิน 10 MB ต่อรูป) เพื่อยืนยันผลการซ่อมหรือสาเหตุที่ซ่อมไม่ได้
+                </p>
+                <div className="completion-image-actions">
+                  <button
+                    type="button"
+                    className="completion-image-picker"
+                    onClick={() => imagePickerRef.current?.click()}
+                  >
+                    <ImageIcon size={18} aria-hidden="true" /> เลือกหลายรูป
+                  </button>
+                  <button
+                    type="button"
+                    className="completion-camera-picker"
+                    onClick={() => cameraPickerRef.current?.click()}
+                  >
+                    <Camera size={18} aria-hidden="true" /> ถ่ายรูป
+                  </button>
+                </div>
+                <input
+                  ref={imagePickerRef}
+                  className="completion-image-input"
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleCompletionImageSelection}
+                  aria-label="เลือกรูปภาพหลายรูป"
+                />
+                <input
+                  ref={cameraPickerRef}
+                  className="completion-image-input"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleCompletionImageSelection}
+                  aria-label="ถ่ายรูปด้วยกล้อง"
+                />
+                {completionImages.length > 0 && (
+                  <div className="completion-image-preview-grid">
+                    {completionImages.map(({ file, previewUrl }, index) => (
+                      <div className="completion-image-preview" key={`${file.name}-${file.lastModified}-${index}`}>
+                        <img src={previewUrl} alt={`รูปประกอบ ${index + 1}: ${file.name}`} />
+                        <span title={file.name}>{file.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeCompletionImage(index)}
+                          aria-label={`ลบรูป ${file.name}`}
+                        >
+                          <Trash2 size={16} aria-hidden="true" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="completion-image-count" aria-live="polite">
+                  เลือกแล้ว {completionImages.length}/10 รูป
+                </p>
+              </div>
+
               <div className="modal-actions">
                 <button
                   type="submit"
@@ -1345,6 +1471,8 @@ function TechHome() {
       {/* POPUP 4: Timeline */}
       <RepairTimelineModal
         repairId={selectedRepair?.id}
+        images={selectedRepair?.images}
+        ticketLabel={selectedRepair?.ticket_number || `#${selectedRepair?.id}`}
         isOpen={isTimelineOpen}
         onClose={() => {
           setIsTimelineOpen(false);

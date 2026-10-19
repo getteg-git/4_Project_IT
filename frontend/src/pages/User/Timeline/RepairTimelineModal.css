@@ -85,6 +85,32 @@
   flex: 1; /* ยืดหดตามเนื้อหาแต่ไม่เกิน max-height */
 }
 
+.timeline-repair-images {
+  margin: 0 0 22px;
+  padding: 14px;
+  border: 1px solid #dce8e1;
+  border-radius: 12px;
+  background: #f8fbf9;
+}
+
+.timeline-repair-images h4 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 12px;
+  color: #16634c;
+  font-size: 0.98rem;
+}
+
+.timeline-repair-images .repair-image-gallery {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 130px), 1fr));
+  gap: 9px;
+}
+
+.timeline-repair-images .repair-image-thumbnail {
+  height: 128px;
+}
+
 .loading-state, .error-state, .no-data {
   text-align: center;
   padding: 30px 0;

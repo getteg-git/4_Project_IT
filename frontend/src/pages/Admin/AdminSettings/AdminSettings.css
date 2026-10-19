@@ -147,6 +147,32 @@
   max-width: 460px;
 }
 
+.admin-settings-container .users-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.8fr) auto;
+  align-items: end;
+  gap: 14px;
+}
+
+.admin-settings-container .users-toolbar .search-section {
+  min-width: 0;
+  max-width: none;
+}
+
+.admin-settings-container .users-filter-section {
+  min-width: 0;
+}
+
+.admin-settings-container .users-filter-section label {
+  font-size: 0.82rem;
+  line-height: normal;
+}
+
+.admin-settings-container .users-filter-section select {
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .admin-settings-container .btn-create-user,
 .admin-settings-container .btn-create-location,
 .admin-settings-container .btn-create-problem,
@@ -392,6 +418,7 @@
   .admin-settings-container .locations-toolbar,
   .admin-settings-container .problems-toolbar,
   .admin-settings-container .equipments-toolbar {
+    display: flex;
     align-items: stretch;
     flex-direction: column;
   }
@@ -434,5 +461,15 @@
   .admin-settings-container .location-actions,
   .admin-settings-container .problem-actions {
     width: 100%;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 960px) {
+  .admin-settings-container .users-toolbar {
+    grid-template-columns: minmax(0, 1fr) minmax(210px, 0.8fr);
+  }
+
+  .admin-settings-container .users-toolbar .btn-create-user {
+    grid-column: 1 / -1;
   }
 }

@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { X, Clock, CheckCircle2, AlertCircle, PlayCircle, Ban } from "lucide-react";
+import { X, Clock, CheckCircle2, AlertCircle, PlayCircle, Ban, Camera } from "lucide-react";
+import RepairImageGallery from "../../../components/RepairImageGallery";
+import Pagination from "../../../components/ui/Pagination";
+import { getPageItems } from "../../../components/ui/paginationUtils";
 import "./RepairTimelineModal.css"; // เดี๋ยว CSS เราค่อยทำทีหลัง
 
-function RepairTimelineModal({ repairId, isOpen, onClose }) {
+function RepairTimelineModal({ repairId, isOpen, onClose, images = [], ticketLabel }) {
   const [logs, setLogs] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -13,6 +17,7 @@ function RepairTimelineModal({ repairId, isOpen, onClose }) {
     const fetchLogs = async () => {
       setIsLoading(true);
       setError(null);
+      setCurrentPage(1);
       try {
         const response = await fetch(`https://4projectit-production.up.railway.app/api/repairs/${repairId}/logs`);
         if (response.ok) {
@@ -21,7 +26,7 @@ function RepairTimelineModal({ repairId, isOpen, onClose }) {
         } else {
           setError("ไม่สามารถดึงข้อมูลประวัติได้");
         }
-      } catch (err) {
+      } catch {
         setError("เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
       } finally {
         setIsLoading(false);
@@ -53,6 +58,8 @@ function RepairTimelineModal({ repairId, isOpen, onClose }) {
     }
   };
 
+  const paginatedLogs = getPageItems(logs, currentPage);
+
   return (
     <div className="modal-overlay">
       <div className="modal-box timeline-box">
@@ -65,6 +72,15 @@ function RepairTimelineModal({ repairId, isOpen, onClose }) {
         <hr />
 
         <div className="timeline-content">
+          {images.length > 0 && (
+            <section className="timeline-repair-images" aria-label="ภาพประกอบงานซ่อม">
+              <h4><Camera size={17} aria-hidden="true" /> ภาพประกอบงานซ่อม</h4>
+              <RepairImageGallery
+                images={images}
+                ticketLabel={ticketLabel || `#${repairId}`}
+              />
+            </section>
+          )}
           {isLoading ? (
             <div className="loading-state">กำลังโหลดประวัติ...</div>
           ) : error ? (
@@ -73,12 +89,12 @@ function RepairTimelineModal({ repairId, isOpen, onClose }) {
             <div className="no-data">ไม่พบประวัติการทำรายการ</div>
           ) : (
             <div className="timeline-container">
-              {logs.map((log, index) => {
+              {paginatedLogs.map((log, index) => {
                 const config = getActionConfig(log.action);
                 return (
                   <div key={log.id} className="timeline-item">
                     {/* เส้นเชื่อม (ยกเว้นอันสุดท้าย) */}
-                    {index !== logs.length - 1 && <div className="timeline-line"></div>}
+                    {index !== paginatedLogs.length - 1 && <div className="timeline-line"></div>}
                     
                     <div className={`timeline-icon ${config.bg}`}>
                       {config.icon}
@@ -106,6 +122,11 @@ function RepairTimelineModal({ repairId, isOpen, onClose }) {
                   </div>
                 );
               })}
+              <Pagination
+                currentPage={currentPage}
+                totalItems={logs.length}
+                onPageChange={setCurrentPage}
+              />
             </div>
           )}
         </div>

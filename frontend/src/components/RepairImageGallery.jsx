@@ -24,7 +24,7 @@ function RepairImageGallery({ images = [], ticketLabel = "งานซ่อม"
       <div className="repair-image-gallery">
         {repairImages.length > 0 ? (
           repairImages.map((image, index) => {
-            const imageType = image.type === "after" ? "หลังซ่อม" : "ก่อนซ่อม";
+            const imageType = image.type === "after" ? "หลังดำเนินการ" : "ก่อนซ่อม";
             const alt = `รูป${imageType}ของ ${ticketLabel}`;
 
             return (

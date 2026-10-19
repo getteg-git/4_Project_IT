@@ -6,6 +6,8 @@ import { getPageItems } from "../../../../../components/ui/paginationUtils";
 import useToast from "../../../../../hooks/useToast";
 import "./AdminUsers.css";
 
+const USER_PAGE_SIZE = 4;
+
 function AdminUsers() {
   const { toast, confirm } = useToast();
   const [users, setUsers] = useState([]);
@@ -13,6 +15,7 @@ function AdminUsers() {
   const [departments, setDepartments] = useState([]); // 🔥 เพิ่ม State เก็บสาขาวิชา
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [specialtyFilter, setSpecialtyFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
   // States สำหรับ Modal
@@ -89,13 +92,27 @@ function AdminUsers() {
     fetchMasterData();
   }, []);
 
-  const filteredUsers = users.filter((u) =>
-    u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (u.full_name && u.full_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    u.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase()))
+  const technicianUsers = users.filter((user) => user.role === "technician");
+  const specialtyCounts = new Map(
+    problemTypes.map((type) => [
+      String(type.id),
+      technicianUsers.filter((user) =>
+        (user.specialties || []).some((id) => String(id) === String(type.id))
+      ).length,
+    ])
   );
-  const paginatedUsers = getPageItems(filteredUsers, currentPage);
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+  const filteredUsers = users.filter((user) => {
+    const matchesSearch = [user.username, user.full_name, user.role, user.email]
+      .some((value) => String(value || "").toLowerCase().includes(normalizedSearchTerm));
+    const matchesSpecialty = !specialtyFilter || (
+      user.role === "technician" &&
+      (user.specialties || []).some((id) => String(id) === specialtyFilter)
+    );
+    return matchesSearch && matchesSpecialty;
+  });
+  const filteredTechnicianCount = filteredUsers.filter((user) => user.role === "technician").length;
+  const paginatedUsers = getPageItems(filteredUsers, currentPage, USER_PAGE_SIZE);
 
   // -----------------------------------------
   // ฟังก์ชัน Action และการทำงานต่างๆ
@@ -264,10 +281,34 @@ function AdminUsers() {
               onChange={(value) => { setSearchTerm(value); setCurrentPage(1); }}
             />
           </div>
+          <div className="users-filter-section">
+            <label htmlFor="admin-user-specialty-filter">กรองตามงานที่ถนัด</label>
+            <select
+              id="admin-user-specialty-filter"
+              value={specialtyFilter}
+              onChange={(event) => {
+                setSpecialtyFilter(event.target.value);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="">ทุกหมวดหมู่ความถนัด</option>
+              {problemTypes.map((type) => (
+                <option key={type.id} value={String(type.id)}>
+                  {type.name} ({specialtyCounts.get(String(type.id)) || 0} คน)
+                </option>
+              ))}
+            </select>
+          </div>
           <button className="btn-create-user" onClick={openCreateModal}>
             <UserPlus size={18} aria-hidden="true" /> เพิ่มผู้ใช้งานใหม่
           </button>
         </div>
+
+        {!isLoading && (
+          <p className="users-filter-summary" aria-live="polite">
+            พบช่าง {filteredTechnicianCount} คน จากทั้งหมด {technicianUsers.length} คน
+          </p>
+        )}
 
         {/* ตารางรายชื่อผู้ใช้งาน */}
         <div className="users-list">
@@ -329,7 +370,12 @@ function AdminUsers() {
             </div>
           )}
         </div>
-        <Pagination currentPage={currentPage} totalItems={filteredUsers.length} onPageChange={setCurrentPage} />
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredUsers.length}
+          pageSize={USER_PAGE_SIZE}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* ==========================================

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"html"
 	"log"
+	"mime/multipart"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -222,7 +224,7 @@ func GetAllRepairs(c *gin.Context) {
 			   r.estimated_cost, r.actual_cost, r.accepted_at, r.completed_at, r.other_location, r.other_problem_type,
 			   r.department_id, d.name as department_name,
 			   l.name as location_name, f.floor_name, ro.room_number,
-			   eq.name as equipment_name, eq.asset_code, p.name as problem_type_name, u.full_name as technician_name
+			   eq.name as equipment_name, eq.asset_code, eq.base_price, p.name as problem_type_name, u.full_name as technician_name
 		FROM repairs r
 		LEFT JOIN departments d ON r.department_id = d.id
 		LEFT JOIN locations l ON r.location_id = l.id
@@ -259,6 +261,7 @@ func GetAllRepairs(c *gin.Context) {
 		var id int
 		var desc, status, reporterEmail string
 		var ticketNumber, locName, otherLoc, floorName, roomNumber, eqName, assetCode, probName, otherProb, techName, techNote, adminNote, deptName *string
+		var basePrice *float64
 		var estimatedCost, actualCost float64
 		var createdAt time.Time
 		var acceptedAt, completedAt *time.Time
@@ -266,7 +269,7 @@ func GetAllRepairs(c *gin.Context) {
 
 		err := rows.Scan(&id, &ticketNumber, &desc, &status, &createdAt, &techID, &techNote, &adminNote, &reporterEmail,
 			&estimatedCost, &actualCost, &acceptedAt, &completedAt, &otherLoc, &otherProb,
-			&dID, &deptName, &locName, &floorName, &roomNumber, &eqName, &assetCode, &probName, &techName)
+			&dID, &deptName, &locName, &floorName, &roomNumber, &eqName, &assetCode, &basePrice, &probName, &techName)
 		if err != nil {
 			continue
 		}
@@ -301,6 +304,7 @@ func GetAllRepairs(c *gin.Context) {
 			"room_number":        getString(roomNumber),
 			"equipment_name":     getString(eqName),
 			"asset_code":         getString(assetCode),
+			"base_price":         basePrice,
 			"problem_type":       getString(probName),
 			"other_problem_type": getString(otherProb),
 			"reporter_email":     reporterEmail,
@@ -637,6 +641,41 @@ func UpdateRepairStatus(c *gin.Context) {
 		return
 	}
 
+	var completionFiles []*multipart.FileHeader
+	if status == "เสร็จเรียบร้อย" || status == "ซ่อมไม่ได้" {
+		form, err := c.MultipartForm()
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ไม่สามารถอ่านไฟล์รูปภาพได้"})
+			return
+		}
+		completionFiles = form.File["image"]
+		if len(completionFiles) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาแนบรูปภาพประกอบอย่างน้อย 1 รูป"})
+			return
+		}
+		if len(completionFiles) > 10 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "แนบรูปภาพได้สูงสุด 10 รูป"})
+			return
+		}
+
+		allowedImageExtensions := map[string]bool{
+			".jpg": true, ".jpeg": true, ".png": true, ".gif": true,
+			".webp": true, ".bmp": true, ".avif": true, ".heic": true, ".heif": true,
+		}
+		for _, file := range completionFiles {
+			if file.Size > 10<<20 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "รูปภาพแต่ละไฟล์ต้องมีขนาดไม่เกิน 10 MB"})
+				return
+			}
+			contentType := strings.ToLower(file.Header.Get("Content-Type"))
+			extension := strings.ToLower(filepath.Ext(file.Filename))
+			if !strings.HasPrefix(contentType, "image/") || !allowedImageExtensions[extension] {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาเลือกไฟล์รูปภาพที่รองรับ (JPG, PNG, GIF, WebP, BMP, AVIF หรือ HEIC)"})
+				return
+			}
+		}
+	}
+
 	// 🔥 Guardrail: บังคับสรุปงานก่อนปิดจ๊อบเพื่อลด Human Error
 	if status == "เสร็จเรียบร้อย" && techNoteStr == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "ระบบป้องกัน: กรุณากรอก 'บันทึกจากช่าง' เพื่อสรุปงานก่อนทำการปิดงานซ่อม"})
@@ -662,27 +701,56 @@ func UpdateRepairStatus(c *gin.Context) {
 		query = `UPDATE repairs SET status = $1, technician_note = COALESCE($2, technician_note), admin_note = COALESCE($3, admin_note), actual_cost = $4 WHERE id = $5`
 	}
 
-	_, err := database.DB.Exec(query, status, tNote, aNote, actualCost, repairID)
+	uploadedImagePaths := make([]string, 0, len(completionFiles))
+	uploadedImageURLs := make([]string, 0, len(completionFiles))
+	cleanupUploadedImages := func() {
+		for _, path := range uploadedImagePaths {
+			if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+				log.Printf("failed to remove uploaded repair image %s: %v", path, err)
+			}
+		}
+	}
+	for _, file := range completionFiles {
+		filename := fmt.Sprintf("%s_after_%d%s", repairID, time.Now().UnixNano(), filepath.Ext(file.Filename))
+		path := filepath.Join("uploads", filename)
+		uploadedImagePaths = append(uploadedImagePaths, path)
+		if err := c.SaveUploadedFile(file, path); err != nil {
+			cleanupUploadedImages()
+			log.Printf("failed to save completion image for repair %s: %v", repairID, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "บันทึกรูปภาพไม่สำเร็จ กรุณาลองใหม่"})
+			return
+		}
+		uploadedImageURLs = append(uploadedImageURLs, "/uploads/"+filename)
+	}
+
+	tx, err := database.DB.Begin()
 	if err != nil {
+		cleanupUploadedImages()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if _, err = tx.Exec(query, status, tNote, aNote, actualCost, repairID); err != nil {
+		tx.Rollback()
+		cleanupUploadedImages()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	for _, imageURL := range uploadedImageURLs {
+		if _, err = tx.Exec(`INSERT INTO repair_images (repair_id, image_url, image_type) VALUES ($1, $2, 'after')`, repairID, imageURL); err != nil {
+			tx.Rollback()
+			cleanupUploadedImages()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "บันทึกข้อมูลรูปภาพไม่สำเร็จ"})
+			return
+		}
+	}
+	if err = tx.Commit(); err != nil {
+		cleanupUploadedImages()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	// 🔥 บันทึก Log การเปลี่ยนสถานะ
 	insertRepairLog(repairID, actionByUserID, "STATUS_CHANGED", currentStatus, status, techNoteStr)
-
-	// เซฟรูปภาพ
-	form, _ := c.MultipartForm()
-	if form != nil && form.File != nil {
-		files := form.File["image"]
-		for _, file := range files {
-			filename := fmt.Sprintf("%s_after_%d%s", repairID, time.Now().UnixNano(), filepath.Ext(file.Filename))
-			path := "uploads/" + filename
-			if err := c.SaveUploadedFile(file, path); err == nil {
-				database.DB.Exec(`INSERT INTO repair_images (repair_id, image_url, image_type) VALUES ($1, $2, 'after')`, repairID, "/uploads/"+filename)
-			}
-		}
-	}
 
 	// ส่งอีเมล
 	go func() {

@@ -853,7 +853,12 @@ function AdminManage() {
             }}
           >
             ยังไม่มอบหมาย{" "}
-            <span>{unassignedRepairs.length}</span>
+            <span
+              className={`assignment-count-badge ${unassignedRepairs.length > 1 ? "is-alert" : ""}`}
+              aria-label={`${unassignedRepairs.length} งานยังไม่มอบหมาย`}
+            >
+              {unassignedRepairs.length}
+            </span>
           </button>
 
           <button
@@ -884,7 +889,13 @@ function AdminManage() {
               setCurrentPage(1);
             }}
           >
-            พิจารณา <span aria-label={`${reviewRepairs.length} งานรอพิจารณา`}>{reviewRepairs.length}</span>
+            พิจารณา{" "}
+            <span
+              className={`assignment-count-badge ${reviewRepairs.length > 1 ? "is-alert" : ""}`}
+              aria-label={`${reviewRepairs.length} งานรอพิจารณา`}
+            >
+              {reviewRepairs.length}
+            </span>
           </button>
 
           <button
@@ -1951,6 +1962,8 @@ function AdminManage() {
       {/* POPUP: ไทม์ไลน์ */}
       <RepairTimelineModal
         repairId={selectedRepair?.id}
+        images={selectedRepair?.images}
+        ticketLabel={selectedRepair?.ticket_number || `#${selectedRepair?.id}`}
         isOpen={isTimelineOpen}
         onClose={() => {
           setIsTimelineOpen(false);

@@ -490,6 +490,8 @@ function MyRepairs() {
           ========================================== */}
       <RepairTimelineModal 
         repairId={selectedRepair?.id} 
+        images={selectedRepair?.images}
+        ticketLabel={selectedRepair?.ticket_number || `#${selectedRepair?.id}`}
         isOpen={isTimelineOpen} 
         onClose={() => { setIsTimelineOpen(false); setSelectedRepair(null); }} 
       />
