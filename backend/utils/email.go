@@ -1,33 +1,40 @@
 package utils
 
 import (
-	"crypto/tls"
+	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
-	"io"
-	"net"
+	"net/http"
 	"net/mail"
-	"net/smtp"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 )
 
-const smtpTimeout = 15 * time.Second
+const httpTimeout = 15 * time.Second
+
+type ResendEmailRequest struct {
+	From    string   `json:"from"`
+	To      []string `json:"to"`
+	Subject string   `json:"subject"`
+	HTML    string   `json:"html"`
+}
 
 func SendEmailNotification(toRecipients []string, subject string, bodyHTML string) error {
-	host := strings.TrimSpace(os.Getenv("SMTP_HOST"))
-	port := strings.TrimSpace(os.Getenv("SMTP_PORT"))
+	apiKey := strings.TrimSpace(os.Getenv("RESEND_API_KEY"))
 	sender := strings.TrimSpace(os.Getenv("SMTP_SENDER"))
-	password := strings.TrimSpace(os.Getenv("SMTP_PASSWORD"))
 
 	if err := ValidateSMTPConfiguration(); err != nil {
 		return err
 	}
 
-	portNumber, _ := strconv.Atoi(port)
-	senderAddress, _ := mail.ParseAddress(sender)
+	senderAddress, err := mail.ParseAddress(sender)
+	if err != nil {
+		return fmt.Errorf("invalid sender address: %w", err)
+	}
+
+	// กรองอีเมลผู้รับที่ซ้ำหรือว่างเปล่า (โค้ดเดิมของเพื่อน)
 	recipients := make([]string, 0, len(toRecipients))
 	seenRecipients := make(map[string]struct{}, len(toRecipients))
 	for _, recipient := range toRecipients {
@@ -50,92 +57,58 @@ func SendEmailNotification(toRecipients []string, subject string, bodyHTML strin
 		return fmt.Errorf("email has no valid recipients")
 	}
 
-	connection, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), smtpTimeout)
+	displayName := "ระบบแจ้งซ่อม SC-SCI"
+	fromField := fmt.Sprintf("%s <%s>", displayName, senderAddress.Address)
+
+	// สร้าง Request Body สำหรับ Resend API
+	emailReq := ResendEmailRequest{
+		From:    fromField,
+		To:      recipients,
+		Subject: subject,
+		HTML:    bodyHTML,
+	}
+
+	jsonBytes, err := json.Marshal(emailReq)
 	if err != nil {
-		return fmt.Errorf("connect to SMTP server: %w", err)
-	}
-	defer connection.Close()
-	if err := connection.SetDeadline(time.Now().Add(smtpTimeout)); err != nil {
-		return fmt.Errorf("set SMTP connection deadline: %w", err)
+		return fmt.Errorf("marshal email request: %w", err)
 	}
 
-	tlsConfig := &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}
-	if portNumber == 465 {
-		tlsConnection := tls.Client(connection, tlsConfig)
-		if err := tlsConnection.Handshake(); err != nil {
-			return fmt.Errorf("start implicit TLS with SMTP server: %w", err)
-		}
-		connection = tlsConnection
-	}
-
-	client, err := smtp.NewClient(connection, host)
+	req, err := http.NewRequest("POST", "https://api.resend.com/emails", bytes.NewBuffer(jsonBytes))
 	if err != nil {
-		return fmt.Errorf("start SMTP session: %w", err)
-	}
-	defer client.Close()
-
-	if portNumber != 465 {
-		if supported, _ := client.Extension("STARTTLS"); !supported {
-			return fmt.Errorf("SMTP server does not support STARTTLS; use port 465 for implicit TLS or a TLS-enabled SMTP provider")
-		}
-		if err := client.StartTLS(tlsConfig); err != nil {
-			return fmt.Errorf("start TLS with SMTP server: %w", err)
-		}
+		return fmt.Errorf("create http request to resend: %w", err)
 	}
 
-	auth := smtp.PlainAuth("", senderAddress.Address, password, host)
-	if err := client.Auth(auth); err != nil {
-		return fmt.Errorf("authenticate with SMTP server: %w", err)
-	}
-	if err := client.Mail(senderAddress.Address); err != nil {
-		return fmt.Errorf("set SMTP sender: %w", err)
-	}
-	for _, recipient := range recipients {
-		if err := client.Rcpt(recipient); err != nil {
-			return fmt.Errorf("set SMTP recipient %q: %w", recipient, err)
-		}
-	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
 
-	writer, err := client.Data()
+	nutshellClient := &http.Client{Timeout: httpTimeout}
+	resp, err := nutshellClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("start SMTP message: %w", err)
+		return fmt.Errorf("send http request to resend: %w", err)
 	}
-	message := buildEmailMessage(senderAddress, recipients, subject, bodyHTML)
-	if _, err := io.WriteString(writer, message); err != nil {
-		_ = writer.Close()
-		return fmt.Errorf("write SMTP message: %w", err)
-	}
-	if err := writer.Close(); err != nil {
-		return fmt.Errorf("submit SMTP message: %w", err)
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("resend api returned error status: %d", resp.StatusCode)
 	}
 
 	return nil
 }
 
 func ValidateSMTPConfiguration() error {
-	host := strings.TrimSpace(os.Getenv("SMTP_HOST"))
-	port := strings.TrimSpace(os.Getenv("SMTP_PORT"))
+	apiKey := strings.TrimSpace(os.Getenv("RESEND_API_KEY"))
 	sender := strings.TrimSpace(os.Getenv("SMTP_SENDER"))
-	password := strings.TrimSpace(os.Getenv("SMTP_PASSWORD"))
 
-	missing := make([]string, 0, 4)
-	for name, value := range map[string]string{
-		"SMTP_HOST":     host,
-		"SMTP_PORT":     port,
-		"SMTP_SENDER":   sender,
-		"SMTP_PASSWORD": password,
-	} {
-		if value == "" {
-			missing = append(missing, name)
-		}
+	missing := make([]string, 0, 2)
+	if apiKey == "" {
+		missing = append(missing, "RESEND_API_KEY")
 	}
+	if sender == "" {
+		missing = append(missing, "SMTP_SENDER")
+	}
+
 	if len(missing) > 0 {
 		return fmt.Errorf("email is not configured: missing %s", strings.Join(missing, ", "))
-	}
-
-	portNumber, err := strconv.Atoi(port)
-	if err != nil || portNumber < 1 || portNumber > 65535 {
-		return fmt.Errorf("invalid SMTP_PORT: expected a port number from 1 to 65535")
 	}
 
 	if _, err := mail.ParseAddress(sender); err != nil {
@@ -144,6 +117,7 @@ func ValidateSMTPConfiguration() error {
 	return nil
 }
 
+// เก็บฟังก์ชันช่วยตกแต่ง Header เผื่อส่วนอื่นเรียกใช้ แต่ใน Resend จะส่งผ่าน JSON ให้อัตโนมัติ
 func buildEmailMessage(sender *mail.Address, recipients []string, subject, bodyHTML string) string {
 	displayName := "ระบบแจ้งซ่อม SC-SCI"
 	from := mimeHeader(displayName) + " <" + sender.Address + ">"
