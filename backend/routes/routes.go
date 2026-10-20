@@ -5,6 +5,7 @@ import (
 
 	handler "backend/handlers"
 	dashboardHandler "backend/handlers/dashboard"
+	departmentHandler "backend/handlers/departments"
 	equipmentHandler "backend/handlers/equipment"
 	repairHandler "backend/handlers/repair"
 	userHandler "backend/handlers/user"
@@ -72,6 +73,10 @@ func SetupRoutes(r *gin.Engine) {
 		api.PUT("/repairs/:id/status", repairHandler.UpdateRepairStatus)
 		// ดึงสาขาวิชาทั้งหมด (สำหรับตอนสร้าง User หรือตอนหน้าแจ้งซ่อม)
 		api.GET("/departments", userHandler.GetDepartments)
+		// ใช้สำหรับดึงข้อมูลระดับการศึกษาทั้งหมด (ปริญญาตรี, โท, เอก)
+		api.GET("/degree-levels", departmentHandler.GetDegreeLevels)
+		// ใช้สำหรับดึงข้อมูลภาควิชาตาม ID ของระดับการศึกษาที่เลือก
+		api.GET("/degree-levels/:id/departments", departmentHandler.GetDepartmentsByDegree)
 		// ดึงประวัติการแจ้งซ่อม (Timeline)
 		api.GET("/repairs/:id/logs", repairHandler.GetRepairLogs)
 		dashboard := api.Group("/admin/dashboard")

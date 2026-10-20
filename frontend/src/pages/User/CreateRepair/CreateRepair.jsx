@@ -12,7 +12,8 @@ function CreateRepair() {
 
   // State สำหรับเก็บข้อมูลที่ผู้ใช้กรอก
   const [email, setEmail] = useState("");
-  const [department, setDepartment] = useState(""); // 🔥 [เพิ่มใหม่] State เก็บสาขาที่เลือก
+  const [degreeLevel, setDegreeLevel] = useState(""); // 🔥 [เพิ่มใหม่] State เก็บระดับการศึกษาที่เลือก
+  const [department, setDepartment] = useState(""); // State เก็บภาควิชาที่เลือก
   const [location, setLocation] = useState("");
   const [floor, setFloor] = useState("");
   const [room, setRoom] = useState("");
@@ -27,7 +28,8 @@ function CreateRepair() {
   const [validationErrors, setValidationErrors] = useState({});
 
   // State สำหรับเก็บข้อมูลจาก Backend
-  const [departments, setDepartments] = useState([]); // 🔥 [เพิ่มใหม่] State เก็บ List สาขาทั้งหมด
+  const [degreeLevels, setDegreeLevels] = useState([]); // 🔥 [เพิ่มใหม่] State เก็บ List ระดับการศึกษา
+  const [departments, setDepartments] = useState([]); // State เก็บ List ภาควิชาตามระดับการศึกษา
   const [locations, setLocations] = useState([]);
   const [floors, setFloors] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -48,25 +50,45 @@ function CreateRepair() {
     return selectedType && (selectedType.name.includes("อื่นๆ") || selectedType.name.toLowerCase() === "other");
   };
 
+  // 1. โหลดข้อมูลเริ่มต้น (สถานที่, หมวดหมู่ปัญหา, ระดับการศึกษา)
   useEffect(() => {
     const fetchMasterData = async () => {
       try {
-        // 🔥 [ปรับปรุง] เพิ่มการดึง API สาขาวิชาเข้ามาพร้อมกันเลย
-        const [locRes, typeRes, deptRes] = await Promise.all([
+        const [locRes, typeRes, degRes] = await Promise.all([
           fetch("https://4projectit-production.up.railway.app/api/locations"),
           fetch("https://4projectit-production.up.railway.app/api/problem-types"),
-          fetch("https://4projectit-production.up.railway.app/api/departments")
+          fetch("https://4projectit-production.up.railway.app/api/degree-levels") // 🔥 [ปรับปรุง] เปลี่ยนมาดึง API ระดับการศึกษา
         ]);
 
         if (locRes.ok) setLocations(await locRes.json());
         if (typeRes.ok) setProblemTypes(await typeRes.json());
-        if (deptRes.ok) setDepartments(await deptRes.json());
+        if (degRes.ok) setDegreeLevels(await degRes.json());
       } catch (err) {
         console.error("ดึงข้อมูลหลักไม่สำเร็จ:", err);
       }
     };
     fetchMasterData();
   }, []);
+
+  // 🔥 [เพิ่มใหม่] โหลดภาควิชาตามระดับการศึกษาที่เลือก (Cascading Dropdown)
+  useEffect(() => {
+    setDepartment("");
+    setDepartments([]);
+
+    if (!degreeLevel) {
+      return;
+    }
+
+    const fetchDepartments = async () => {
+      try {
+        const res = await fetch(`https://4projectit-production.up.railway.app/api/degree-levels/${degreeLevel}/departments`);
+        if (res.ok) setDepartments(await res.json() || []);
+      } catch (err) {
+        console.error("ดึงข้อมูลภาควิชาไม่สำเร็จ:", err);
+      }
+    };
+    fetchDepartments();
+  }, [degreeLevel]);
 
   useEffect(() => {
     setFloor("");
@@ -136,7 +158,8 @@ function CreateRepair() {
 
     const nextErrors = {};
     if (!email.endsWith("@gmail.com") && !email.endsWith("@silpakorn.edu")) nextErrors.email = "กรุณาใช้อีเมล @silpakorn.edu หรือ @gmail.com";
-    if (!department) nextErrors.department = "กรุณาเลือกสาขาวิชาสังกัดของคุณ"; // 🔥 [เพิ่มใหม่] เช็ค Validation
+    if (!degreeLevel) nextErrors.degreeLevel = "กรุณาเลือกระดับการศึกษา"; // 🔥 [เพิ่มใหม่] เช็ค Validation ระดับการศึกษา
+    if (!department) nextErrors.department = "กรุณาเลือกภาควิชาสังกัดของคุณ"; // 🔥 [เพิ่มใหม่] เช็ค Validation ภาควิชา
     if (!location) nextErrors.location = "กรุณาเลือกอาคารหรือสถานที่";
     if (isOtherLocation() && !customLocationName.trim()) nextErrors.customLocation = "กรุณาระบุรายละเอียดอาคารหรือสถานที่";
     if (location && !isOtherLocation() && !floor) nextErrors.floor = "กรุณาเลือกชั้น";
@@ -156,7 +179,7 @@ function CreateRepair() {
 
     const formData = new FormData();
     formData.append("reporter_email", email);
-    formData.append("department_id", department); // 🔥 [เพิ่มใหม่] ส่งค่าสาขากลับไปให้ Backend
+    formData.append("department_id", department); // ส่งค่า ID ภาควิชากลับไปให้ Backend
     formData.append("location_id", location);
     formData.append("problem_type_id", problemType);
     formData.append("description", details);
@@ -244,15 +267,38 @@ function CreateRepair() {
               {validationErrors.email && <p className="field-error" id="repair-email-error">{validationErrors.email}</p>}
             </div>
 
-            {/* 🔥 [เพิ่มใหม่] Dropdown สำหรับเลือกสาขาวิชา */}
+            {/* 🔥 [เพิ่มใหม่] Dropdown ระดับการศึกษา (ขั้นตอนที่ 1) */}
             <div className="form-group">
-              <label>สาขาวิชาสังกัด <span className="required">*</span></label>
+              <label>ระดับการศึกษา <span className="required">*</span></label>
+              <select
+                value={degreeLevel}
+                onChange={(e) => { 
+                  setDegreeLevel(e.target.value); 
+                  setValidationErrors((current) => ({ ...current, degreeLevel: undefined, department: undefined })); 
+                }}
+                aria-invalid={Boolean(validationErrors.degreeLevel)}
+              >
+                <option value="">-- กรุณาเลือกระดับการศึกษา --</option>
+                {degreeLevels.map((deg) => (
+                  <option key={deg.id} value={deg.id}>{deg.name}</option>
+                ))}
+              </select>
+              {validationErrors.degreeLevel && <p className="field-error">{validationErrors.degreeLevel}</p>}
+            </div>
+
+            {/* 🔥 [เพิ่มใหม่] Dropdown ภาควิชาสังกัด (ขั้นตอนที่ 2 - Cascading ตามระดับการศึกษา) */}
+            <div className="form-group">
+              <label>ภาควิชาสังกัด <span className="required">*</span></label>
               <select
                 value={department}
-                onChange={(e) => { setDepartment(e.target.value); setValidationErrors((current) => ({ ...current, department: undefined })); }}
+                onChange={(e) => { 
+                  setDepartment(e.target.value); 
+                  setValidationErrors((current) => ({ ...current, department: undefined })); 
+                }}
+                disabled={!degreeLevel}
                 aria-invalid={Boolean(validationErrors.department)}
               >
-                <option value="">-- กรุณาเลือกสาขาวิชา --</option>
+                <option value="">{!degreeLevel ? "-- กรุณาเลือกระดับการศึกษาก่อน --" : "-- กรุณาเลือกภาควิชา --"}</option>
                 {departments.map((dept) => (
                   <option key={dept.id} value={dept.id}>{dept.name}</option>
                 ))}
