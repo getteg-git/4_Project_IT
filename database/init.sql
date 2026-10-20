@@ -126,6 +126,8 @@ CREATE TABLE repair_logs (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+ALTER TABLE repairs ADD COLUMN other_room VARCHAR(255);
+
 -- ==========================================
 -- ข้อมูลเริ่มต้น (Master Data)
 -- ==========================================

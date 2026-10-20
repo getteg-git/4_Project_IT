@@ -18,6 +18,7 @@ type Repair struct {
 	FloorName        string  `json:"floor_name,omitempty"`
 	RoomID           *int    `json:"room_id"`
 	RoomNumber       string  `json:"room_number,omitempty"`
+	OtherRoom        *string `json:"other_room"`
 	EquipmentID      *int    `json:"equipment_id"`
 	EquipmentName    string  `json:"equipment_name,omitempty"`
 	AssetCode        string  `json:"asset_code,omitempty"`

@@ -124,7 +124,7 @@ func wrapEmail(headerColor string, headerText string, bodyContent string) string
 // =========================================================
 
 // ---------------------------------------------------------
-// 1. CreateRepair: สร้างใบแจ้งซ่อมใหม่ (อัปเกรด Ticket Number + Log)
+// 1. CreateRepair: สร้างใบแจ้งซ่อมใหม่ (อัปเกรดรองรับ other_room)
 // ---------------------------------------------------------
 func CreateRepair(c *gin.Context) {
 	ticketNumber := generateTicketNumber() // 🔥 Gen รหัสอัตโนมัติ
@@ -134,6 +134,7 @@ func CreateRepair(c *gin.Context) {
 	otherLocation := nullIfEmpty(c.PostForm("other_location"))
 	floorID := nullIfEmpty(c.PostForm("floor_id"))
 	roomID := nullIfEmpty(c.PostForm("room_id"))
+	otherRoom := nullIfEmpty(c.PostForm("other_room")) // 🔥 [เพิ่มใหม่] รับชื่อห้องที่กรอกเองกรณีเลือก "อื่นๆ"
 	equipmentID := nullIfEmpty(c.PostForm("equipment_id"))
 	problemTypeID := nullIfEmpty(c.PostForm("problem_type_id"))
 	otherProblemType := nullIfEmpty(c.PostForm("other_problem_type"))
@@ -141,9 +142,9 @@ func CreateRepair(c *gin.Context) {
 
 	var repairID int
 	err := database.DB.QueryRow(
-		`INSERT INTO repairs (ticket_number, reporter_email, department_id, location_id, other_location, floor_id, room_id, equipment_id, problem_type_id, other_problem_type, description, status)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'รอซ่อม') RETURNING id`,
-		ticketNumber, reporterEmail, departmentID, locationID, otherLocation, floorID, roomID, equipmentID, problemTypeID, otherProblemType, description,
+		`INSERT INTO repairs (ticket_number, reporter_email, department_id, location_id, other_location, floor_id, room_id, other_room, equipment_id, problem_type_id, other_problem_type, description, status)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'รอซ่อม') RETURNING id`,
+		ticketNumber, reporterEmail, departmentID, locationID, otherLocation, floorID, roomID, otherRoom, equipmentID, problemTypeID, otherProblemType, description,
 	).Scan(&repairID)
 
 	if err != nil {
@@ -211,7 +212,7 @@ func CreateRepair(c *gin.Context) {
 }
 
 // ---------------------------------------------------------
-// 2. GetAllRepairs: ดึงรายการซ่อมทั้งหมด (🔥 อัปเกรด Smart Routing)
+// 2. GetAllRepairs: ดึงรายการซ่อมทั้งหมด (อัปเกรดดึง other_room)
 // ---------------------------------------------------------
 func GetAllRepairs(c *gin.Context) {
 	role := c.Query("role")
@@ -221,7 +222,7 @@ func GetAllRepairs(c *gin.Context) {
 
 	query := `
 		SELECT r.id, r.ticket_number, r.description, r.status, r.created_at, r.technician_id, r.technician_note, r.admin_note, r.reporter_email,
-			   r.estimated_cost, r.actual_cost, r.accepted_at, r.completed_at, r.other_location, r.other_problem_type,
+			   r.estimated_cost, r.actual_cost, r.accepted_at, r.completed_at, r.other_location, r.other_room, r.other_problem_type,
 			   r.department_id, d.name as department_name,
 			   l.name as location_name, f.floor_name, ro.room_number,
 			   eq.name as equipment_name, eq.asset_code, eq.base_price, p.name as problem_type_name, u.full_name as technician_name
@@ -260,7 +261,7 @@ func GetAllRepairs(c *gin.Context) {
 	for rows.Next() {
 		var id int
 		var desc, status, reporterEmail string
-		var ticketNumber, locName, otherLoc, floorName, roomNumber, eqName, assetCode, probName, otherProb, techName, techNote, adminNote, deptName *string
+		var ticketNumber, locName, otherLoc, otherRoom, floorName, roomNumber, eqName, assetCode, probName, otherProb, techName, techNote, adminNote, deptName *string
 		var basePrice *float64
 		var estimatedCost, actualCost float64
 		var createdAt time.Time
@@ -268,7 +269,7 @@ func GetAllRepairs(c *gin.Context) {
 		var techID, dID *int
 
 		err := rows.Scan(&id, &ticketNumber, &desc, &status, &createdAt, &techID, &techNote, &adminNote, &reporterEmail,
-			&estimatedCost, &actualCost, &acceptedAt, &completedAt, &otherLoc, &otherProb,
+			&estimatedCost, &actualCost, &acceptedAt, &completedAt, &otherLoc, &otherRoom, &otherProb,
 			&dID, &deptName, &locName, &floorName, &roomNumber, &eqName, &assetCode, &basePrice, &probName, &techName)
 		if err != nil {
 			continue
@@ -302,6 +303,7 @@ func GetAllRepairs(c *gin.Context) {
 			"other_location":     getString(otherLoc),
 			"floor_name":         getString(floorName),
 			"room_number":        getString(roomNumber),
+			"other_room":         getString(otherRoom), // 🔥 [เพิ่มใหม่] คืนค่าชื่อห้องที่พิมพ์เอง
 			"equipment_name":     getString(eqName),
 			"asset_code":         getString(assetCode),
 			"base_price":         basePrice,
@@ -323,14 +325,14 @@ func GetAllRepairs(c *gin.Context) {
 }
 
 // ---------------------------------------------------------
-// 3. GetRepairByID: ดึงรายละเอียดใบแจ้งซ่อมเฉพาะใบ
+// 3. GetRepairByID: ดึงรายละเอียดใบแจ้งซ่อมเฉพาะใบ (อัปเกรดดึง other_room)
 // ---------------------------------------------------------
 func GetRepairByID(c *gin.Context) {
 	repairID := c.Param("id")
 
 	var id int
 	var desc, status, reporterEmail string
-	var ticketNumber, locName, otherLoc, floorName, roomNumber, eqName, assetCode, probName, otherProb, techName, techNote, adminNote, deptName *string
+	var ticketNumber, locName, otherLoc, otherRoom, floorName, roomNumber, eqName, assetCode, probName, otherProb, techName, techNote, adminNote, deptName *string
 	var estimatedCost, actualCost float64
 	var createdAt time.Time
 	var acceptedAt, completedAt *time.Time
@@ -338,7 +340,7 @@ func GetRepairByID(c *gin.Context) {
 
 	err := database.DB.QueryRow(`
 		SELECT r.id, r.ticket_number, r.description, r.status, r.reporter_email, r.technician_note, r.admin_note, r.created_at,
-			   r.estimated_cost, r.actual_cost, r.accepted_at, r.completed_at, r.other_location, r.other_problem_type,
+			   r.estimated_cost, r.actual_cost, r.accepted_at, r.completed_at, r.other_location, r.other_room, r.other_problem_type,
 			   r.department_id, d.name as department_name,
 			   l.name, f.floor_name, ro.room_number, eq.name, eq.asset_code, p.name, u.full_name
 		FROM repairs r
@@ -351,7 +353,7 @@ func GetRepairByID(c *gin.Context) {
 		LEFT JOIN users u ON r.technician_id = u.id
 		WHERE r.id = $1`, repairID).Scan(
 		&id, &ticketNumber, &desc, &status, &reporterEmail, &techNote, &adminNote, &createdAt,
-		&estimatedCost, &actualCost, &acceptedAt, &completedAt, &otherLoc, &otherProb,
+		&estimatedCost, &actualCost, &acceptedAt, &completedAt, &otherLoc, &otherRoom, &otherProb,
 		&dID, &deptName, &locName, &floorName, &roomNumber, &eqName, &assetCode, &probName, &techName)
 
 	if err != nil {
@@ -391,6 +393,7 @@ func GetRepairByID(c *gin.Context) {
 		"other_location":     getString(otherLoc),
 		"floor_name":         getString(floorName),
 		"room_number":        getString(roomNumber),
+		"other_room":         getString(otherRoom), // 🔥 [เพิ่มใหม่] คืนค่าชื่อห้องที่พิมพ์เอง
 		"equipment_name":     getString(eqName),
 		"asset_code":         getString(assetCode),
 		"problem_type":       getString(probName),

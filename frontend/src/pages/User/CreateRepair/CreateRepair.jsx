@@ -12,11 +12,12 @@ function CreateRepair() {
 
   // State สำหรับเก็บข้อมูลที่ผู้ใช้กรอก
   const [email, setEmail] = useState("");
-  const [degreeLevel, setDegreeLevel] = useState(""); // 🔥 [เพิ่มใหม่] State เก็บระดับการศึกษาที่เลือก
-  const [department, setDepartment] = useState(""); // State เก็บภาควิชาที่เลือก
+  const [degreeLevel, setDegreeLevel] = useState(""); 
+  const [department, setDepartment] = useState(""); 
   const [location, setLocation] = useState("");
   const [floor, setFloor] = useState("");
   const [room, setRoom] = useState("");
+  const [customRoomName, setCustomRoomName] = useState(""); // 🔥 [เพิ่มใหม่] State เก็บชื่อห้องที่ผู้ใช้พิมพ์เองกรณีเลือก "อื่นๆ"
   const [equipment, setEquipment] = useState("");
   const [customLocationName, setCustomLocationName] = useState("");
   const [problemType, setProblemType] = useState("");
@@ -28,8 +29,8 @@ function CreateRepair() {
   const [validationErrors, setValidationErrors] = useState({});
 
   // State สำหรับเก็บข้อมูลจาก Backend
-  const [degreeLevels, setDegreeLevels] = useState([]); // 🔥 [เพิ่มใหม่] State เก็บ List ระดับการศึกษา
-  const [departments, setDepartments] = useState([]); // State เก็บ List ภาควิชาตามระดับการศึกษา
+  const [degreeLevels, setDegreeLevels] = useState([]); 
+  const [departments, setDepartments] = useState([]); 
   const [locations, setLocations] = useState([]);
   const [floors, setFloors] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -45,6 +46,13 @@ function CreateRepair() {
     return selectedLoc && (selectedLoc.name.includes("อื่นๆ") || selectedLoc.name.toLowerCase() === "other");
   }, [location, locations]);
 
+  // 🔥 [เพิ่มใหม่] เช็กว่าเลือกห้องแบบ "อื่นๆ" หรือไม่
+  const isOtherRoom = useCallback(() => {
+    if (room === "other") return true;
+    const selectedRoom = rooms.find(r => String(r.id) === String(room));
+    return selectedRoom && (selectedRoom.room_number.includes("อื่นๆ") || selectedRoom.room_number.toLowerCase() === "other");
+  }, [room, rooms]);
+
   const isOtherProblem = () => {
     const selectedType = problemTypes.find(type => String(type.id) === String(problemType));
     return selectedType && (selectedType.name.includes("อื่นๆ") || selectedType.name.toLowerCase() === "other");
@@ -57,7 +65,7 @@ function CreateRepair() {
         const [locRes, typeRes, degRes] = await Promise.all([
           fetch("https://4projectit-production.up.railway.app/api/locations"),
           fetch("https://4projectit-production.up.railway.app/api/problem-types"),
-          fetch("https://4projectit-production.up.railway.app/api/degree-levels") // 🔥 [ปรับปรุง] เปลี่ยนมาดึง API ระดับการศึกษา
+          fetch("https://4projectit-production.up.railway.app/api/degree-levels")
         ]);
 
         if (locRes.ok) setLocations(await locRes.json());
@@ -70,7 +78,7 @@ function CreateRepair() {
     fetchMasterData();
   }, []);
 
-  // 🔥 [เพิ่มใหม่] โหลดภาควิชาตามระดับการศึกษาที่เลือก (Cascading Dropdown)
+  // โหลดภาควิชาตามระดับการศึกษาที่เลือก (Cascading Dropdown)
   useEffect(() => {
     setDepartment("");
     setDepartments([]);
@@ -94,6 +102,7 @@ function CreateRepair() {
     setFloor("");
     setRooms([]);
     setRoom("");
+    setCustomRoomName("");
     setEquipments([]);
     setEquipment("");
 
@@ -115,6 +124,7 @@ function CreateRepair() {
 
   useEffect(() => {
     setRoom("");
+    setCustomRoomName("");
     setEquipments([]);
     setEquipment("");
 
@@ -126,9 +136,15 @@ function CreateRepair() {
     const fetchRooms = async () => {
       try {
         const res = await fetch(`https://4projectit-production.up.railway.app/api/floors/${floor}/rooms`);
-        if (res.ok) setRooms(await res.json() || []);
+        if (res.ok) {
+          const data = await res.json() || [];
+          // 🔥 เพิ่มตัวเลือก "อื่นๆ" ต่อท้ายรายการห้องเสมอ เพื่อให้ผู้ใช้เลือกกรอกเองได้
+          setRooms([...data, { id: "other", room_number: "อื่นๆ (โปรดระบุ)" }]);
+        }
       } catch (err) {
         console.error("ดึงข้อมูลห้องไม่สำเร็จ:", err);
+        // เผื่อ API ดึงห้องพลาด อย่างน้อยให้มีตัวเลือกอื่นๆ ให้กดพิมพ์เองได้
+        setRooms([{ id: "other", room_number: "อื่นๆ (โปรดระบุ)" }]);
       }
     };
     fetchRooms();
@@ -137,7 +153,7 @@ function CreateRepair() {
   useEffect(() => {
     setEquipment("");
 
-    if (!room) {
+    if (!room || isOtherRoom()) {
       setEquipments([]);
       return;
     }
@@ -151,19 +167,20 @@ function CreateRepair() {
       }
     };
     fetchEquipments();
-  }, [room]);
+  }, [room, isOtherRoom]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     const nextErrors = {};
     if (!email.endsWith("@gmail.com") && !email.endsWith("@silpakorn.edu")) nextErrors.email = "กรุณาใช้อีเมล @silpakorn.edu หรือ @gmail.com";
-    if (!degreeLevel) nextErrors.degreeLevel = "กรุณาเลือกระดับการศึกษา"; // 🔥 [เพิ่มใหม่] เช็ค Validation ระดับการศึกษา
-    if (!department) nextErrors.department = "กรุณาเลือกภาควิชาสังกัดของคุณ"; // 🔥 [เพิ่มใหม่] เช็ค Validation ภาควิชา
+    if (!degreeLevel) nextErrors.degreeLevel = "กรุณาเลือกระดับการศึกษา";
+    if (!department) nextErrors.department = "กรุณาเลือกภาควิชาสังกัดของคุณ";
     if (!location) nextErrors.location = "กรุณาเลือกอาคารหรือสถานที่";
     if (isOtherLocation() && !customLocationName.trim()) nextErrors.customLocation = "กรุณาระบุรายละเอียดอาคารหรือสถานที่";
     if (location && !isOtherLocation() && !floor) nextErrors.floor = "กรุณาเลือกชั้น";
     if (location && !isOtherLocation() && !room) nextErrors.room = "กรุณาเลือกห้องหรือจุดเกิดเหตุ";
+    if (isOtherRoom() && !customRoomName.trim()) nextErrors.customRoom = "กรุณาระบุชื่อห้องหรือจุดเกิดเหตุเพิ่มเติม";
     if (!problemType) nextErrors.problemType = "กรุณาเลือกหมวดหมู่งานซ่อม";
     if (isOtherProblem() && !customProblemName.trim()) nextErrors.customProblem = "กรุณาระบุหมวดหมู่งานซ่อมอื่น ๆ";
     if (!details.trim()) nextErrors.details = "กรุณาอธิบายรายละเอียดของปัญหา";
@@ -179,7 +196,7 @@ function CreateRepair() {
 
     const formData = new FormData();
     formData.append("reporter_email", email);
-    formData.append("department_id", department); // ส่งค่า ID ภาควิชากลับไปให้ Backend
+    formData.append("department_id", department);
     formData.append("location_id", location);
     formData.append("problem_type_id", problemType);
     formData.append("description", details);
@@ -188,8 +205,14 @@ function CreateRepair() {
       formData.append("other_location", customLocationName);
     } else {
       formData.append("floor_id", floor);
-      formData.append("room_id", room);
-      if (equipment) formData.append("equipment_id", equipment);
+      
+      // 🔥 ถ้าเลือกห้องเป็น "อื่นๆ" ให้ส่ง other_room ไปแทน room_id
+      if (isOtherRoom()) {
+        formData.append("other_room", customRoomName);
+      } else {
+        formData.append("room_id", room);
+        if (equipment) formData.append("equipment_id", equipment);
+      }
     }
 
     if (isOtherProblem()) {
@@ -215,10 +238,8 @@ function CreateRepair() {
         navigate("/repair/history", { replace: true });
       } else {
         const errorData = await response.json();
-
         toast.error("ส่งรายการไม่สำเร็จ", {
-          description:
-            errorData.error || "ไม่สามารถส่งข้อมูลได้",
+          description: errorData.error || "ไม่สามารถส่งข้อมูลได้",
         });
       }
     } catch (error) {
@@ -262,12 +283,10 @@ function CreateRepair() {
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setValidationErrors((current) => ({ ...current, email: undefined })); }}
                 aria-invalid={Boolean(validationErrors.email)}
-                aria-describedby={validationErrors.email ? "repair-email-error" : undefined}
               />
-              {validationErrors.email && <p className="field-error" id="repair-email-error">{validationErrors.email}</p>}
+              {validationErrors.email && <p className="field-error">{validationErrors.email}</p>}
             </div>
 
-            {/* 🔥 [เพิ่มใหม่] Dropdown ระดับการศึกษา (ขั้นตอนที่ 1) */}
             <div className="form-group">
               <label>ระดับการศึกษา <span className="required">*</span></label>
               <select
@@ -286,7 +305,6 @@ function CreateRepair() {
               {validationErrors.degreeLevel && <p className="field-error">{validationErrors.degreeLevel}</p>}
             </div>
 
-            {/* 🔥 [เพิ่มใหม่] Dropdown ภาควิชาสังกัด (ขั้นตอนที่ 2 - Cascading ตามระดับการศึกษา) */}
             <div className="form-group">
               <label>ภาควิชาสังกัด <span className="required">*</span></label>
               <select
@@ -352,19 +370,30 @@ function CreateRepair() {
                       <label>ห้อง / จุดเกิดเหตุ <span className="required">*</span></label>
                       <select value={room} onChange={(e) => { setRoom(e.target.value); setValidationErrors((current) => ({ ...current, room: undefined })); }} aria-invalid={Boolean(validationErrors.room)}>
                         <option value="">-- กรุณาเลือกห้อง --</option>
-                        {rooms.length > 0 ? (
-                          rooms.map((r) => (
-                            <option key={r.id} value={r.id}>{r.room_number}</option>
-                          ))
-                        ) : (
-                          <option value="" disabled>ไม่มีข้อมูลห้องในชั้นนี้</option>
-                        )}
+                        {rooms.map((r) => (
+                          <option key={r.id} value={r.id}>{r.room_number}</option>
+                        ))}
                       </select>
                       {validationErrors.room && <p className="field-error">{validationErrors.room}</p>}
                     </div>
                   )}
 
-                  {room && (
+                  {/* 🔥 [เพิ่มใหม่] ช่องกรอกชื่อห้องเอง กรณีเลือก "อื่นๆ" */}
+                  {room && isOtherRoom() && (
+                    <div className="form-group slide-down">
+                      <label>ระบุชื่อห้อง / จุดเกิดเหตุอื่นๆ <span className="required">*</span></label>
+                      <input
+                        type="text"
+                        placeholder="เช่น โถงทางเดินหน้าห้องน้ำชั้น 2, ห้องเก็บของข้างบันได"
+                        value={customRoomName}
+                        onChange={(e) => { setCustomRoomName(e.target.value); setValidationErrors((current) => ({ ...current, customRoom: undefined })); }}
+                        aria-invalid={Boolean(validationErrors.customRoom)}
+                      />
+                      {validationErrors.customRoom && <p className="field-error">{validationErrors.customRoom}</p>}
+                    </div>
+                  )}
+
+                  {room && !isOtherRoom() && (
                     <div className="form-group slide-down">
                       <label>อุปกรณ์ที่ชำรุด (ไม่บังคับ)</label>
                       <select value={equipment} onChange={(e) => setEquipment(e.target.value)}>
@@ -421,7 +450,6 @@ function CreateRepair() {
             <div className="form-group">
               <label>แนบรูปภาพประกอบ (ถ้ามี)</label>
               <div className="upload-box-container">
-
                 <div className="upload-buttons-row">
                   <button
                     type="button"
