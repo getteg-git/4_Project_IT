@@ -199,6 +199,31 @@
   transition: all 0.2s;
 }
 
+.btn-head-tech {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid #d97706;
+  border-radius: 8px;
+  background: #fff;
+  color: #b45309;
+  font-size: 0.9rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-head-tech:hover,
+.btn-head-tech.is-active {
+  background: #fef3c7;
+}
+
+.btn-head-tech:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 .btn-edit { background-color: #f1f3f4; color: #444; border: 1px solid #ddd; }
 .btn-edit:hover { background-color: #e2e6e9; }
 

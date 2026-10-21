@@ -19,25 +19,25 @@ import (
 // Struct สำหรับรับข้อมูลจาก Frontend (Request)
 // ==========================================
 type CreateUserRequest struct {
-	Username     string `json:"username" binding:"required"`
-	Password     string `json:"password" binding:"required"`
-	FullName     string `json:"full_name" binding:"required"`
-	Email        string `json:"email" binding:"required"` // 🔥 [เพิ่มใหม่]
-	Role         string `json:"role" binding:"required"`
-	DepartmentID *int   `json:"department_id"` // 🔥 [เพิ่มใหม่] (เป็น null ได้สำหรับ admin)
-	IsCentral    bool   `json:"is_central"`    // 🔥 [เพิ่มใหม่]
-	Specialties  []int  `json:"specialties"`
+	Username         string `json:"username" binding:"required"`
+	Password         string `json:"password" binding:"required"`
+	FullName         string `json:"full_name" binding:"required"`
+	Email            string `json:"email" binding:"required"` // 🔥 [เพิ่มใหม่]
+	Role             string `json:"role" binding:"required"`
+	DepartmentID     *int   `json:"department_id"` // 🔥 [เพิ่มใหม่] (เป็น null ได้สำหรับ admin)
+	IsHeadTechnician bool   `json:"is_head_technician"`
+	Specialties      []int  `json:"specialties"`
 }
 
 type UpdateUserRequest struct {
-	Username     string `json:"username" binding:"required"`
-	Password     string `json:"password"`
-	FullName     string `json:"full_name" binding:"required"`
-	Email        string `json:"email" binding:"required"` // 🔥 [เพิ่มใหม่]
-	Role         string `json:"role" binding:"required"`
-	DepartmentID *int   `json:"department_id"` // 🔥 [เพิ่มใหม่]
-	IsCentral    bool   `json:"is_central"`    // 🔥 [เพิ่มใหม่]
-	Specialties  []int  `json:"specialties"`
+	Username         string `json:"username" binding:"required"`
+	Password         string `json:"password"`
+	FullName         string `json:"full_name" binding:"required"`
+	Email            string `json:"email" binding:"required"` // 🔥 [เพิ่มใหม่]
+	Role             string `json:"role" binding:"required"`
+	DepartmentID     *int   `json:"department_id"` // 🔥 [เพิ่มใหม่]
+	IsHeadTechnician bool   `json:"is_head_technician"`
+	Specialties      []int  `json:"specialties"`
 }
 
 type LoginRequest struct {
@@ -109,7 +109,7 @@ func GetUsers(c *gin.Context) {
 	query := `
 		SELECT u.id, u.username, u.full_name, u.email, u.role, 
 		       u.department_id, d.name as department_name, 
-		       u.is_central, u.is_active, u.created_at 
+		       u.is_head_technician, u.is_active, u.created_at
 		FROM users u
 		LEFT JOIN departments d ON u.department_id = d.id
 		WHERE u.is_active = true
@@ -135,7 +135,7 @@ func GetUsers(c *gin.Context) {
 
 		err := rows.Scan(
 			&u.ID, &u.Username, &u.FullName, &u.Email, &u.Role,
-			&deptID, &deptName, &u.IsCentral, &u.IsActive, &u.CreatedAt,
+			&deptID, &deptName, &u.IsHeadTechnician, &u.IsActive, &u.CreatedAt,
 		)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "เกิดข้อผิดพลาดในการ Scan ข้อมูล: " + err.Error()})
@@ -193,6 +193,9 @@ func CreateUser(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if req.Role == "admin" {
+		req.IsHeadTechnician = false
+	}
 
 	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
@@ -207,12 +210,11 @@ func CreateUser(c *gin.Context) {
 	}
 
 	var newUserID int
-	// 🔥 [ปรับปรุง] เพิ่ม email, department_id, is_central ลงในคำสั่ง INSERT
 	query := `
-		INSERT INTO users (username, password, full_name, email, role, department_id, is_central) 
+		INSERT INTO users (username, password, full_name, email, role, department_id, is_head_technician)
 		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
 	`
-	err = tx.QueryRow(query, req.Username, string(hashed), req.FullName, req.Email, req.Role, req.DepartmentID, req.IsCentral).Scan(&newUserID)
+	err = tx.QueryRow(query, req.Username, string(hashed), req.FullName, req.Email, req.Role, req.DepartmentID, req.IsHeadTechnician).Scan(&newUserID)
 
 	if err != nil {
 		tx.Rollback()
@@ -297,16 +299,16 @@ func UpdateUser(c *gin.Context) {
 
 	if req.Role == "admin" {
 		req.DepartmentID = nil
-		req.IsCentral = false
+		req.IsHeadTechnician = false
 		req.Specialties = nil
 	}
 
 	updateQuery := `
 		UPDATE users 
-		SET username=$1, password=$2, full_name=$3, email=$4, role=$5, department_id=$6, is_central=$7 
+		SET username=$1, password=$2, full_name=$3, email=$4, role=$5, department_id=$6, is_head_technician=$7
 		WHERE id=$8
 	`
-	_, err = tx.Exec(updateQuery, req.Username, passwordHash, req.FullName, req.Email, req.Role, req.DepartmentID, req.IsCentral, id)
+	_, err = tx.Exec(updateQuery, req.Username, passwordHash, req.FullName, req.Email, req.Role, req.DepartmentID, req.IsHeadTechnician, id)
 
 	if err != nil {
 		tx.Rollback()
@@ -350,6 +352,41 @@ func UpdateUser(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "อัปเดตข้อมูลผู้ใช้งานสำเร็จ"})
 }
 
+func UpdateHeadTechnician(c *gin.Context) {
+	var req struct {
+		IsHeadTechnician bool `json:"is_head_technician"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ข้อมูลไม่ถูกต้อง"})
+		return
+	}
+
+	result, err := database.DB.Exec(`
+		UPDATE users
+		SET is_head_technician = $1
+		WHERE id = $2 AND role = 'technician' AND is_active = TRUE
+	`, req.IsHeadTechnician, c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถเปลี่ยนสถานะหัวหน้าช่างได้: " + err.Error()})
+		return
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถตรวจสอบผลการเปลี่ยนสถานะได้: " + err.Error()})
+		return
+	}
+	if rowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบบัญชีช่างที่ใช้งานอยู่"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":            "อัปเดตสถานะหัวหน้าช่างสำเร็จ",
+		"is_head_technician": req.IsHeadTechnician,
+	})
+}
+
 // ---------------------------------------------------------
 // 4. DeleteUser: ลบบัญชีผู้ใช้งาน (ปรับเป็น Soft Delete)
 // ---------------------------------------------------------
@@ -387,9 +424,9 @@ func Login(c *gin.Context) {
 	var dbHashedPassword string
 	var deptID sql.NullInt64
 
-	// 🔥 [ปรับปรุง] ดึง email, department_id, is_central ออกมาด้วย (ต้อง check is_active ด้วย)
+	// Load the head-technician flag along with the account details.
 	query := `
-		SELECT id, username, password, full_name, email, role, department_id, is_central 
+		SELECT id, username, password, full_name, email, role, department_id, is_head_technician
 		FROM users 
 		WHERE username=$1 AND is_active=true
 	`
@@ -401,7 +438,7 @@ func Login(c *gin.Context) {
 		&dbUser.Email,
 		&dbUser.Role,
 		&deptID,
-		&dbUser.IsCentral,
+		&dbUser.IsHeadTechnician,
 	)
 
 	if err == sql.ErrNoRows {
@@ -428,17 +465,16 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	// 🔥 [ปรับปรุง] ส่ง department_id และ is_central กลับไปให้ Frontend ใช้ประมวลผลต่อ
 	c.JSON(http.StatusOK, gin.H{
 		"message": "เข้าสู่ระบบสำเร็จ",
 		"user": gin.H{
-			"id":            dbUser.ID,
-			"username":      dbUser.Username,
-			"full_name":     dbUser.FullName,
-			"email":         dbUser.Email,
-			"role":          dbUser.Role,
-			"department_id": dbUser.DepartmentID,
-			"is_central":    dbUser.IsCentral,
+			"id":                 dbUser.ID,
+			"username":           dbUser.Username,
+			"full_name":          dbUser.FullName,
+			"email":              dbUser.Email,
+			"role":               dbUser.Role,
+			"department_id":      dbUser.DepartmentID,
+			"is_head_technician": dbUser.IsHeadTechnician,
 		},
 	})
 }
@@ -458,7 +494,7 @@ func SearchUsers(c *gin.Context) {
 	query := `
 		SELECT u.id, u.username, u.full_name, u.email, u.role, 
 		       u.department_id, d.name as department_name, 
-		       u.is_central, u.is_active, u.created_at 
+		       u.is_head_technician, u.is_active, u.created_at
 		FROM users u
 		LEFT JOIN departments d ON u.department_id = d.id
 		WHERE (u.username ILIKE $1 OR u.full_name ILIKE $1) AND u.is_active = true
@@ -483,7 +519,7 @@ func SearchUsers(c *gin.Context) {
 
 		err := rows.Scan(
 			&u.ID, &u.Username, &u.FullName, &u.Email, &u.Role,
-			&deptID, &deptName, &u.IsCentral, &u.IsActive, &u.CreatedAt,
+			&deptID, &deptName, &u.IsHeadTechnician, &u.IsActive, &u.CreatedAt,
 		)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

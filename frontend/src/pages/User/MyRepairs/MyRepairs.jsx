@@ -136,6 +136,7 @@ function MyRepairs() {
     if (filter === "progress") return repair.status === "กำลังซ่อม";
     if (filter === "failed") return repair.status === "ซ่อมไม่ได้";
     if (filter === "outsourced") return repair.status === "ส่งซ่อมภายนอก";
+    if (filter === "faculty_forward") return repair.status === "ส่งซ่อมให้คณะ" || repair.assigned_department === "CENTRAL";
     return true;
   };
 
@@ -181,6 +182,7 @@ function MyRepairs() {
     { id: "completed", label: "เสร็จแล้ว", count: repairs.filter((repair) => matchesStatusFilter(repair, "completed")).length },
     { id: "failed", label: "ซ่อมไม่ได้", count: repairs.filter((repair) => matchesStatusFilter(repair, "failed")).length },
     { id: "outsourced", label: "ส่งซ่อมภายนอก", count: repairs.filter((repair) => matchesStatusFilter(repair, "outsourced")).length },
+    { id: "faculty_forward", label: "ส่งซ่อมให้คณะ", count: repairs.filter((repair) => matchesStatusFilter(repair, "faculty_forward")).length }
   ];
   const paginatedRepairs = getPageItems(filteredRepairs, currentPage, REPAIR_PAGE_SIZE);
 
@@ -193,6 +195,7 @@ function MyRepairs() {
       case "เสร็จสิ้น": return "status-completed";
       case "ซ่อมไม่ได้": return "status-failed";
       case "ส่งซ่อมภายนอก": return "status-outsourced";
+      case "ส่งซ่อมให้คณะ": return "status-faculty";
       default: return "status-default";
     }
   };

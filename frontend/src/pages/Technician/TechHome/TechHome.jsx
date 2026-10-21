@@ -16,6 +16,7 @@ import {
   LogOut,
   Save,
   Trash2,
+  UserRoundPlus,
   Wrench,
   X,
   Clock
@@ -35,6 +36,7 @@ function TechHome() {
 
   const [currentUser, setCurrentUser] = useState(null);
   const [repairs, setRepairs] = useState([]);
+  const [technicians, setTechnicians] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [jobView, setJobView] = useState("active");
@@ -44,6 +46,10 @@ function TechHome() {
   const [selectedRepair, setSelectedRepair] = useState(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [assignmentRepair, setAssignmentRepair] = useState(null);
+  const [isAssignOpen, setIsAssignOpen] = useState(false);
+  const [chosenTechId, setChosenTechId] = useState("");
+  const [isAssignSubmitting, setIsAssignSubmitting] = useState(false);
 
   // States สำหรับ Modal ปิดงาน
   const [modalOpen, setModalOpen] = useState(false);
@@ -74,7 +80,10 @@ function TechHome() {
     try {
       setIsLoading(true);
 
-      const response = await fetch("https://4projectit-production.up.railway.app/api/repairs");
+      const [response, usersResponse] = await Promise.all([
+        fetch("https://4projectit-production.up.railway.app/api/repairs"),
+        fetch("https://4projectit-production.up.railway.app/api/users"),
+      ]);
 
       if (response.ok) {
         const allRepairs = await response.json();
@@ -85,6 +94,10 @@ function TechHome() {
         );
 
         setRepairs(myJobs);
+      }
+      if (usersResponse.ok) {
+        const users = await usersResponse.json();
+        setTechnicians(users.filter((item) => item.role === "technician"));
       }
     } catch (error) {
       console.error("ดึงข้อมูลงานซ่อมไม่สำเร็จ:", error);
@@ -216,6 +229,66 @@ function TechHome() {
   const openDetailsModal = (repair) => {
     setSelectedRepair(repair);
     setIsDetailsOpen(true);
+  };
+
+  const getAssignableTechnicians = (repair) =>
+    technicians.filter((technician) =>
+      technician.id !== currentUser?.id &&
+      !technician.is_head_technician &&
+      String(technician.department_id) === String(currentUser?.department_id) &&
+      (technician.specialties || []).some(
+        (specialtyId) => String(specialtyId) === String(repair.problem_type_id)
+      )
+    );
+
+  const openAssignModal = (repair) => {
+    setAssignmentRepair(repair);
+    setChosenTechId("");
+    setIsAssignOpen(true);
+  };
+
+  const handleAssignSubmit = async (event) => {
+    event.preventDefault();
+    if (!chosenTechId || !assignmentRepair) {
+      toast.warning("กรุณาเลือกช่าง", {
+        description: "เลือกช่างในสาขาที่มีความถนัดตรงกับประเภทงานก่อนมอบหมาย",
+      });
+      return;
+    }
+
+    setIsAssignSubmitting(true);
+    try {
+      const response = await fetch(
+        `https://4projectit-production.up.railway.app/api/repairs/${assignmentRepair.id}/assign`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            technician_id: Number(chosenTechId),
+            head_technician_id: currentUser.id,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        toast.success("มอบหมายงานสำเร็จ", {
+          description: "ส่งต่องานให้ช่างในสาขาที่มีความถนัดตรงกันแล้ว",
+        });
+        setIsAssignOpen(false);
+        setAssignmentRepair(null);
+        fetchMyJobs(currentUser);
+      } else {
+        const data = await response.json();
+        toast.error("มอบหมายงานไม่สำเร็จ", {
+          description: data.error || "กรุณาลองใหม่อีกครั้ง",
+        });
+      }
+    } catch (error) {
+      console.error("Assign Job Error:", error);
+      toast.error("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
+    } finally {
+      setIsAssignSubmitting(false);
+    }
   };
 
   // รับงานไว้ก่อน โดยยังไม่เริ่มจับเวลาซ่อม
@@ -728,6 +801,16 @@ function TechHome() {
             <Clock size={16} aria-hidden="true" />{" "}
             ไทม์ไลน์
           </button>
+
+          {currentUser?.is_head_technician && repair.status === "รอซ่อม" && (
+            <button
+              className="btn-details"
+              type="button"
+              onClick={() => openAssignModal(repair)}
+            >
+              <UserRoundPlus size={16} aria-hidden="true" /> มอบหมายงาน
+            </button>
+          )}
         </div>
       </div>
 
@@ -1139,6 +1222,79 @@ function TechHome() {
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {isAssignOpen && assignmentRepair && (
+        <div className="modal-overlay">
+          <div className="modal-box">
+            <button
+              className="close-btn"
+              type="button"
+              disabled={isAssignSubmitting}
+              onClick={() => {
+                setIsAssignOpen(false);
+                setAssignmentRepair(null);
+              }}
+              aria-label="ปิดหน้าต่าง"
+            >
+              <X aria-hidden="true" />
+            </button>
+
+            <h3 className="modal-title-primary">
+              <UserRoundPlus size={22} aria-hidden="true" /> มอบหมายงานให้ช่าง
+            </h3>
+            <p className="modal-subtitle">
+              {assignmentRepair.ticket_number || `#${assignmentRepair.id}`} ·{" "}
+              {assignmentRepair.problem_type}
+            </p>
+
+            <form onSubmit={handleAssignSubmit}>
+              <div className="input-group">
+                <label htmlFor="head-technician-assignee">
+                  ช่างผู้รับงาน <span className="required">*</span>
+                </label>
+                <select
+                  id="head-technician-assignee"
+                  value={chosenTechId}
+                  onChange={(event) => setChosenTechId(event.target.value)}
+                  required
+                  disabled={getAssignableTechnicians(assignmentRepair).length === 0}
+                >
+                  <option value="">-- เลือกช่างที่ถนัดงานนี้ --</option>
+                  {getAssignableTechnicians(assignmentRepair).map((technician) => (
+                    <option key={technician.id} value={technician.id}>
+                      {technician.full_name}
+                    </option>
+                  ))}
+                </select>
+                {getAssignableTechnicians(assignmentRepair).length === 0 && (
+                  <small>ไม่พบช่างในสาขาที่มีความถนัดตรงกับประเภทงานนี้</small>
+                )}
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn-cancel"
+                  disabled={isAssignSubmitting}
+                  onClick={() => {
+                    setIsAssignOpen(false);
+                    setAssignmentRepair(null);
+                  }}
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  className="btn-submit"
+                  disabled={isAssignSubmitting || getAssignableTechnicians(assignmentRepair).length === 0}
+                >
+                  {isAssignSubmitting ? "กำลังมอบหมาย..." : "ยืนยันมอบหมายงาน"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

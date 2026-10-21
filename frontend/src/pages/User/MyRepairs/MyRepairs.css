@@ -202,6 +202,7 @@
   .status-completed { background: linear-gradient(135deg, #0c8d64, #10b981); }
   .status-failed { background: linear-gradient(135deg, #dc2626, #ef4444); }
   .status-outsourced { background: linear-gradient(135deg, #1d4ed8, #3b82f6); }
+  .status-faculty_forward { background: linear-gradient(135deg, #1d4ed8, #3b82f6); }
   .status-default { background: linear-gradient(135deg, #6b7280, #9ca3af); }
 
   .repair-title {
@@ -533,6 +534,7 @@
   .bar-completed { background: linear-gradient(90deg, #10b981, #059669); }
   .bar-failed { background: linear-gradient(90deg, #ef4444, #dc2626); }
   .bar-outsourced { background: linear-gradient(90deg, #6366f1, #3b82f6); }
+  .bar-faculty_forward { background: linear-gradient(90deg, #6366f1, #3b82f6); }
 
   .info-grid {
     display: grid;

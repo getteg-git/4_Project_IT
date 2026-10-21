@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { CircleX, Pencil, Plus, Save, ShieldCheck, Trash2, UserPlus, UsersRound, Wrench, X, Zap, Mail, Building2, Globe } from "lucide-react";
+import { CircleX, Pencil, Plus, Save, ShieldCheck, Trash2, UserPlus, UsersRound, Wrench, X, Zap, Mail, Building2 } from "lucide-react";
 import SearchField from "../../../../../components/ui/SearchField";
 import FilterBar from "../../../../../components/ui/FilterBar";
 import Pagination from "../../../../../components/ui/Pagination";
@@ -32,9 +32,10 @@ function AdminUsers() {
   const [email, setEmail] = useState(""); // 🔥 เพิ่มฟิลด์อีเมล
   const [departmentId, setDepartmentId] = useState(""); // 🔥 เพิ่มฟิลด์สาขา
   const [role, setRole] = useState("technician"); 
-  const [isCentral, setIsCentral] = useState(false); // 🔥 เพิ่มฟิลด์ช่างส่วนกลาง
+  const [isHeadTechnician, setIsHeadTechnician] = useState(false);
   const [specialties, setSpecialties] = useState([]); 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [updatingHeadTechnicianId, setUpdatingHeadTechnicianId] = useState(null);
 
   const validateUserForm = (allowEmptyPassword = false) => {
     const trimmedUsername = username.trim();
@@ -156,7 +157,7 @@ function AdminUsers() {
     setEmail("");
     setDepartmentId("");
     setRole("technician");
-    setIsCentral(false);
+    setIsHeadTechnician(false);
     setSpecialties([]);
     setIsCreateModalOpen(false);
     setIsEditModalOpen(false);
@@ -175,7 +176,7 @@ function AdminUsers() {
     setEmail(user.email || "");
     setDepartmentId(user.department_id || "");
     setRole(user.role);
-    setIsCentral(user.is_central || false);
+    setIsHeadTechnician(user.is_head_technician || false);
     setSpecialties(user.specialties || []);
     setIsEditModalOpen(true);
   };
@@ -210,7 +211,7 @@ function AdminUsers() {
           full_name: fullName, 
           email,
           department_id: departmentId ? parseInt(departmentId) : null,
-          is_central: role === "technician" ? isCentral : false,
+          is_head_technician: role === "technician" ? isHeadTechnician : false,
           role,
           specialties: role === "technician" ? specialties : []
         })
@@ -251,7 +252,7 @@ function AdminUsers() {
           email,
           role,
           department_id: departmentId ? parseInt(departmentId) : null,
-          is_central: role === "technician" ? isCentral : false,
+          is_head_technician: role === "technician" ? isHeadTechnician : false,
           specialties: role === "technician" ? specialties : []
         })
       });
@@ -294,6 +295,63 @@ function AdminUsers() {
       }
     } catch {
       toast.error("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์", { description: "กรุณาลองใหม่อีกครั้ง" });
+    }
+  };
+
+  const handleToggleHeadTechnician = async (user) => {
+    const nextValue = !user.is_head_technician;
+    setUpdatingHeadTechnicianId(user.id);
+    try {
+      const response = await fetch(
+        `https://4projectit-production.up.railway.app/api/users/${user.id}/head-technician`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ is_head_technician: nextValue }),
+        }
+      );
+
+      const responseBody = await response.text();
+      let responseData = {};
+      try {
+        responseData = responseBody ? JSON.parse(responseBody) : {};
+      } catch {
+        responseData = { error: responseBody };
+      }
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          toast.error("Backend ยังไม่มี API ตั้งหัวหน้าช่าง", {
+            description: "กรุณา deploy backend เวอร์ชันล่าสุด แล้วลองใหม่",
+          });
+          return;
+        }
+        toast.error("เปลี่ยนสถานะหัวหน้าช่างไม่สำเร็จ", {
+          description: responseData.error || "กรุณาลองใหม่อีกครั้ง",
+        });
+        return;
+      }
+
+      setUsers((currentUsers) =>
+        currentUsers.map((currentUser) =>
+          currentUser.id === user.id
+            ? { ...currentUser, is_head_technician: responseData.is_head_technician }
+            : currentUser
+        )
+      );
+      toast.success(
+        responseData.is_head_technician ? "ตั้งเป็นหัวหน้าช่างแล้ว" : "ยกเลิกสถานะหัวหน้าช่างแล้ว",
+        { description: "ป้ายสถานะในรายชื่อผู้ใช้ได้รับการอัปเดตแล้ว" }
+      );
+    } catch (error) {
+      console.error("Update Head Technician Error:", error);
+      toast.error("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์", {
+        description: error instanceof TypeError
+          ? "เชื่อมต่อ backend ไม่สำเร็จ ตรวจสอบสถานะเซิร์ฟเวอร์หรือ CORS แล้วลองใหม่"
+          : "เปลี่ยนสถานะหัวหน้าช่างไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+      });
+    } finally {
+      setUpdatingHeadTechnicianId(null);
     }
   };
 
@@ -352,10 +410,9 @@ function AdminUsers() {
                         {user.role === "admin" ? "แอดมิน (Admin)" : "ช่างเทคนิค (Technician)"}
                       </span>
 
-                      {/* 🔥 ป้ายกำกับช่างส่วนกลาง */}
-                      {user.role === "technician" && user.is_central && (
+                      {user.role === "technician" && user.is_head_technician && (
                         <span className="role-badge" style={{ backgroundColor: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>
-                          <Globe size={13} style={{ marginRight: '4px' }} /> ช่างส่วนกลาง
+                          <Wrench size={13} style={{ marginRight: '4px' }} /> หัวหน้าช่าง
                         </span>
                       )}
                     </div>
@@ -371,6 +428,22 @@ function AdminUsers() {
                 </div>
                 
                 <div className="user-actions">
+                  {user.role === "technician" && (
+                    <button
+                      className={`btn-head-tech${user.is_head_technician ? " is-active" : ""}`}
+                      type="button"
+                      onClick={() => handleToggleHeadTechnician(user)}
+                      disabled={updatingHeadTechnicianId === user.id}
+                      aria-pressed={Boolean(user.is_head_technician)}
+                    >
+                      <Wrench size={16} aria-hidden="true" />
+                      {updatingHeadTechnicianId === user.id
+                        ? "กำลังบันทึก..."
+                        : user.is_head_technician
+                          ? "ยกเลิกหัวหน้าช่าง"
+                          : "ตั้งเป็นหัวหน้าช่าง"}
+                    </button>
+                  )}
                   <button className="btn-edit" onClick={() => openEditModal(user)}>
                     <Pencil size={16} aria-hidden="true" /> แก้ไข
                   </button>
@@ -446,18 +519,17 @@ function AdminUsers() {
                 </select>
               </div>
 
-              {/* 🔥 เพิ่ม Checkbox ช่างส่วนกลาง (เฉพาะช่าง) */}
               {role === "technician" && (
                 <>
                   <div className="input-group" style={{ backgroundColor: '#f8fafc', padding: '10px 15px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
                       <input 
                         type="checkbox" 
-                        checked={isCentral} 
-                        onChange={(e) => setIsCentral(e.target.checked)} 
+                        checked={isHeadTechnician}
+                        onChange={(e) => setIsHeadTechnician(e.target.checked)}
                         style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                       />
-                      <strong>ตั้งเป็น "ช่างส่วนกลาง" (รับผิดชอบงานได้ทุกอาคาร/สาขา)</strong>
+                      <strong>ตั้งเป็นหัวหน้าช่าง (เพิ่มปุ่มมอบหมายงานให้ช่างในสาขา)</strong>
                     </label>
                   </div>
 
@@ -567,11 +639,11 @@ function AdminUsers() {
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
                       <input 
                         type="checkbox" 
-                        checked={isCentral} 
-                        onChange={(e) => setIsCentral(e.target.checked)} 
+                        checked={isHeadTechnician}
+                        onChange={(e) => setIsHeadTechnician(e.target.checked)}
                         style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                       />
-                      <strong>ตั้งเป็น "ช่างส่วนกลาง" (รับผิดชอบงานได้ทุกอาคาร/สาขา)</strong>
+                      <strong>ตั้งเป็นหัวหน้าช่าง (เพิ่มปุ่มมอบหมายงานให้ช่างในสาขา)</strong>
                     </label>
                   </div>
 

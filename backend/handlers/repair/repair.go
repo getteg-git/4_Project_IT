@@ -107,6 +107,56 @@ func sendAdminEmail(subject, body string) error {
 	return utils.SendEmailNotification(recipients, subject, body)
 }
 
+type computerHeadTechnician struct {
+	ID    int
+	Name  string
+	Email string
+}
+
+func assignComputerRepairToHead(repairID int, problemTypeID, departmentID interface{}) (*computerHeadTechnician, error) {
+	var lead computerHeadTechnician
+	err := database.DB.QueryRow(`
+		SELECT u.id, u.full_name, COALESCE(u.email, '')
+		FROM users u
+		JOIN technician_specialties ts ON ts.user_id = u.id
+		JOIN problem_types pt ON pt.id = ts.problem_type_id
+		WHERE u.role = 'technician'
+		  AND u.is_active = TRUE
+		  AND u.is_head_technician = TRUE
+		  AND ts.problem_type_id = $1
+		  AND (pt.name ILIKE '%คอมพิวเตอร์%' OR pt.name ILIKE '%computer%')
+		ORDER BY CASE WHEN u.department_id IS NOT DISTINCT FROM $2 THEN 0 ELSE 1 END, u.id
+		LIMIT 1
+	`, problemTypeID, departmentID).Scan(&lead.ID, &lead.Name, &lead.Email)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to find a computer head technician: %w", err)
+	}
+
+	tx, err := database.DB.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("failed to start computer assignment: %w", err)
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`UPDATE repairs SET technician_id = $1 WHERE id = $2`, lead.ID, repairID); err != nil {
+		return nil, fmt.Errorf("failed to assign computer repair to head technician: %w", err)
+	}
+	if _, err := tx.Exec(`
+		INSERT INTO repair_logs (repair_id, user_id, action, old_status, new_status, note)
+		VALUES ($1, $2, 'ASSIGNED', 'รอซ่อม', 'รอซ่อม', $3)
+	`, repairID, lead.ID, "ระบบส่งงานคอมพิวเตอร์ให้หัวหน้าช่าง "+lead.Name); err != nil {
+		return nil, fmt.Errorf("failed to log computer repair assignment: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to save computer repair assignment: %w", err)
+	}
+
+	return &lead, nil
+}
+
 // =========================================================
 // ธีมสีกลาง สำหรับอีเมลทุกฉบับในระบบ
 // =========================================================
@@ -178,6 +228,15 @@ func CreateRepair(c *gin.Context) {
 	// 🔥 บันทึก Log แรกเริ่ม
 	insertRepairLog(repairID, nil, "CREATED", "", "รอซ่อม", "สร้างใบแจ้งซ่อมใหม่โดยผู้ใช้งาน")
 
+	var computerLead *computerHeadTechnician
+	if problemTypeID != nil {
+		var routingErr error
+		computerLead, routingErr = assignComputerRepairToHead(repairID, problemTypeID, departmentID)
+		if routingErr != nil {
+			log.Printf("failed to route computer repair %d to a head technician: %v", repairID, routingErr)
+		}
+	}
+
 	form, _ := c.MultipartForm()
 	if form != nil && form.File != nil {
 		files := form.File["image"]
@@ -213,16 +272,39 @@ func CreateRepair(c *gin.Context) {
 			log.Printf("cannot email repair receipt for repair %d: reporter has no email address", repairID)
 		}
 
+		if computerLead != nil {
+			if computerLead.Email == "" {
+				log.Printf("computer head technician %d has no email for repair %d", computerLead.ID, repairID)
+			} else {
+				leadBodyContent := fmt.Sprintf(`
+					<p><strong>รหัสอ้างอิง:</strong> %s</p>
+					<p><strong>รายละเอียดงาน:</strong> %s</p>
+					<a href="%s/tech/home" class="btn">เปิดรายการงานช่าง</a>
+				`, html.EscapeString(ticketNumber), html.EscapeString(description), frontendURL)
+				if err := utils.SendEmailNotification(
+					[]string{computerLead.Email},
+					fmt.Sprintf("คอมพิวเตอร์: มีงานใหม่ส่งถึงหัวหน้าช่าง (%s)", ticketNumber),
+					wrapEmail(colorInfo, "มีงานคอมพิวเตอร์ส่งถึงคุณ", leadBodyContent),
+				); err != nil {
+					log.Printf("failed to email computer head technician for repair %d: %v", repairID, err)
+				}
+			}
+		}
+
 		// 2. อีเมลสำหรับ Admin
 		adminLink := frontendURL + "/admin/manage"
+		adminInstruction := "กรุณาเข้าสู่ระบบเพื่อพิจารณามอบหมายช่างดำเนินการ"
+		if computerLead != nil {
+			adminInstruction = "ระบบส่งงานให้หัวหน้าช่าง " + html.EscapeString(computerLead.Name) + " แล้ว"
+		}
 		adminBodyContent := fmt.Sprintf(`
-			<p>กรุณาเข้าสู่ระบบเพื่อพิจารณามอบหมายช่างดำเนินการ</p>
+			<p>%s</p>
 			<p><strong>หมายเลขอ้างอิง:</strong> %s</p>
 			<p><strong>ผู้แจ้ง:</strong> %s</p>
 			<p><strong>รายละเอียด:</strong> %s</p>
 			<div class="box-warning">ขณะนี้อยู่ในสถานะ: <strong>รอซ่อม</strong></div>
 			<a href="%s" class="btn">ตรวจสอบรายการได้ที่นี่</a>
-		`, html.EscapeString(ticketNumber), html.EscapeString(reporterEmail), html.EscapeString(description), adminLink)
+		`, adminInstruction, html.EscapeString(ticketNumber), html.EscapeString(reporterEmail), html.EscapeString(description), adminLink)
 		adminSubject := fmt.Sprintf("🔔 มีงานแจ้งซ่อมใหม่เข้ามา (%s)", ticketNumber)
 		adminBody := wrapEmail(colorInfo, "มีรายการแจ้งซ่อมใหม่เข้ามาในระบบ", adminBodyContent)
 
@@ -231,7 +313,11 @@ func CreateRepair(c *gin.Context) {
 		}
 	}()
 
-	c.JSON(http.StatusCreated, gin.H{"message": "สร้างรายการแจ้งซ่อมสำเร็จ", "ticket_number": ticketNumber})
+	response := gin.H{"message": "สร้างรายการแจ้งซ่อมสำเร็จ", "ticket_number": ticketNumber}
+	if computerLead != nil {
+		response["assigned_technician"] = computerLead.Name
+	}
+	c.JSON(http.StatusCreated, response)
 }
 
 // ---------------------------------------------------------
@@ -241,10 +327,9 @@ func GetAllRepairs(c *gin.Context) {
 	role := c.Query("role")
 	techID := c.Query("tech_id")
 	deptID := c.Query("department_id")
-	isCentral := c.Query("is_central")
 
 	query := `
-		SELECT r.id, r.ticket_number, r.description, r.status, r.created_at, r.technician_id, r.technician_note, r.admin_note, r.reporter_email,
+		SELECT r.id, r.ticket_number, r.description, r.status, r.created_at, r.technician_id, r.problem_type_id, r.technician_note, r.admin_note, r.reporter_email,
 			   r.estimated_cost, r.actual_cost, r.accepted_at, r.completed_at, r.other_location, r.other_room, r.other_problem_type,
 			   r.department_id, d.name as department_name,
 			   l.name as location_name, f.floor_name, ro.room_number,
@@ -265,8 +350,7 @@ func GetAllRepairs(c *gin.Context) {
 		// กรองให้เห็นเฉพาะงานที่ "ตรงกับความถนัด" ของช่างคนนั้น
 		query += fmt.Sprintf(` AND (r.problem_type_id IN (SELECT problem_type_id FROM technician_specialties WHERE user_id = %s) OR r.problem_type_id IS NULL)`, techID)
 
-		// ถ้าไม่ใช่ช่างส่วนกลาง (is_central = false) ให้เห็นแค่ "งานของสาขาตัวเอง" และ "งานที่ไม่ได้ระบุสาขา"
-		if isCentral != "true" && deptID != "" {
+		if deptID != "" {
 			query += fmt.Sprintf(` AND (r.department_id = %s OR r.department_id IS NULL)`, deptID)
 		}
 	}
@@ -289,9 +373,9 @@ func GetAllRepairs(c *gin.Context) {
 		var estimatedCost, actualCost float64
 		var createdAt time.Time
 		var acceptedAt, completedAt *time.Time
-		var techID, dID *int
+		var techID, problemTypeID, dID *int
 
-		err := rows.Scan(&id, &ticketNumber, &desc, &status, &createdAt, &techID, &techNote, &adminNote, &reporterEmail,
+		err := rows.Scan(&id, &ticketNumber, &desc, &status, &createdAt, &techID, &problemTypeID, &techNote, &adminNote, &reporterEmail,
 			&estimatedCost, &actualCost, &acceptedAt, &completedAt, &otherLoc, &otherRoom, &otherProb,
 			&dID, &deptName, &locName, &floorName, &roomNumber, &eqName, &assetCode, &basePrice, &probName, &techName)
 		if err != nil {
@@ -321,6 +405,7 @@ func GetAllRepairs(c *gin.Context) {
 			"status":             status,
 			"created_at":         createdAt,
 			"department_id":      dID,
+			"problem_type_id":    problemTypeID,
 			"department_name":    getString(deptName),
 			"location_name":      getString(locName),
 			"other_location":     getString(otherLoc),
@@ -437,8 +522,9 @@ func GetRepairByID(c *gin.Context) {
 func AssignRepair(c *gin.Context) {
 	repairID := c.Param("id")
 	type AssignRequest struct {
-		TechnicianID int `json:"technician_id" binding:"required"`
-		AdminID      int `json:"admin_id"` // รับ ID แอดมินมาเพื่อเก็บ Log
+		TechnicianID     int `json:"technician_id" binding:"required"`
+		AdminID          int `json:"admin_id"`
+		HeadTechnicianID int `json:"head_technician_id"`
 	}
 
 	var req AssignRequest
@@ -455,7 +541,11 @@ func AssignRepair(c *gin.Context) {
 	defer tx.Rollback()
 
 	var currentStatus string
-	err = tx.QueryRow("SELECT status FROM repairs WHERE id = $1 FOR UPDATE", repairID).Scan(&currentStatus)
+	var currentTechnicianID, repairProblemTypeID *int
+	err = tx.QueryRow(`
+		SELECT status, technician_id, problem_type_id
+		FROM repairs WHERE id = $1 FOR UPDATE
+	`, repairID).Scan(&currentStatus, &currentTechnicianID, &repairProblemTypeID)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบรายการแจ้งซ่อม"})
 		return
@@ -463,6 +553,65 @@ func AssignRepair(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+
+	actorID := req.AdminID
+	assignmentNote := fmt.Sprintf("Admin มอบหมายงานให้ช่าง ID: %d", req.TechnicianID)
+	if req.HeadTechnicianID > 0 {
+		var isHeadTechnician bool
+		err = tx.QueryRow(`
+			SELECT is_head_technician
+			FROM users
+			WHERE id = $1 AND role = 'technician' AND is_active = TRUE
+		`, req.HeadTechnicianID).Scan(&isHeadTechnician)
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusForbidden, gin.H{"error": "เฉพาะหัวหน้าช่างที่ใช้งานอยู่เท่านั้นที่มอบหมายงานได้"})
+			return
+		}
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if !isHeadTechnician {
+			c.JSON(http.StatusForbidden, gin.H{"error": "เฉพาะหัวหน้าช่างที่ใช้งานอยู่เท่านั้นที่มอบหมายงานได้"})
+			return
+		}
+		if currentStatus != "รอซ่อม" || currentTechnicianID == nil || *currentTechnicianID != req.HeadTechnicianID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "หัวหน้าช่างมอบหมายได้เฉพาะงานที่ได้รับมอบหมายและยังไม่เริ่มดำเนินการ"})
+			return
+		}
+		if repairProblemTypeID == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ไม่สามารถตรวจสอบความถนัดของช่างสำหรับงานนี้ได้"})
+			return
+		}
+
+		var eligible bool
+		err = tx.QueryRow(`
+			SELECT EXISTS (
+				SELECT 1
+				FROM users u
+				JOIN technician_specialties ts ON ts.user_id = u.id
+				WHERE u.id = $1
+				  AND u.role = 'technician'
+				  AND u.is_active = TRUE
+				  AND u.is_head_technician = FALSE
+				  AND u.department_id IS NOT DISTINCT FROM (
+					SELECT department_id FROM users WHERE id = $2
+				  )
+				  AND ts.problem_type_id = $3
+			)
+		`, req.TechnicianID, req.HeadTechnicianID, *repairProblemTypeID).Scan(&eligible)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if !eligible {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "เลือกได้เฉพาะช่างในสาขาเดียวกันที่ถนัดงานประเภทนี้"})
+			return
+		}
+
+		actorID = req.HeadTechnicianID
+		assignmentNote = fmt.Sprintf("หัวหน้าช่าง ID: %d มอบหมายงานให้ช่าง ID: %d", req.HeadTechnicianID, req.TechnicianID)
 	}
 
 	_, err = tx.Exec(
@@ -478,7 +627,7 @@ func AssignRepair(c *gin.Context) {
 	_, err = tx.Exec(`
 		INSERT INTO repair_logs (repair_id, user_id, action, old_status, new_status, note)
 		VALUES ($1, $2, 'ASSIGNED', $3, 'รอซ่อม', $4)`,
-		repairID, req.AdminID, currentStatus, fmt.Sprintf("Admin มอบหมายงานให้ช่าง ID: %d", req.TechnicianID))
+		repairID, actorID, currentStatus, assignmentNote)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกประวัติการมอบหมายงานได้"})
 		return

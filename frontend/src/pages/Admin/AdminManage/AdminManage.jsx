@@ -32,8 +32,6 @@ import useToast from "../../../hooks/useToast";
 import RepairTimelineModal from "../../User/Timeline/RepairTimelineModal";
 import "./AdminManage.css";
 
-const COMPUTER_SCIENCE_DEPARTMENT = "วิทยาการคอมพิวเตอร์ (CS)";
-
 function AdminManage() {
   const { toast, confirm } = useToast();
   const [searchParams] = useSearchParams();
@@ -446,14 +444,9 @@ function AdminManage() {
           tech.specialty_names &&
           tech.specialty_names.includes(selectedRepair.problem_type);
 
-        const isComputerScienceRepair =
-          selectedRepair.department_name === COMPUTER_SCIENCE_DEPARTMENT;
-
-        const isAreaMatch = isComputerScienceRepair
-          ? tech.department_id === selectedRepair.department_id
-          : !selectedRepair.department_id ||
-            tech.is_central ||
-            tech.department_id === selectedRepair.department_id;
+        const isAreaMatch =
+          !selectedRepair.department_id ||
+          String(tech.department_id) === String(selectedRepair.department_id);
 
         return isSkillMatch && isAreaMatch;
       })

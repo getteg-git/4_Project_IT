@@ -26,7 +26,7 @@ CREATE TABLE users (
     email VARCHAR(255) UNIQUE, -- [เพิ่มใหม่] อีเมลของช่าง/แอดมิน
     role VARCHAR(20) NOT NULL, -- 'admin' หรือ 'technician'
     department_id INT REFERENCES departments(id) ON DELETE SET NULL, -- [เพิ่มใหม่] สังกัดสาขาวิชา
-    is_central BOOLEAN DEFAULT FALSE, -- [เพิ่มใหม่] ควบตำแหน่งช่างส่วนกลางหรือไม่?
+    is_head_technician BOOLEAN DEFAULT FALSE,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -176,10 +176,10 @@ INSERT INTO departments (degree_level_id, name) VALUES
 (3, 'เทคโนโลยีสารสนเทศและนวัตกรรมดิจิทัล'),
 (3, 'นิติวิทยาศาสตร์และงานยุติธรรม');
 
-INSERT INTO users (username, password, full_name, email, role, department_id, is_central) VALUES
+INSERT INTO users (username, password, full_name, email, role, department_id, is_head_technician) VALUES
 ('admin', '$2a$12$ixARKu9I12oi7m51r.TSbO0L3QeLKB/9yT8711IWvvBF7radYi3YC', 'ผู้ดูแลระบบสูงสุด', 'admin@science.uni.ac.th', 'admin', null, false),
 ('tech_bio', '$2a$12$ixARKu9I12oi7m51r.TSbO0L3QeLKB/9yT8711IWvvBF7radYi3YC', 'นายชีวะ ซ่อมได้', 'tech.bio@science.uni.ac.th', 'technician', 1, false), -- ช่างชีวะ (รับแค่งานชีวะ)
-('tech_it', '$2a$12$ixARKu9I12oi7m51r.TSbO0L3QeLKB/9yT8711IWvvBF7radYi3YC', 'นายไอที รับจบ', 'tech.it@science.uni.ac.th', 'technician', 5, true); -- ช่างไอที (is_central = true รับงานสาขาอื่นได้)
+('tech_it', '$2a$12$ixARKu9I12oi7m51r.TSbO0L3QeLKB/9yT8711IWvvBF7radYi3YC', 'นายไอที รับจบ', 'tech.it@science.uni.ac.th', 'technician', 9, true);
 
 -- 2. สร้างข้อมูลอาคาร
 INSERT INTO locations (name) VALUES
@@ -353,5 +353,13 @@ INSERT INTO problem_types (name) VALUES
 ('งานอิเล็กทรอนิกส์/โทรศัพท์'),
 ('เครื่องปรับอากาศ/เครื่องเป่าลมเย็น'),
 ('งานห้องเรียน'),       
-('งานเสียงและภาพ'),    
+('งานเสียงและภาพ'),
+('งานคอมพิวเตอร์'),
 ('อื่นๆ');
+
+INSERT INTO technician_specialties (user_id, problem_type_id)
+SELECT u.id, pt.id
+FROM users u
+CROSS JOIN problem_types pt
+WHERE u.username = 'tech_it'
+  AND pt.name = 'งานคอมพิวเตอร์';
