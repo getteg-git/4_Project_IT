@@ -55,31 +55,16 @@
 
 /* Toolbar: ช่องค้นหา และปุ่มเพิ่ม */
 .users-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 20px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
   margin-bottom: 25px;
 }
 
 .search-section {
-  flex: 1;
-}
-
-.search-input {
-  width: 100%;
-  padding: 15px 20px;
-  border: 2px solid #ccd6d1;
-  border-radius: 12px;
-  font-size: 1.05rem;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
-  transition: all 0.3s;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: #007A53;
-  box-shadow: 0 0 0 4px rgba(0, 122, 83, 0.15);
+  min-width: 0;
+  margin: 0;
 }
 
 .btn-create-user {

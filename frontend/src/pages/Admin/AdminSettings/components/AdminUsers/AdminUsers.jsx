@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { CircleX, Pencil, Plus, Save, ShieldCheck, Trash2, UserPlus, UsersRound, Wrench, X, Zap, Mail, Building2, Globe } from "lucide-react";
 import SearchField from "../../../../../components/ui/SearchField";
+import FilterBar from "../../../../../components/ui/FilterBar";
 import Pagination from "../../../../../components/ui/Pagination";
 import { getPageItems } from "../../../../../components/ui/paginationUtils";
 import useToast from "../../../../../hooks/useToast";
@@ -15,6 +16,7 @@ function AdminUsers() {
   const [departments, setDepartments] = useState([]); // 🔥 เพิ่ม State เก็บสาขาวิชา
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
   const [specialtyFilter, setSpecialtyFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -105,14 +107,43 @@ function AdminUsers() {
   const filteredUsers = users.filter((user) => {
     const matchesSearch = [user.username, user.full_name, user.role, user.email]
       .some((value) => String(value || "").toLowerCase().includes(normalizedSearchTerm));
+    const matchesRole = !roleFilter || user.role === roleFilter;
     const matchesSpecialty = !specialtyFilter || (
       user.role === "technician" &&
       (user.specialties || []).some((id) => String(id) === specialtyFilter)
     );
-    return matchesSearch && matchesSpecialty;
+    return matchesSearch && matchesRole && matchesSpecialty;
   });
   const filteredTechnicianCount = filteredUsers.filter((user) => user.role === "technician").length;
   const paginatedUsers = getPageItems(filteredUsers, currentPage, USER_PAGE_SIZE);
+  const userFilters = [
+    {
+      id: "role",
+      label: "ประเภทบัญชี",
+      value: roleFilter,
+      options: [
+        { value: "admin", label: "แอดมิน" },
+        { value: "technician", label: "ช่างเทคนิค" },
+      ],
+      onChange: (value) => {
+        setRoleFilter(value);
+        setCurrentPage(1);
+      },
+    },
+    {
+      id: "specialty",
+      label: "งานที่ถนัด",
+      value: specialtyFilter,
+      options: problemTypes.map((type) => ({
+        value: String(type.id),
+        label: `${type.name} (${specialtyCounts.get(String(type.id)) || 0} คน)`,
+      })),
+      onChange: (value) => {
+        setSpecialtyFilter(value);
+        setCurrentPage(1);
+      },
+    },
+  ];
 
   // -----------------------------------------
   // ฟังก์ชัน Action และการทำงานต่างๆ
@@ -281,27 +312,12 @@ function AdminUsers() {
               onChange={(value) => { setSearchTerm(value); setCurrentPage(1); }}
             />
           </div>
-          <div className="users-filter-section">
-            <label htmlFor="admin-user-specialty-filter">กรองตามงานที่ถนัด</label>
-            <select
-              id="admin-user-specialty-filter"
-              value={specialtyFilter}
-              onChange={(event) => {
-                setSpecialtyFilter(event.target.value);
-                setCurrentPage(1);
-              }}
-            >
-              <option value="">ทุกหมวดหมู่ความถนัด</option>
-              {problemTypes.map((type) => (
-                <option key={type.id} value={String(type.id)}>
-                  {type.name} ({specialtyCounts.get(String(type.id)) || 0} คน)
-                </option>
-              ))}
-            </select>
+          <div className="toolbar-actions">
+            <FilterBar filters={userFilters} />
+            <button className="btn-create-user" onClick={openCreateModal}>
+              <UserPlus size={18} aria-hidden="true" /> เพิ่มผู้ใช้งานใหม่
+            </button>
           </div>
-          <button className="btn-create-user" onClick={openCreateModal}>
-            <UserPlus size={18} aria-hidden="true" /> เพิ่มผู้ใช้งานใหม่
-          </button>
         </div>
 
         {!isLoading && (

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html"
 	"log"
+	"math"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -29,6 +30,28 @@ func nullIfEmpty(value string) interface{} {
 		return nil
 	}
 	return value
+}
+
+func validateRepairImageFiles(files []*multipart.FileHeader) string {
+	if len(files) > 10 {
+		return "แนบรูปภาพได้สูงสุด 10 รูป"
+	}
+
+	allowedImageExtensions := map[string]bool{
+		".jpg": true, ".jpeg": true, ".png": true, ".gif": true,
+		".webp": true, ".bmp": true, ".avif": true, ".heic": true, ".heif": true,
+	}
+	for _, file := range files {
+		if file.Size > 10<<20 {
+			return "รูปภาพแต่ละไฟล์ต้องมีขนาดไม่เกิน 10 MB"
+		}
+		contentType := strings.ToLower(file.Header.Get("Content-Type"))
+		extension := strings.ToLower(filepath.Ext(file.Filename))
+		if !strings.HasPrefix(contentType, "image/") || !allowedImageExtensions[extension] {
+			return "กรุณาเลือกไฟล์รูปภาพที่รองรับ (JPG, PNG, GIF, WebP, BMP, AVIF หรือ HEIC)"
+		}
+	}
+	return ""
 }
 
 // generateTicketNumber สร้างรหัสตั๋วอัตโนมัติ (เช่น REQ-260901-001)
@@ -652,30 +675,9 @@ func UpdateRepairStatus(c *gin.Context) {
 			return
 		}
 		completionFiles = form.File["image"]
-		if len(completionFiles) == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาแนบรูปภาพประกอบอย่างน้อย 1 รูป"})
+		if validationError := validateRepairImageFiles(completionFiles); validationError != "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": validationError})
 			return
-		}
-		if len(completionFiles) > 10 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "แนบรูปภาพได้สูงสุด 10 รูป"})
-			return
-		}
-
-		allowedImageExtensions := map[string]bool{
-			".jpg": true, ".jpeg": true, ".png": true, ".gif": true,
-			".webp": true, ".bmp": true, ".avif": true, ".heic": true, ".heif": true,
-		}
-		for _, file := range completionFiles {
-			if file.Size > 10<<20 {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "รูปภาพแต่ละไฟล์ต้องมีขนาดไม่เกิน 10 MB"})
-				return
-			}
-			contentType := strings.ToLower(file.Header.Get("Content-Type"))
-			extension := strings.ToLower(filepath.Ext(file.Filename))
-			if !strings.HasPrefix(contentType, "image/") || !allowedImageExtensions[extension] {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาเลือกไฟล์รูปภาพที่รองรับ (JPG, PNG, GIF, WebP, BMP, AVIF หรือ HEIC)"})
-				return
-			}
 		}
 	}
 
@@ -915,26 +917,36 @@ func CancelRepairByAdmin(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "ยกเลิกงานสำเร็จ (สถานะ: ซ่อมไม่ได้)"})
 }
 
-// OutsourceRepair บันทึกการส่งงานที่ช่างซ่อมไม่ได้ไปให้ผู้รับจ้างภายนอก
+// OutsourceRepair บันทึกการส่งงานที่ช่างซ่อมไม่ได้ให้คณะหรือผู้รับจ้างภายนอก
 func OutsourceRepair(c *gin.Context) {
 	repairID := c.Param("id")
 	type OutsourceRequest struct {
-		Details string `json:"details" binding:"required"`
-		AdminID int    `json:"admin_id"`
+		Details     string `json:"details" binding:"required"`
+		Destination string `json:"destination"`
+		AdminID     int    `json:"admin_id"`
 	}
 
 	var req OutsourceRequest
 	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Details) == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาระบุผู้รับจ้างหรือรายละเอียดการส่งซ่อมภายนอก"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาระบุรายละเอียดการส่งซ่อม"})
+		return
+	}
+
+	statusLabel := "ส่งซ่อมภายนอก"
+	destinationLabel := "ภายนอก"
+	if req.Destination == "faculty" {
+		statusLabel = "ส่งซ่อมให้คณะ"
+		destinationLabel = "ให้คณะ"
+	} else if req.Destination != "" && req.Destination != "external" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ประเภทการส่งซ่อมไม่ถูกต้อง"})
 		return
 	}
 
 	result, err := database.DB.Exec(`
-		UPDATE repairs
-		SET status = 'ส่งซ่อมภายนอก', technician_id = NULL, accepted_at = NULL,
-		    completed_at = NULL, admin_note = $1
-		WHERE id = $2 AND status = 'ซ่อมไม่ได้'`,
-		"ส่งซ่อมภายนอก: "+strings.TrimSpace(req.Details), repairID)
+		UPDATE repairs SET status = $1, technician_id = NULL, accepted_at = NULL,
+		    completed_at = NULL, admin_note = $2
+		WHERE id = $3 AND status = 'ซ่อมไม่ได้'`,
+		statusLabel, "ส่งซ่อม"+destinationLabel+": "+strings.TrimSpace(req.Details), repairID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -946,11 +958,11 @@ func OutsourceRepair(c *gin.Context) {
 		return
 	}
 	if rowsAffected == 0 {
-		c.JSON(http.StatusConflict, gin.H{"error": "ส่งซ่อมภายนอกได้เฉพาะงานที่ช่างแจ้งว่าซ่อมไม่ได้"})
+		c.JSON(http.StatusConflict, gin.H{"error": "ส่งซ่อมต่อได้เฉพาะงานที่ช่างแจ้งว่าซ่อมไม่ได้"})
 		return
 	}
 
-	insertRepairLog(repairID, req.AdminID, "OUTSOURCED", "ซ่อมไม่ได้", "ส่งซ่อมภายนอก", req.Details)
+	insertRepairLog(repairID, req.AdminID, "OUTSOURCED", "ซ่อมไม่ได้", statusLabel, req.Details)
 	go func() {
 		var reporterEmail, ticketNumber, description string
 		if err := database.DB.QueryRow(`
@@ -968,18 +980,18 @@ func OutsourceRepair(c *gin.Context) {
 		bodyContent := fmt.Sprintf(`
 			<p><strong>หมายเลขใบแจ้ง:</strong> %s</p>
 			<p><strong>รายการ:</strong> %s</p>
-			<div class="box-info"><strong>สถานะ:</strong> ส่งซ่อมภายนอก</div>
+			<div class="box-info"><strong>สถานะ:</strong> %s</div>
 			<div class="box-info"><strong>รายละเอียด:</strong><br>%s</div>
-		`, html.EscapeString(ticketNumber), html.EscapeString(description), html.EscapeString(strings.TrimSpace(req.Details)))
+		`, html.EscapeString(ticketNumber), html.EscapeString(description), html.EscapeString(statusLabel), html.EscapeString(strings.TrimSpace(req.Details)))
 		if err := utils.SendEmailNotification(
 			[]string{reporterEmail},
-			fmt.Sprintf("อัปเดตงานซ่อมเป็นส่งซ่อมภายนอก (%s)", ticketNumber),
+			fmt.Sprintf("อัปเดตงานซ่อม: %s (%s)", statusLabel, ticketNumber),
 			wrapEmail(colorInfo, "อัปเดตสถานะงานซ่อม", bodyContent),
 		); err != nil {
 			log.Printf("failed to email outsourced repair update for %s: %v", repairID, err)
 		}
 	}()
-	c.JSON(http.StatusOK, gin.H{"message": "บันทึกการส่งซ่อมภายนอกสำเร็จ"})
+	c.JSON(http.StatusOK, gin.H{"message": "บันทึกการส่งซ่อมต่อสำเร็จ", "status": statusLabel})
 }
 
 // ---------------------------------------------------------
@@ -988,13 +1000,41 @@ func OutsourceRepair(c *gin.Context) {
 func EstimateRepair(c *gin.Context) {
 	repairID := c.Param("id")
 	type EstimateRequest struct {
-		EstimatedCost float64 `json:"estimated_cost" binding:"gte=0"`
-		TechID        int     `json:"tech_id"`
+		EstimatedCost    float64 `json:"estimated_cost"`
+		TechID           int     `json:"tech_id"`
+		CheckOnly        bool    `json:"check_only"`
+		ForceAdminReview bool    `json:"force_admin_review"`
 	}
 
 	var req EstimateRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	var estimateFiles []*multipart.FileHeader
+	if strings.HasPrefix(c.ContentType(), "multipart/form-data") {
+		if err := c.Request.ParseMultipartForm(32 << 20); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ไม่สามารถอ่านข้อมูลประเมินราคาและรูปภาพได้"})
+			return
+		}
+		var err error
+		req.EstimatedCost, err = strconv.ParseFloat(c.PostForm("estimated_cost"), 64)
+		if err == nil && c.PostForm("tech_id") != "" {
+			req.TechID, err = strconv.Atoi(c.PostForm("tech_id"))
+		}
+		req.CheckOnly = c.PostForm("check_only") == "true"
+		req.ForceAdminReview = c.PostForm("force_admin_review") == "true"
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาระบุราคาประเมินให้ถูกต้อง"})
+			return
+		}
+		estimateFiles = c.Request.MultipartForm.File["image"]
+	} else if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาระบุราคาประเมินให้ถูกต้อง"})
+		return
+	}
+	if math.IsNaN(req.EstimatedCost) || math.IsInf(req.EstimatedCost, 0) || req.EstimatedCost < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาระบุราคาประเมินให้ถูกต้อง"})
+		return
+	}
+	if validationError := validateRepairImageFiles(estimateFiles); validationError != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": validationError})
 		return
 	}
 
@@ -1014,49 +1054,95 @@ func EstimateRepair(c *gin.Context) {
 		return
 	}
 
-	if err == sql.ErrNoRows || eqID == nil {
-		result, err := database.DB.Exec(`UPDATE repairs SET estimated_cost = $1, status = 'กำลังซ่อม', accepted_at = CURRENT_TIMESTAMP WHERE id = $2`, req.EstimatedCost, repairID)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกราคาประเมินได้"})
-			return
-		}
-		if rows, err := result.RowsAffected(); err != nil || rows == 0 {
-			c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบรายการแจ้งซ่อม"})
-			return
-		}
-		insertRepairLog(repairID, req.TechID, "ESTIMATED", currentStatus, "กำลังซ่อม", fmt.Sprintf("ประเมินราคา: %.2f บาท (เริ่มซ่อมได้เลยไม่มีเงื่อนไข)", req.EstimatedCost))
-		go sendEstimateEmail(repairID, "กำลังซ่อม", "")
-		c.JSON(http.StatusOK, gin.H{"message": "บันทึกราคาประเมินสำเร็จ", "status": "กำลังซ่อม"})
-		return
-	}
-
 	var accumulatedCost float64
-	if err := database.DB.QueryRow(`SELECT COALESCE(SUM(actual_cost), 0) FROM repairs WHERE equipment_id = $1 AND status = 'เสร็จเรียบร้อย'`, *eqID).Scan(&accumulatedCost); err != nil {
-		log.Printf("failed to calculate accumulated repair cost for repair %s: %v", repairID, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถตรวจสอบต้นทุนสะสมของอุปกรณ์ได้"})
-		return
+	if err == nil && eqID != nil {
+		if err := database.DB.QueryRow(`SELECT COALESCE(SUM(actual_cost), 0) FROM repairs WHERE equipment_id = $1 AND status = 'เสร็จเรียบร้อย'`, *eqID).Scan(&accumulatedCost); err != nil {
+			log.Printf("failed to calculate accumulated repair cost for repair %s: %v", repairID, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถตรวจสอบต้นทุนสะสมของอุปกรณ์ได้"})
+			return
+		}
 	}
 
 	newStatus := "กำลังซ่อม"
 	adminSystemNote := ""
 
-	isSingleExceed := req.EstimatedCost > (basePrice * 0.5)
-	isAccumulatedExceed := (accumulatedCost + req.EstimatedCost) > (basePrice * 0.7)
+	isSingleExceed := eqID != nil && req.EstimatedCost > (basePrice*0.5)
+	isAccumulatedExceed := eqID != nil && (accumulatedCost+req.EstimatedCost) > (basePrice*0.7)
 
-	if isSingleExceed || isAccumulatedExceed {
+	if isSingleExceed || isAccumulatedExceed || req.ForceAdminReview {
 		newStatus = "รอซ่อม"
-		adminSystemNote = fmt.Sprintf("แจ้งเตือน: ราคาประเมินรวมเกินจุดคุ้มทุน (ฐาน %v บาท)", basePrice)
-		if _, err := database.DB.Exec(`UPDATE repairs SET estimated_cost = $1, status = $2, admin_note = $3, accepted_at = NULL WHERE id = $4`, req.EstimatedCost, newStatus, adminSystemNote, repairID); err != nil {
-			log.Printf("failed to save threshold repair estimate %s: %v", repairID, err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกราคาประเมินได้"})
+		adminSystemNote = fmt.Sprintf("แจ้งเตือน: ราคาประเมินรวมเกินจุดคุ้มทุน (ฐาน %.2f บาท)", basePrice)
+	}
+
+	if req.CheckOnly {
+		c.JSON(http.StatusOK, gin.H{
+			"status":            newStatus,
+			"estimated_cost":    req.EstimatedCost,
+			"accumulated_cost":  accumulatedCost,
+			"requires_approval": newStatus == "รอซ่อม",
+			"break_even_amount": basePrice * 0.5,
+		})
+		return
+	}
+	uploadedImagePaths := make([]string, 0, len(estimateFiles))
+	uploadedImageURLs := make([]string, 0, len(estimateFiles))
+	cleanupUploadedImages := func() {
+		for _, path := range uploadedImagePaths {
+			if removeErr := os.Remove(path); removeErr != nil && !os.IsNotExist(removeErr) {
+				log.Printf("failed to remove uploaded estimate image %s: %v", path, removeErr)
+			}
+		}
+	}
+	for _, file := range estimateFiles {
+		filename := fmt.Sprintf("%s_before_%d%s", repairID, time.Now().UnixNano(), filepath.Ext(file.Filename))
+		path := filepath.Join("uploads", filename)
+		uploadedImagePaths = append(uploadedImagePaths, path)
+		if err := c.SaveUploadedFile(file, path); err != nil {
+			cleanupUploadedImages()
+			log.Printf("failed to save estimate image for repair %s: %v", repairID, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "บันทึกรูปภาพไม่สำเร็จ กรุณาลองใหม่"})
 			return
 		}
-	} else {
-		if _, err := database.DB.Exec(`UPDATE repairs SET estimated_cost = $1, status = $2, accepted_at = CURRENT_TIMESTAMP WHERE id = $3`, req.EstimatedCost, newStatus, repairID); err != nil {
-			log.Printf("failed to save repair estimate %s: %v", repairID, err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกราคาประเมินได้"})
+		uploadedImageURLs = append(uploadedImageURLs, "/uploads/"+filename)
+	}
+
+	tx, err := database.DB.Begin()
+	if err != nil {
+		cleanupUploadedImages()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกราคาประเมินได้"})
+		return
+	}
+	result, err := tx.Exec(`UPDATE repairs SET estimated_cost = $1, status = $2,
+		admin_note = CASE WHEN $3 = '' THEN admin_note ELSE $3 END,
+		accepted_at = CASE WHEN $4 THEN NULL ELSE CURRENT_TIMESTAMP END
+		WHERE id = $5`, req.EstimatedCost, newStatus, adminSystemNote, newStatus == "รอซ่อม", repairID)
+	if err != nil {
+		tx.Rollback()
+		cleanupUploadedImages()
+		log.Printf("failed to save repair estimate %s: %v", repairID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกราคาประเมินได้"})
+		return
+	}
+	if rows, rowsErr := result.RowsAffected(); rowsErr != nil || rows == 0 {
+		tx.Rollback()
+		cleanupUploadedImages()
+		c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบรายการแจ้งซ่อม"})
+		return
+	}
+	for _, imageURL := range uploadedImageURLs {
+		if _, err := tx.Exec(`INSERT INTO repair_images (repair_id, image_url, image_type) VALUES ($1, $2, 'before')`, repairID, imageURL); err != nil {
+			tx.Rollback()
+			cleanupUploadedImages()
+			log.Printf("failed to save estimate image record for repair %s: %v", repairID, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "บันทึกข้อมูลรูปภาพไม่สำเร็จ"})
 			return
 		}
+	}
+	if err := tx.Commit(); err != nil {
+		cleanupUploadedImages()
+		log.Printf("failed to commit repair estimate %s: %v", repairID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกราคาประเมินได้"})
+		return
 	}
 
 	// 🔥 บันทึก Log การประเมินราคา

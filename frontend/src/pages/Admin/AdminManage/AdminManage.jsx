@@ -32,6 +32,8 @@ import useToast from "../../../hooks/useToast";
 import RepairTimelineModal from "../../User/Timeline/RepairTimelineModal";
 import "./AdminManage.css";
 
+const COMPUTER_SCIENCE_DEPARTMENT = "วิทยาการคอมพิวเตอร์ (CS)";
+
 function AdminManage() {
   const { toast, confirm } = useToast();
   const [searchParams] = useSearchParams();
@@ -63,6 +65,7 @@ function AdminManage() {
   const [isOutsourceOpen, setIsOutsourceOpen] = useState(false);
   const [outsourceTarget, setOutsourceTarget] = useState(null);
   const [outsourceDetails, setOutsourceDetails] = useState("");
+  const [outsourceDestination, setOutsourceDestination] = useState("external");
   const [isOutsourceSubmitting, setIsOutsourceSubmitting] = useState(false);
 
   // States สำหรับหน้าต่างกรอกเหตุผลไม่อนุมัติ (Reject Modal)
@@ -295,6 +298,7 @@ function AdminManage() {
       !isCompletedRepair(repair) &&
       !isAdminCancelledRepair(repair) &&
       repair.status !== "ส่งซ่อมภายนอก" &&
+      repair.status !== "ส่งซ่อมให้คณะ" &&
       repair.status !== "ซ่อมไม่ได้" &&
       repair.status !== "กำลังซ่อม" &&
       !isReviewRepair(repair) &&
@@ -306,6 +310,7 @@ function AdminManage() {
       !isCompletedRepair(repair) &&
       !isAdminCancelledRepair(repair) &&
       repair.status !== "ส่งซ่อมภายนอก" &&
+      repair.status !== "ส่งซ่อมให้คณะ" &&
       repair.status !== "ซ่อมไม่ได้" &&
       repair.status !== "กำลังซ่อม" &&
       !isReviewRepair(repair) &&
@@ -322,7 +327,7 @@ function AdminManage() {
   const repairFailureRepairs = filteredRepairs.filter(needsRepairReview);
 
   const outsourcedRepairs = filteredRepairs.filter(
-    (repair) => repair.status === "ส่งซ่อมภายนอก"
+    (repair) => ["ส่งซ่อมภายนอก", "ส่งซ่อมให้คณะ"].includes(repair.status)
   );
 
   const progressRepairs = filteredRepairs.filter(
@@ -365,6 +370,7 @@ function AdminManage() {
       case "กำลังซ่อม":
         return "status-progress";
       case "ส่งซ่อมภายนอก":
+      case "ส่งซ่อมให้คณะ":
         return "status-outsourced";
       case "เสร็จเรียบร้อย":
         return "status-completed";
@@ -421,6 +427,7 @@ function AdminManage() {
           "เสร็จเรียบร้อย",
           "เสร็จสิ้น",
           "ส่งซ่อมภายนอก",
+          "ส่งซ่อมให้คณะ",
         ].includes(repair.status) &&
         !isAdminCancelledRepair(repair)
     ).length;
@@ -439,10 +446,14 @@ function AdminManage() {
           tech.specialty_names &&
           tech.specialty_names.includes(selectedRepair.problem_type);
 
-        const isAreaMatch =
-          !selectedRepair.department_id ||
-          tech.is_central ||
-          tech.department_id === selectedRepair.department_id;
+        const isComputerScienceRepair =
+          selectedRepair.department_name === COMPUTER_SCIENCE_DEPARTMENT;
+
+        const isAreaMatch = isComputerScienceRepair
+          ? tech.department_id === selectedRepair.department_id
+          : !selectedRepair.department_id ||
+            tech.is_central ||
+            tech.department_id === selectedRepair.department_id;
 
         return isSkillMatch && isAreaMatch;
       })
@@ -523,9 +534,10 @@ function AdminManage() {
   // ==============================
   // ส่งซ่อมภายนอก
   // ==============================
-  const openOutsourceModal = (repair) => {
+  const openOutsourceModal = (repair, destination = "external") => {
     setOutsourceTarget(repair);
     setOutsourceDetails("");
+    setOutsourceDestination(destination);
     setIsOutsourceOpen(true);
   };
 
@@ -546,14 +558,17 @@ function AdminManage() {
           },
           body: JSON.stringify({
             details: outsourceDetails.trim(),
+            destination: outsourceDestination,
             admin_id: 1,
           }),
         }
       );
 
       if (response.ok) {
-        toast.success("บันทึกส่งซ่อมภายนอกแล้ว", {
-          description: "ระบบบันทึกผู้รับจ้างและย้ายงานไปยังรายการส่งซ่อมภายนอก",
+        const destinationName =
+          outsourceDestination === "faculty" ? "ทางคณะ" : "ภายนอก";
+        toast.success(`บันทึกส่งซ่อม${destinationName}แล้ว`, {
+          description: "ระบบย้ายงานไปยังรายการส่งซ่อมต่อแล้ว",
         });
 
         setIsOutsourceOpen(false);
@@ -934,7 +949,7 @@ function AdminManage() {
               setCurrentPage(1);
             }}
           >
-            ส่งซ่อมภายนอก{" "}
+            ส่งซ่อมต่อ{" "}
             <span>{outsourcedRepairs.length}</span>
           </button>
 
@@ -1219,14 +1234,16 @@ function AdminManage() {
 
                         <button
                           className="btn-outsource"
-                          onClick={() =>
-                            openOutsourceModal(repair)
-                          }
+                          onClick={() => openOutsourceModal(repair, "faculty")}
                         >
-                          <Building2
-                            size={16}
-                            aria-hidden="true"
-                          />{" "}
+                          <Building2 size={16} aria-hidden="true" />{" "}
+                          ส่งซ่อมให้คณะ
+                        </button>
+                        <button
+                          className="btn-outsource"
+                          onClick={() => openOutsourceModal(repair, "external")}
+                        >
+                          <Building2 size={16} aria-hidden="true" />{" "}
                           ส่งซ่อมภายนอก
                         </button>
                       </>
@@ -1266,7 +1283,7 @@ function AdminManage() {
                         ? "ไม่มีงานที่ช่างแจ้งว่าซ่อมไม่ได้"
                         : assignmentView ===
                             "outsourced"
-                          ? "ยังไม่มีงานที่ส่งซ่อมภายนอก"
+                          ? "ยังไม่มีงานที่ส่งซ่อมต่อให้คณะหรือภายนอก"
                           : assignmentView ===
                               "progress"
                             ? "ยังไม่มีงานที่กำลังซ่อม"
@@ -1771,7 +1788,7 @@ function AdminManage() {
                 size={22}
                 aria-hidden="true"
               />{" "}
-              บันทึกส่งซ่อมภายนอก
+              บันทึกส่งซ่อมต่อ
             </h3>
 
             <p className="assign-modal-subtitle">
@@ -1782,20 +1799,41 @@ function AdminManage() {
             </p>
 
             <p className="outsource-context">
-              งานนี้ถูกย้ายออกจากคิวช่างภายใน
-              และบันทึกเป็น “ส่งซ่อมภายนอก”
+              เลือกปลายทางส่งซ่อม งานจะถูกย้ายออกจากคิวช่างภายใน
             </p>
 
             <form onSubmit={handleOutsourceSubmit}>
               <div className="input-group">
+                <label htmlFor="outsource-destination">
+                  ส่งซ่อมให้{" "}
+                  <span className="required">*</span>
+                </label>
+                <select
+                  id="outsource-destination"
+                  className="cost-input"
+                  value={outsourceDestination}
+                  onChange={(e) => setOutsourceDestination(e.target.value)}
+                >
+                  <option value="faculty">ทางคณะ</option>
+                  <option value="external">ภายนอก</option>
+                </select>
+              </div>
+
+              <div className="input-group">
                 <label>
-                  ชื่อผู้รับจ้างหรือรายละเอียดการส่งซ่อม{" "}
+                  {outsourceDestination === "faculty"
+                    ? "หน่วยงานหรือรายละเอียดการส่งซ่อม"
+                    : "ชื่อผู้รับจ้างหรือรายละเอียดการส่งซ่อม"}{" "}
                   <span className="required">*</span>
                 </label>
 
                 <textarea
                   className="reject-textarea"
-                  placeholder="ระบุชื่อร้าน/ช่างภายนอก และรายละเอียดที่ต้องติดตาม"
+                  placeholder={
+                    outsourceDestination === "faculty"
+                      ? "ระบุหน่วยงาน/ผู้รับผิดชอบและรายละเอียดที่ต้องติดตาม"
+                      : "ระบุชื่อร้าน/ช่างภายนอก และรายละเอียดที่ต้องติดตาม"
+                  }
                   value={outsourceDetails}
                   onChange={(e) =>
                     setOutsourceDetails(
@@ -1821,7 +1859,7 @@ function AdminManage() {
                   />{" "}
                   {isOutsourceSubmitting
                     ? "กำลังบันทึก..."
-                    : "ยืนยันส่งซ่อมภายนอก"}
+                    : `ยืนยันส่งซ่อม${outsourceDestination === "faculty" ? "ให้คณะ" : "ภายนอก"}`}
                 </button>
               </div>
             </form>

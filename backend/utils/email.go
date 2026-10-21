@@ -1,29 +1,20 @@
 package utils
 
 import (
-	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"net/http"
 	"net/mail"
+	"net/smtp"
 	"os"
+	"strconv"
 	"strings"
-	"time"
 )
 
-const httpTimeout = 15 * time.Second
-
-type ResendEmailRequest struct {
-	From    string   `json:"from"`
-	To      []string `json:"to"`
-	Subject string   `json:"subject"`
-	HTML    string   `json:"html"`
-}
-
 func SendEmailNotification(toRecipients []string, subject string, bodyHTML string) error {
-	apiKey := strings.TrimSpace(os.Getenv("RESEND_API_KEY"))
+	host := strings.TrimSpace(os.Getenv("SMTP_HOST"))
+	port := strings.TrimSpace(os.Getenv("SMTP_PORT"))
 	sender := strings.TrimSpace(os.Getenv("SMTP_SENDER"))
+	password := os.Getenv("SMTP_PASSWORD")
 
 	if err := ValidateSMTPConfiguration(); err != nil {
 		return err
@@ -57,58 +48,44 @@ func SendEmailNotification(toRecipients []string, subject string, bodyHTML strin
 		return fmt.Errorf("email has no valid recipients")
 	}
 
-	displayName := "ระบบแจ้งซ่อม SC-SCI"
-	fromField := fmt.Sprintf("%s <%s>", displayName, senderAddress.Address)
-
-	// สร้าง Request Body สำหรับ Resend API
-	emailReq := ResendEmailRequest{
-		From:    fromField,
-		To:      recipients,
-		Subject: subject,
-		HTML:    bodyHTML,
-	}
-
-	jsonBytes, err := json.Marshal(emailReq)
-	if err != nil {
-		return fmt.Errorf("marshal email request: %w", err)
-	}
-
-	req, err := http.NewRequest("POST", "https://api.resend.com/emails", bytes.NewBuffer(jsonBytes))
-	if err != nil {
-		return fmt.Errorf("create http request to resend: %w", err)
-	}
-
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	nutshellClient := &http.Client{Timeout: httpTimeout}
-	resp, err := nutshellClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("send http request to resend: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return fmt.Errorf("resend api returned error status: %d", resp.StatusCode)
+	auth := smtp.PlainAuth("", senderAddress.Address, password, host)
+	serverAddress := host + ":" + port
+	if err := smtp.SendMail(serverAddress, auth, senderAddress.Address, recipients, []byte(
+		buildEmailMessage(senderAddress, recipients, subject, bodyHTML),
+	)); err != nil {
+		return fmt.Errorf("send email via SMTP server %s: %w", serverAddress, err)
 	}
 
 	return nil
 }
 
 func ValidateSMTPConfiguration() error {
-	apiKey := strings.TrimSpace(os.Getenv("RESEND_API_KEY"))
+	host := strings.TrimSpace(os.Getenv("SMTP_HOST"))
+	port := strings.TrimSpace(os.Getenv("SMTP_PORT"))
 	sender := strings.TrimSpace(os.Getenv("SMTP_SENDER"))
+	password := os.Getenv("SMTP_PASSWORD")
 
-	missing := make([]string, 0, 2)
-	if apiKey == "" {
-		missing = append(missing, "RESEND_API_KEY")
+	missing := make([]string, 0, 4)
+	if host == "" {
+		missing = append(missing, "SMTP_HOST")
+	}
+	if port == "" {
+		missing = append(missing, "SMTP_PORT")
 	}
 	if sender == "" {
 		missing = append(missing, "SMTP_SENDER")
 	}
+	if strings.TrimSpace(password) == "" {
+		missing = append(missing, "SMTP_PASSWORD")
+	}
 
 	if len(missing) > 0 {
 		return fmt.Errorf("email is not configured: missing %s", strings.Join(missing, ", "))
+	}
+
+	portNumber, err := strconv.Atoi(port)
+	if err != nil || portNumber < 1 || portNumber > 65535 {
+		return fmt.Errorf("invalid SMTP_PORT: must be a number between 1 and 65535")
 	}
 
 	if _, err := mail.ParseAddress(sender); err != nil {
@@ -117,7 +94,6 @@ func ValidateSMTPConfiguration() error {
 	return nil
 }
 
-// เก็บฟังก์ชันช่วยตกแต่ง Header เผื่อส่วนอื่นเรียกใช้ แต่ใน Resend จะส่งผ่าน JSON ให้อัตโนมัติ
 func buildEmailMessage(sender *mail.Address, recipients []string, subject, bodyHTML string) string {
 	displayName := "ระบบแจ้งซ่อม SC-SCI"
 	from := mimeHeader(displayName) + " <" + sender.Address + ">"

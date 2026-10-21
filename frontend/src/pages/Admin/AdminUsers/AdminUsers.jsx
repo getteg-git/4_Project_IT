@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import SearchField from "../../../components/ui/SearchField";
 import useToast from "../../../hooks/useToast";
 import "./AdminUsers.css";
 
@@ -234,12 +235,12 @@ function AdminUsers() {
         {/* Toolbar: ค้นหา & เพิ่มผู้ใช้ */}
         <div className="users-toolbar">
           <div className="search-section">
-            <input
-              type="text"
-              placeholder="🔍 ค้นหาชื่อผู้ใช้ ชื่อจริง หรือสิทธิ์..."
+            <SearchField
+              id="admin-user-search"
+              label="ค้นหาบัญชีผู้ใช้"
+              placeholder="ชื่อผู้ใช้ ชื่อจริง หรือสิทธิ์"
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="search-input"
+              onChange={setSearchTerm}
             />
           </div>
           <button className="btn-create-user" onClick={openCreateModal}>
