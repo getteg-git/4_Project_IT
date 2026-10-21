@@ -45,45 +45,6 @@
   color: white;
 }
 
-/* Toolbar: ช่องค้นหา และปุ่มเพิ่ม */
-.users-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 20px;
-  margin-bottom: 25px;
-}
-
-.search-section { flex: 1; }
-.users-filter-section {
-  display: flex;
-  min-width: 210px;
-  flex-direction: column;
-  gap: 7px;
-}
-
-.users-filter-section label {
-  color: #334155;
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.users-filter-section select {
-  min-height: 50px;
-  padding: 12px 14px;
-  border: 1px solid #ccd6d1;
-  border-radius: 10px;
-  color: #334155;
-  background-color: #fff;
-  font: inherit;
-}
-
-.users-filter-section select:focus {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(0, 122, 83, 0.12);
-}
-
 .users-filter-summary {
   margin: -10px 0 16px;
   color: #475569;

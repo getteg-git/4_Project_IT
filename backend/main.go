@@ -23,7 +23,7 @@ func main() {
 	}
 
 	if err := utils.ValidateSMTPConfiguration(); err != nil {
-		log.Printf("email notifications are unavailable: %v; configure SMTP variables on the Railway backend service and redeploy", err)
+		log.Printf("email notifications are unavailable: %v; configure SMTP_HOST, SMTP_PORT, SMTP_SENDER, and SMTP_PASSWORD on the backend service and redeploy", err)
 	}
 
 	for {

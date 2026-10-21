@@ -277,6 +277,7 @@ function TechHome() {
 
     setEstimateTicketId(repair.id);
     setEstimatedCost("");
+    clearCompletionImages();
     setEstimateBasePrice(basePrice);
     setPriceCheckStatus("idle");
     setIsStartingRepair(true);
@@ -332,19 +333,35 @@ function TechHome() {
 
     const costValue =
       estimatedCost === "" ? 0 : Number(estimatedCost);
+    const useMultipart = isStartingRepair && completionImages.length > 0;
+    const requestBody = useMultipart
+      ? new FormData()
+      : JSON.stringify({
+          estimated_cost: costValue,
+          ...(isStartingRepair && {
+            tech_id: currentUser.id,
+            force_admin_review: priceCheckStatus === "exceeded",
+          }),
+        });
+
+    if (useMultipart) {
+      requestBody.append("estimated_cost", String(costValue));
+      requestBody.append("tech_id", String(currentUser.id));
+      if (priceCheckStatus === "exceeded") {
+        requestBody.append("force_admin_review", "true");
+      }
+      completionImages.forEach(({ file }) => requestBody.append("image", file));
+    }
 
     try {
       const response = await fetch(
         `https://4projectit-production.up.railway.app/api/repairs/${estimateTicketId}/estimate`,
         {
           method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            estimated_cost: costValue,
-            ...(isStartingRepair ? { tech_id: currentUser.id } : {}),
+          ...(!useMultipart && {
+            headers: { "Content-Type": "application/json" },
           }),
+          body: requestBody,
         }
       );
 
@@ -373,13 +390,22 @@ function TechHome() {
         setEstimateModalOpen(false);
         setIsStartingRepair(false);
         setEstimateBasePrice(null);
+        clearCompletionImages();
         fetchMyJobs(currentUser);
       } else {
-        const errorData = await response.json();
+        const responseText = await response.text();
+        let errorMessage = "กรุณาลองใหม่อีกครั้ง";
+        if (responseText) {
+          try {
+            const errorData = JSON.parse(responseText);
+            errorMessage = errorData.error || errorData.message || errorMessage;
+          } catch {
+            errorMessage = responseText;
+          }
+        }
 
         toast.error("ส่งราคาประเมินไม่สำเร็จ", {
-          description:
-            errorData.error || "กรุณาลองใหม่อีกครั้ง",
+          description: errorMessage,
         });
       }
     } catch (error) {
@@ -405,21 +431,39 @@ function TechHome() {
       toast.error("กรุณากรอกราคาประเมินให้ถูกต้อง");
       return;
     }
-
     setPriceCheckStatus("checking");
-    await new Promise((resolve) => window.setTimeout(resolve, 350));
-
-    const singleRepairLimit = Number.isFinite(estimateBasePrice)
-      ? estimateBasePrice * 0.5
-      : Infinity;
-
-    if (cost <= singleRepairLimit) {
-      setPriceCheckStatus("approved");
-      return;
+    try {
+      const response = await fetch(
+        `https://4projectit-production.up.railway.app/api/repairs/${estimateTicketId}/estimate`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            estimated_cost: cost,
+            tech_id: currentUser.id,
+            check_only: true,
+          }),
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "ตรวจสอบจุดคุ้มทุนไม่สำเร็จ");
+      }
+      const exceedsSingleRepairLimit =
+        Number.isFinite(estimateBasePrice) &&
+        cost > estimateBasePrice * 0.5;
+      setPriceCheckStatus(
+        data.requires_approval || exceedsSingleRepairLimit
+          ? "exceeded"
+          : "approved"
+      );
+    } catch (error) {
+      console.error("Break-even Check Error:", error);
+      setPriceCheckStatus("idle");
+      toast.error("ตรวจสอบจุดคุ้มทุนไม่สำเร็จ", {
+        description: error.message || "กรุณาลองใหม่อีกครั้ง",
+      });
     }
-
-    setPriceCheckStatus("exceeded");
-    await submitEstimate();
   };
 
   // ปิดงานซ่อม
@@ -480,6 +524,7 @@ function TechHome() {
         return { file, previewUrl };
       });
       setCompletionImages((current) => [...current, ...imagesToAdd]);
+      if (isStartingRepair) setPriceCheckStatus("idle");
     }
   };
 
@@ -489,14 +534,11 @@ function TechHome() {
     URL.revokeObjectURL(image.previewUrl);
     completionImageUrlsRef.current.delete(image.previewUrl);
     setCompletionImages((current) => current.filter((_, itemIndex) => itemIndex !== index));
+    if (isStartingRepair) setPriceCheckStatus("idle");
   };
 
   const handleSubmitClose = async (e) => {
     e.preventDefault();
-    if (completionImages.length === 0) {
-      toast.warning("กรุณาแนบรูปภาพประกอบอย่างน้อย 1 รูป");
-      return;
-    }
     setIsSubmitting(true);
 
     const newStatus =
@@ -1113,6 +1155,7 @@ function TechHome() {
                 setEstimateModalOpen(false);
                 setIsStartingRepair(false);
                 setEstimateBasePrice(null);
+                clearCompletionImages();
               }}
               aria-label="ปิดหน้าต่าง"
             >
@@ -1142,6 +1185,71 @@ function TechHome() {
             </p>
 
             <form onSubmit={handleSubmitEstimate}>
+              {isStartingRepair && (
+                <div className="input-group">
+                  <label>
+                    <Camera size={17} aria-hidden="true" /> รูปภาพก่อนเริ่มซ่อม
+                  </label>
+                  <p className="completion-image-hint">
+                    แนบรูปได้ตามต้องการ สูงสุด 10 รูป (ไม่เกิน 10 MB ต่อรูป)
+                  </p>
+                  <div className="completion-image-actions">
+                    <button
+                      type="button"
+                      className="completion-image-picker"
+                      onClick={() => imagePickerRef.current?.click()}
+                    >
+                      <ImageIcon size={18} aria-hidden="true" /> เลือกหลายรูป
+                    </button>
+                    <button
+                      type="button"
+                      className="completion-camera-picker"
+                      onClick={() => cameraPickerRef.current?.click()}
+                    >
+                      <Camera size={18} aria-hidden="true" /> ถ่ายรูป
+                    </button>
+                  </div>
+                  <input
+                    ref={imagePickerRef}
+                    className="completion-image-input"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleCompletionImageSelection}
+                    aria-label="เลือกรูปก่อนเริ่มซ่อม"
+                  />
+                  <input
+                    ref={cameraPickerRef}
+                    className="completion-image-input"
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleCompletionImageSelection}
+                    aria-label="ถ่ายรูปก่อนเริ่มซ่อม"
+                  />
+                  {completionImages.length > 0 && (
+                    <div className="completion-image-preview-grid">
+                      {completionImages.map(({ file, previewUrl }, index) => (
+                        <div className="completion-image-preview" key={`${file.name}-${file.lastModified}-${index}`}>
+                          <img src={previewUrl} alt={`รูปก่อนเริ่มซ่อม ${index + 1}: ${file.name}`} />
+                          <span title={file.name}>{file.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeCompletionImage(index)}
+                            aria-label={`ลบรูป ${file.name}`}
+                          >
+                            <Trash2 size={16} aria-hidden="true" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="completion-image-count" aria-live="polite">
+                    เลือกแล้ว {completionImages.length}/10 รูป
+                  </p>
+                </div>
+              )}
+
               {isStartingRepair && Number.isFinite(estimateBasePrice) && (
                 <>
                   <div className="estimate-budget-note">
@@ -1199,9 +1307,8 @@ function TechHome() {
                   >
                     {priceCheckStatus === "checking" && "กำลังตรวจสอบราคา..."}
                     {priceCheckStatus === "approved" && "ผ่านเกณฑ์ — ยืนยันการซ่อมได้"}
-                    {priceCheckStatus === "exceeded" && (isSubmitting
-                      ? "ไม่ผ่านเกณฑ์ — กำลังส่งให้ผู้ดูแลระบบพิจารณา..."
-                      : "ส่งให้ผู้ดูแลระบบพิจารณาไม่สำเร็จ")}
+                    {priceCheckStatus === "exceeded" &&
+                      `เนื่องจากราคาประเมิน (${Number(estimatedCost).toLocaleString("th-TH")} บาท) สูงกว่าจุดคุ้มทุน ระบบจำเป็นต้องส่งรายการนี้ให้ "แอดมิน / ผู้ดูแลระบบ" พิจารณาอนุมัติก่อนเริ่มซ่อม`}
                   </p>
                 )}
 
@@ -1211,7 +1318,7 @@ function TechHome() {
               </div>
 
               <div className="modal-actions">
-                {isStartingRepair && (
+                {isStartingRepair && priceCheckStatus !== "exceeded" && (
                   <button
                     type="button"
                     className="btn-cancel"
@@ -1220,6 +1327,7 @@ function TechHome() {
                       setEstimateModalOpen(false);
                       setIsStartingRepair(false);
                       setEstimateBasePrice(null);
+                      clearCompletionImages();
                     }}
                   >
                     ยกเลิก
@@ -1231,16 +1339,26 @@ function TechHome() {
                   </button>
                 ) : priceCheckStatus === "approved" ? (
                   <button type="submit" className="btn-accept" disabled={isSubmitting}>
-                    {isSubmitting ? "กำลังบันทึก..." : "ยืนยันการซ่อม"}
+                    {isSubmitting ? "กำลังบันทึก..." : "ยืนยันเริ่มซ่อม"}
                   </button>
                 ) : priceCheckStatus === "exceeded" && !isSubmitting ? (
-                  <button
-                    type="button"
-                    className="btn-accept"
-                    onClick={submitEstimate}
-                  >
-                    ส่งให้ผู้ดูแลพิจารณาอีกครั้ง
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      className="btn-cancel"
+                      onClick={() => setPriceCheckStatus("idle")}
+                    >
+                      ยกเลิก / แก้ไขราคา
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-accept"
+                      disabled={isSubmitting}
+                      onClick={submitEstimate}
+                    >
+                      ยืนยันส่งแอดมินพิจารณา
+                    </button>
+                  </>
                 ) : (
                   <button
                     type="button"
@@ -1253,7 +1371,7 @@ function TechHome() {
                     onClick={handleCheckBreakEven}
                   >
                     {isSubmitting
-                      ? "กำลังส่งให้ผู้ดูแลพิจารณา..."
+                      ? "กำลังบันทึก..."
                       : priceCheckStatus === "checking"
                         ? "กำลังตรวจสอบราคา..."
                         : "ตรวจสอบราคา"}
@@ -1379,10 +1497,9 @@ function TechHome() {
               <div className="input-group">
                 <label>
                   <Camera size={17} aria-hidden="true" /> รูปถ่ายหลังดำเนินการ
-                  <span className="required"> *</span>
                 </label>
                 <p className="completion-image-hint">
-                  แนบอย่างน้อย 1 รูป สูงสุด 10 รูป (ไม่เกิน 10 MB ต่อรูป) เพื่อยืนยันผลการซ่อมหรือสาเหตุที่ซ่อมไม่ได้
+                  แนบรูปได้ตามต้องการ สูงสุด 10 รูป (ไม่เกิน 10 MB ต่อรูป)
                 </p>
                 <div className="completion-image-actions">
                   <button

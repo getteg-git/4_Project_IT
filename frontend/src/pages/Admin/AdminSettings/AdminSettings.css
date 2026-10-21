@@ -147,16 +147,18 @@
   max-width: 460px;
 }
 
-.admin-settings-container .users-toolbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.8fr) auto;
-  align-items: end;
-  gap: 14px;
+.admin-settings-container .users-toolbar .search-section {
+  flex: 1;
+  min-width: 0;
+  max-width: 400px;
 }
 
-.admin-settings-container .users-toolbar .search-section {
-  min-width: 0;
-  max-width: none;
+.admin-settings-container .users-toolbar .toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  transform: translateY(-8px);
 }
 
 .admin-settings-container .users-filter-section {
@@ -423,6 +425,10 @@
     flex-direction: column;
   }
 
+  .admin-settings-container .admin-users-container .users-toolbar {
+    align-items: stretch;
+  }
+
   .admin-settings-container .users-toolbar .search-section,
   .admin-settings-container .locations-toolbar .search-section,
   .admin-settings-container .problems-toolbar .search-section,
@@ -433,6 +439,21 @@
   .admin-settings-container .toolbar-actions {
     width: 100%;
     flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-settings-container .admin-users-container .users-toolbar .toolbar-actions {
+    align-items: stretch;
+    transform: none;
+  }
+
+  .admin-settings-container .users-toolbar .toolbar-actions > .system-filter {
+    width: 100%;
+  }
+
+  .admin-settings-container .users-toolbar .system-filter-trigger {
+    width: 100%;
+    min-width: 0;
   }
 
   .admin-settings-container .toolbar-actions button,
@@ -464,12 +485,25 @@
   }
 }
 
-@media (min-width: 769px) and (max-width: 960px) {
-  .admin-settings-container .users-toolbar {
-    grid-template-columns: minmax(0, 1fr) minmax(210px, 0.8fr);
+@media (max-width: 420px) {
+  .admin-settings-container .users-toolbar .system-filter-trigger {
+    padding: 10px 13px;
   }
 
-  .admin-settings-container .users-toolbar .btn-create-user {
-    grid-column: 1 / -1;
+  .admin-settings-container .users-toolbar .system-filter-trigger .filter-trigger-label {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+  }
+
+  .admin-settings-container .users-toolbar .system-filter-trigger .filter-active-count {
+    position: static;
+    min-width: 21px;
+    height: 21px;
+    border: 0;
+    font-size: 0.72rem;
   }
 }
