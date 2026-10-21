@@ -27,7 +27,7 @@ function AdminDashboard() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const response = await fetch("https://4projectit-production.up.railway.app/api/repairs");
+        const response = await fetch("http://localhost:8080/api/repairs");
         if (response.ok) {
           const data = await response.json();
           setRepairs(data || []);

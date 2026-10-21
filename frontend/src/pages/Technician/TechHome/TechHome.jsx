@@ -81,8 +81,8 @@ function TechHome() {
       setIsLoading(true);
 
       const [response, usersResponse] = await Promise.all([
-        fetch("https://4projectit-production.up.railway.app/api/repairs"),
-        fetch("https://4projectit-production.up.railway.app/api/users"),
+        fetch("http://localhost:8080/api/repairs"),
+        fetch("http://localhost:8080/api/users"),
       ]);
 
       if (response.ok) {
@@ -259,7 +259,7 @@ function TechHome() {
     setIsAssignSubmitting(true);
     try {
       const response = await fetch(
-        `https://4projectit-production.up.railway.app/api/repairs/${assignmentRepair.id}/assign`,
+        `http://localhost:8080/api/repairs/${assignmentRepair.id}/assign`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -311,7 +311,7 @@ function TechHome() {
       formData.append("technician_id", currentUser.id);
 
       const response = await fetch(
-        `https://4projectit-production.up.railway.app/api/repairs/${repair.id}/status`,
+        `http://localhost:8080/api/repairs/${repair.id}/status`,
         {
           method: "PUT",
           body: formData,
@@ -370,7 +370,7 @@ function TechHome() {
 
     try {
       const response = await fetch(
-        `https://4projectit-production.up.railway.app/api/repairs/${id}/reject`,
+        `http://localhost:8080/api/repairs/${id}/reject`,
         {
           method: "PUT",
         }
@@ -428,7 +428,7 @@ function TechHome() {
 
     try {
       const response = await fetch(
-        `https://4projectit-production.up.railway.app/api/repairs/${estimateTicketId}/estimate`,
+        `http://localhost:8080/api/repairs/${estimateTicketId}/estimate`,
         {
           method: "PUT",
           ...(!useMultipart && {
@@ -507,7 +507,7 @@ function TechHome() {
     setPriceCheckStatus("checking");
     try {
       const response = await fetch(
-        `https://4projectit-production.up.railway.app/api/repairs/${estimateTicketId}/estimate`,
+        `http://localhost:8080/api/repairs/${estimateTicketId}/estimate`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -634,7 +634,7 @@ function TechHome() {
 
     try {
       const response = await fetch(
-        `https://4projectit-production.up.railway.app/api/repairs/${currentTicket}/status`,
+        `http://localhost:8080/api/repairs/${currentTicket}/status`,
         {
           method: "PUT",
           body: formData,

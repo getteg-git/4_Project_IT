@@ -47,7 +47,7 @@ function MyRepairs() {
   useEffect(() => {
     const fetchRepairs = async () => {
       try {
-        const response = await fetch("https://4projectit-production.up.railway.app/api/repairs");
+        const response = await fetch("http://localhost:8080/api/repairs");
         if (response.ok) {
           const data = await response.json();
           setRepairs(data || []);
@@ -68,8 +68,8 @@ function MyRepairs() {
     const fetchMasterData = async () => {
       try {
         const [locationResponse, problemResponse] = await Promise.all([
-          fetch("https://4projectit-production.up.railway.app/api/locations"),
-          fetch("https://4projectit-production.up.railway.app/api/problem-types"),
+          fetch("http://localhost:8080/api/locations"),
+          fetch("http://localhost:8080/api/problem-types"),
         ]);
         if (locationResponse.ok) setLocations(await locationResponse.json() || []);
         if (problemResponse.ok) setProblemTypes(await problemResponse.json() || []);
@@ -88,7 +88,7 @@ function MyRepairs() {
     }
     const fetchFloors = async () => {
       try {
-        const response = await fetch(`https://4projectit-production.up.railway.app/api/locations/${selectedLocation.id}/floors`);
+        const response = await fetch(`http://localhost:8080/api/locations/${selectedLocation.id}/floors`);
         if (response.ok) setFloors(await response.json() || []);
       } catch (error) {
         console.error("Error fetching filter floors:", error);
@@ -105,7 +105,7 @@ function MyRepairs() {
     }
     const fetchRooms = async () => {
       try {
-        const response = await fetch(`https://4projectit-production.up.railway.app/api/floors/${selectedFloor.id}/rooms`);
+        const response = await fetch(`http://localhost:8080/api/floors/${selectedFloor.id}/rooms`);
         if (response.ok) setRooms(await response.json() || []);
       } catch (error) {
         console.error("Error fetching filter rooms:", error);

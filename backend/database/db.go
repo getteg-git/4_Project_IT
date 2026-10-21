@@ -13,10 +13,10 @@ var DB *sql.DB
 
 func ConnectDB() error {
 	// 🛠️ แก้ไข: เปลี่ยนชื่อตัวแปรให้ตรงกับใน Railway
-	dsn := os.Getenv("DATABASE_URL")
+	dsn := os.Getenv("DB_URL")
 
 	if dsn == "" {
-		return fmt.Errorf("DATABASE_URL environment variable is not set")
+		return fmt.Errorf("DB_URL environment variable is not set")
 	}
 
 	db, err := sql.Open("postgres", dsn)

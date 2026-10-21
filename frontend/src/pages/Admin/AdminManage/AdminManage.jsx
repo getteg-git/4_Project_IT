@@ -79,10 +79,10 @@ function AdminManage() {
     try {
       setIsLoading(true);
       const [repairsRes, usersRes, locationsRes, problemTypesRes] = await Promise.all([
-        fetch("https://4projectit-production.up.railway.app/api/repairs"),
-        fetch("https://4projectit-production.up.railway.app/api/users"),
-        fetch("https://4projectit-production.up.railway.app/api/locations"),
-        fetch("https://4projectit-production.up.railway.app/api/problem-types"),
+        fetch("http://localhost:8080/api/repairs"),
+        fetch("http://localhost:8080/api/users"),
+        fetch("http://localhost:8080/api/locations"),
+        fetch("http://localhost:8080/api/problem-types"),
       ]);
 
       if (repairsRes.ok) {
@@ -134,7 +134,7 @@ function AdminManage() {
     const fetchFloors = async () => {
       try {
         const response = await fetch(
-          `https://4projectit-production.up.railway.app/api/locations/${selectedLocation.id}/floors`
+          `http://localhost:8080/api/locations/${selectedLocation.id}/floors`
         );
 
         if (response.ok) {
@@ -161,7 +161,7 @@ function AdminManage() {
     const fetchRooms = async () => {
       try {
         const response = await fetch(
-          `https://4projectit-production.up.railway.app/api/floors/${selectedFloor.id}/rooms`
+          `http://localhost:8080/api/floors/${selectedFloor.id}/rooms`
         );
 
         if (response.ok) {
@@ -487,7 +487,7 @@ function AdminManage() {
 
     try {
       const response = await fetch(
-        `https://4projectit-production.up.railway.app/api/repairs/${selectedRepair.id}/assign`,
+        `http://localhost:8080/api/repairs/${selectedRepair.id}/assign`,
         {
           method: "PUT",
           headers: {
@@ -543,7 +543,7 @@ function AdminManage() {
 
     try {
       const response = await fetch(
-        `https://4projectit-production.up.railway.app/api/repairs/${outsourceTarget.id}/outsource`,
+        `http://localhost:8080/api/repairs/${outsourceTarget.id}/outsource`,
         {
           method: "PUT",
           headers: {
@@ -606,7 +606,7 @@ function AdminManage() {
     setIsRevoking(true);
     try {
       const response = await fetch(
-        `https://4projectit-production.up.railway.app/api/repairs/${revokeTargetId}/revoke`,
+        `http://localhost:8080/api/repairs/${revokeTargetId}/revoke`,
         {
           method: "PUT",
           headers: {
@@ -658,7 +658,7 @@ function AdminManage() {
 
     try {
       const response = await fetch(
-        `https://4projectit-production.up.railway.app/api/repairs/${id}/approve`,
+        `http://localhost:8080/api/repairs/${id}/approve`,
         {
           method: "PUT",
           headers: {
@@ -717,7 +717,7 @@ function AdminManage() {
 
     try {
       const response = await fetch(
-        `https://4projectit-production.up.railway.app/api/repairs/${rejectTargetId}/cancel`,
+        `http://localhost:8080/api/repairs/${rejectTargetId}/cancel`,
         {
           method: "PUT",
           headers: {
