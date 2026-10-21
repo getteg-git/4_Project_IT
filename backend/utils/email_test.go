@@ -6,48 +6,38 @@ import (
 	"testing"
 )
 
-func setValidSMTPEnvironment(t *testing.T) {
+func setValidResendEnvironment(t *testing.T) {
 	t.Helper()
-	t.Setenv("SMTP_HOST", "smtp.example.com")
-	t.Setenv("SMTP_PORT", "587")
-	t.Setenv("SMTP_SENDER", "sender@example.com")
-	t.Setenv("SMTP_PASSWORD", "test-password")
+	t.Setenv("RESEND_API_KEY", "re_123456789")
+	t.Setenv("SMTP_SENDER", "onboarding@resend.dev")
 }
 
-func TestSendEmailNotificationRequiresSMTPConfiguration(t *testing.T) {
-	t.Setenv("SMTP_HOST", "")
-	t.Setenv("SMTP_PORT", "")
+func TestSendEmailNotificationRequiresConfiguration(t *testing.T) {
+	t.Setenv("RESEND_API_KEY", "")
 	t.Setenv("SMTP_SENDER", "")
-	t.Setenv("SMTP_PASSWORD", "")
 
 	err := SendEmailNotification([]string{"recipient@example.com"}, "subject", "<p>body</p>")
 	if err == nil {
-		t.Fatal("expected missing SMTP configuration to return an error")
+		t.Fatal("expected missing email configuration to return an error")
 	}
-	for _, name := range []string{"SMTP_HOST", "SMTP_PORT", "SMTP_SENDER", "SMTP_PASSWORD"} {
+	for _, name := range []string{"RESEND_API_KEY", "SMTP_SENDER"} {
 		if !strings.Contains(err.Error(), name) {
 			t.Errorf("expected error to identify missing %s; got %q", name, err)
 		}
 	}
 }
 
-func TestSendEmailNotificationRejectsInvalidPortAndRecipients(t *testing.T) {
-	setValidSMTPEnvironment(t)
-	t.Setenv("SMTP_PORT", "not-a-port")
-	if err := SendEmailNotification([]string{"recipient@example.com"}, "subject", "<p>body</p>"); err == nil {
-		t.Fatal("expected invalid SMTP port to return an error")
-	}
-
-	t.Setenv("SMTP_PORT", "587")
+func TestSendEmailNotificationRejectsInvalidRecipients(t *testing.T) {
+	setValidResendEnvironment(t)
 	if err := SendEmailNotification([]string{"not-an-email"}, "subject", "<p>body</p>"); err == nil {
 		t.Fatal("expected invalid recipient to return an error")
 	}
 }
 
 func TestValidateSMTPConfiguration(t *testing.T) {
-	setValidSMTPEnvironment(t)
+	setValidResendEnvironment(t)
 	if err := ValidateSMTPConfiguration(); err != nil {
-		t.Fatalf("expected valid SMTP configuration, got: %v", err)
+		t.Fatalf("expected valid email configuration, got: %v", err)
 	}
 
 	t.Setenv("SMTP_SENDER", "not-an-email")

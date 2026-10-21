@@ -34,7 +34,7 @@ func SendEmailNotification(toRecipients []string, subject string, bodyHTML strin
 		return fmt.Errorf("invalid sender address: %w", err)
 	}
 
-	// กรองอีเมลผู้รับที่ซ้ำหรือว่างเปล่า (โค้ดเดิมของเพื่อน)
+	// กรองอีเมลผู้รับที่ซ้ำหรือว่างเปล่า
 	recipients := make([]string, 0, len(toRecipients))
 	seenRecipients := make(map[string]struct{}, len(toRecipients))
 	for _, recipient := range toRecipients {
@@ -81,8 +81,8 @@ func SendEmailNotification(toRecipients []string, subject string, bodyHTML strin
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	nutshellClient := &http.Client{Timeout: httpTimeout}
-	resp, err := nutshellClient.Do(req)
+	httpClient := &http.Client{Timeout: httpTimeout}
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("send http request to resend: %w", err)
 	}
@@ -117,7 +117,6 @@ func ValidateSMTPConfiguration() error {
 	return nil
 }
 
-// เก็บฟังก์ชันช่วยตกแต่ง Header เผื่อส่วนอื่นเรียกใช้ แต่ใน Resend จะส่งผ่าน JSON ให้อัตโนมัติ
 func buildEmailMessage(sender *mail.Address, recipients []string, subject, bodyHTML string) string {
 	displayName := "ระบบแจ้งซ่อม SC-SCI"
 	from := mimeHeader(displayName) + " <" + sender.Address + ">"
