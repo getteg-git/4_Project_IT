@@ -25,7 +25,7 @@ func SendEmailNotification(toRecipients []string, subject string, bodyHTML strin
 		return fmt.Errorf("invalid sender address: %w", err)
 	}
 
-	// กรองอีเมลผู้รับที่ซ้ำหรือว่างเปล่า (โค้ดเดิมของเพื่อน)
+	// กรองอีเมลผู้รับที่ซ้ำหรือว่างเปล่า
 	recipients := make([]string, 0, len(toRecipients))
 	seenRecipients := make(map[string]struct{}, len(toRecipients))
 	for _, recipient := range toRecipients {
@@ -48,12 +48,39 @@ func SendEmailNotification(toRecipients []string, subject string, bodyHTML strin
 		return fmt.Errorf("email has no valid recipients")
 	}
 
-	auth := smtp.PlainAuth("", senderAddress.Address, password, host)
-	serverAddress := host + ":" + port
-	if err := smtp.SendMail(serverAddress, auth, senderAddress.Address, recipients, []byte(
-		buildEmailMessage(senderAddress, recipients, subject, bodyHTML),
-	)); err != nil {
-		return fmt.Errorf("send email via SMTP server %s: %w", serverAddress, err)
+	displayName := "ระบบแจ้งซ่อม SC-SCI"
+	fromField := fmt.Sprintf("%s <%s>", displayName, senderAddress.Address)
+
+	// สร้าง Request Body สำหรับ Resend API
+	emailReq := ResendEmailRequest{
+		From:    fromField,
+		To:      recipients,
+		Subject: subject,
+		HTML:    bodyHTML,
+	}
+
+	jsonBytes, err := json.Marshal(emailReq)
+	if err != nil {
+		return fmt.Errorf("marshal email request: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", "https://api.resend.com/emails", bytes.NewBuffer(jsonBytes))
+	if err != nil {
+		return fmt.Errorf("create http request to resend: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	nutshellClient := &http.Client{Timeout: httpTimeout}
+	resp, err := nutshellClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("send http request to resend: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("resend api returned error status: %d", resp.StatusCode)
 	}
 
 	return nil
