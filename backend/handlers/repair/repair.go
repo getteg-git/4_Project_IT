@@ -932,7 +932,7 @@ func OutsourceRepair(c *gin.Context) {
 		return
 	}
 
-	statusLabel := "ส่งซ่อมภายนอก"
+	statusLabel := "ส่งซ่อมภายนอก / คณะ"
 	destinationLabel := "ภายนอก"
 	if req.Destination == "faculty" {
 		statusLabel = "ส่งซ่อมให้คณะ"
@@ -1071,7 +1071,7 @@ func EstimateRepair(c *gin.Context) {
 
 	if isSingleExceed || isAccumulatedExceed || req.ForceAdminReview {
 		newStatus = "รอซ่อม"
-		adminSystemNote = fmt.Sprintf("แจ้งเตือน: ราคาประเมินรวมเกินจุดคุ้มทุน (ฐาน %.2f บาท)", basePrice)
+		adminSystemNote = fmt.Sprintf("แจ้งเตือน: ราคาประเมินรวมเกินจุดคุ้มทุน (ต้นทุน %.2f บาท)", basePrice)
 	}
 
 	if req.CheckOnly {
