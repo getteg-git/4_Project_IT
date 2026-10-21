@@ -2,7 +2,6 @@ package utils
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -14,29 +13,40 @@ import (
 
 const httpTimeout = 15 * time.Second
 
-type ResendEmailRequest struct {
-	From    string   `json:"from"`
-	To      []string `json:"to"`
-	Subject string   `json:"subject"`
-	HTML    string   `json:"html"`
+// โครงสร้าง Request สำหรับ Brevo HTTP API
+type BrevoSender struct {
+	Name  string `json:"name"`
+	Email string `json:"email"`
+}
+
+type BrevoRecipient struct {
+	Email string `json:"email"`
+}
+
+type BrevoEmailRequest struct {
+	Sender      BrevoSender      `json:"sender"`
+	To          []BrevoRecipient `json:"to"`
+	Subject     string           `json:"subject"`
+	HtmlContent string           `json:"htmlContent"`
 }
 
 func SendEmailNotification(toRecipients []string, subject string, bodyHTML string) error {
-	apiKey := strings.TrimSpace(os.Getenv("RESEND_API_KEY"))
-	sender := strings.TrimSpace(os.Getenv("SMTP_SENDER"))
+	apiKey := strings.TrimSpace(os.Getenv("BREVO_API_KEY"))
+	senderEmail := strings.TrimSpace(os.Getenv("SMTP_SENDER"))
 
 	if err := ValidateSMTPConfiguration(); err != nil {
 		return err
 	}
 
-	senderAddress, err := mail.ParseAddress(sender)
+	senderAddress, err := mail.ParseAddress(senderEmail)
 	if err != nil {
 		return fmt.Errorf("invalid sender address: %w", err)
 	}
 
 	// กรองอีเมลผู้รับที่ซ้ำหรือว่างเปล่า
-	recipients := make([]string, 0, len(toRecipients))
+	var recipients []BrevoRecipient
 	seenRecipients := make(map[string]struct{}, len(toRecipients))
+
 	for _, recipient := range toRecipients {
 		recipient = strings.TrimSpace(recipient)
 		if recipient == "" {
@@ -51,21 +61,19 @@ func SendEmailNotification(toRecipients []string, subject string, bodyHTML strin
 			continue
 		}
 		seenRecipients[key] = struct{}{}
-		recipients = append(recipients, parsed.Address)
+		recipients = append(recipients, BrevoRecipient{Email: parsed.Address})
 	}
+
 	if len(recipients) == 0 {
 		return fmt.Errorf("email has no valid recipients")
 	}
 
-	displayName := "ระบบแจ้งซ่อม SC-SCI"
-	fromField := fmt.Sprintf("%s <%s>", displayName, senderAddress.Address)
-
-	// สร้าง Request Body สำหรับ Resend API
-	emailReq := ResendEmailRequest{
-		From:    fromField,
-		To:      recipients,
-		Subject: subject,
-		HTML:    bodyHTML,
+	// สร้าง Request Body สำหรับ Brevo API
+	emailReq := BrevoEmailRequest{
+		Sender:      BrevoSender{Name: "ระบบแจ้งซ่อม SC-SCI", Email: senderAddress.Address},
+		To:          recipients,
+		Subject:     subject,
+		HtmlContent: bodyHTML,
 	}
 
 	jsonBytes, err := json.Marshal(emailReq)
@@ -73,35 +81,35 @@ func SendEmailNotification(toRecipients []string, subject string, bodyHTML strin
 		return fmt.Errorf("marshal email request: %w", err)
 	}
 
-	req, err := http.NewRequest("POST", "https://api.resend.com/emails", bytes.NewBuffer(jsonBytes))
+	req, err := http.NewRequest("POST", "https://api.brevo.com/v3/smtp/email", bytes.NewBuffer(jsonBytes))
 	if err != nil {
-		return fmt.Errorf("create http request to resend: %w", err)
+		return fmt.Errorf("create http request to brevo: %w", err)
 	}
 
-	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("api-key", apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
 	httpClient := &http.Client{Timeout: httpTimeout}
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("send http request to resend: %w", err)
+		return fmt.Errorf("send http request to brevo: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return fmt.Errorf("resend api returned error status: %d", resp.StatusCode)
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("brevo api returned error status: %d", resp.StatusCode)
 	}
 
 	return nil
 }
 
 func ValidateSMTPConfiguration() error {
-	apiKey := strings.TrimSpace(os.Getenv("RESEND_API_KEY"))
+	apiKey := strings.TrimSpace(os.Getenv("BREVO_API_KEY"))
 	sender := strings.TrimSpace(os.Getenv("SMTP_SENDER"))
 
 	missing := make([]string, 0, 2)
 	if apiKey == "" {
-		missing = append(missing, "RESEND_API_KEY")
+		missing = append(missing, "BREVO_API_KEY")
 	}
 	if sender == "" {
 		missing = append(missing, "SMTP_SENDER")
@@ -115,31 +123,4 @@ func ValidateSMTPConfiguration() error {
 		return fmt.Errorf("invalid SMTP_SENDER: %w", err)
 	}
 	return nil
-}
-
-func buildEmailMessage(sender *mail.Address, recipients []string, subject, bodyHTML string) string {
-	displayName := "ระบบแจ้งซ่อม SC-SCI"
-	from := mimeHeader(displayName) + " <" + sender.Address + ">"
-	encodedSubject := mimeHeader(subject)
-	encodedBody := base64.StdEncoding.EncodeToString([]byte(bodyHTML))
-
-	var wrappedBody strings.Builder
-	for len(encodedBody) > 76 {
-		wrappedBody.WriteString(encodedBody[:76])
-		wrappedBody.WriteString("\r\n")
-		encodedBody = encodedBody[76:]
-	}
-	wrappedBody.WriteString(encodedBody)
-
-	return "From: " + from + "\r\n" +
-		"To: undisclosed-recipients:;\r\n" +
-		"Subject: " + encodedSubject + "\r\n" +
-		"MIME-Version: 1.0\r\n" +
-		"Content-Type: text/html; charset=UTF-8\r\n" +
-		"Content-Transfer-Encoding: base64\r\n\r\n" +
-		wrappedBody.String() + "\r\n"
-}
-
-func mimeHeader(value string) string {
-	return "=?UTF-8?B?" + base64.StdEncoding.EncodeToString([]byte(value)) + "?="
 }
