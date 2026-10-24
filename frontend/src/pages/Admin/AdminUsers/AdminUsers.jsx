@@ -11,6 +11,7 @@ function AdminUsers() {
   const [problemTypes, setProblemTypes] = useState([]); // ดึงข้อมูลประเภทปัญหาจาก DB
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("");
 
   // States สำหรับ Modal
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -51,11 +52,30 @@ function AdminUsers() {
   }, []);
 
   // กรองข้อมูลจากการค้นหา (รองรับทั้งการค้นหาด้วยชื่อจริง, username หรือสิทธิ์)
-  const filteredUsers = users.filter((u) =>
-    u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (u.full_name && u.full_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    u.role.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const departmentOptions = [
+    ...new Map(
+      users
+        .filter((user) => user.department_id != null)
+        .map((user) => [
+          String(user.department_id),
+          { id: String(user.department_id), name: user.department_name },
+        ])
+    ).values(),
+  ].sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "th"));
+
+  const filteredUsers = users.filter((u) => {
+    const matchesSearch =
+      u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (u.full_name && u.full_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      u.role.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesDepartment =
+      !departmentFilter ||
+      (departmentFilter === "none"
+        ? u.department_id === null || u.department_id === undefined
+        : String(u.department_id) === departmentFilter);
+
+    return matchesSearch && matchesDepartment;
+  });
 
   // -----------------------------------------
   // ฟังก์ชัน Action และการทำงานต่างๆ
@@ -232,7 +252,7 @@ function AdminUsers() {
           </div>
         </div>
 
-        {/* Toolbar: ค้นหา & เพิ่มผู้ใช้ */}
+        {/* Toolbar: ค้นหา กรองสาขา และเพิ่มผู้ใช้ */}
         <div className="users-toolbar">
           <div className="search-section">
             <SearchField
@@ -242,6 +262,22 @@ function AdminUsers() {
               value={searchTerm}
               onChange={setSearchTerm}
             />
+          </div>
+          <div className="department-filter">
+            <label htmlFor="admin-user-department-filter">กรองตามสาขา</label>
+            <select
+              id="admin-user-department-filter"
+              value={departmentFilter}
+              onChange={(event) => setDepartmentFilter(event.target.value)}
+            >
+              <option value="">ทุกสาขา</option>
+              {departmentOptions.map((department) => (
+                <option key={department.id} value={department.id}>
+                  {department.name || `สาขา ${department.id}`}
+                </option>
+              ))}
+              <option value="none">ไม่ระบุสาขา</option>
+            </select>
           </div>
           <button className="btn-create-user" onClick={openCreateModal}>
             ➕ เพิ่มผู้ใช้งานใหม่

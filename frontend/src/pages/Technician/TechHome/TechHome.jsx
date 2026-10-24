@@ -16,6 +16,7 @@ import {
   LogOut,
   Save,
   Trash2,
+  UserRound,
   UserRoundPlus,
   Wrench,
   X,
@@ -36,6 +37,7 @@ function TechHome() {
 
   const [currentUser, setCurrentUser] = useState(null);
   const [repairs, setRepairs] = useState([]);
+  const [allRepairs, setAllRepairs] = useState([]);
   const [technicians, setTechnicians] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -50,6 +52,7 @@ function TechHome() {
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [chosenTechId, setChosenTechId] = useState("");
   const [isAssignSubmitting, setIsAssignSubmitting] = useState(false);
+  const [selectedTechnicianDetail, setSelectedTechnicianDetail] = useState(null);
 
   // States สำหรับ Modal ปิดงาน
   const [modalOpen, setModalOpen] = useState(false);
@@ -86,10 +89,11 @@ function TechHome() {
       ]);
 
       if (response.ok) {
-        const allRepairs = await response.json();
+        const allRepairsData = await response.json();
+        setAllRepairs(allRepairsData);
 
         // ช่างจะเห็นแค่งานที่ถูก Assign มาให้ตัวเองเท่านั้น
-        const myJobs = allRepairs.filter(
+        const myJobs = allRepairsData.filter(
           (r) => r.technician_id === user.id
         );
 
@@ -233,13 +237,34 @@ function TechHome() {
 
   const getAssignableTechnicians = (repair) =>
     technicians.filter((technician) =>
-      technician.id !== currentUser?.id &&
+      String(technician.id) !== String(currentUser?.id) &&
       !technician.is_head_technician &&
-      String(technician.department_id) === String(currentUser?.department_id) &&
       (technician.specialties || []).some(
         (specialtyId) => String(specialtyId) === String(repair.problem_type_id)
       )
     );
+
+  const isAdminCancelledRepair = (repair) =>
+    repair.status === "ซ่อมไม่ได้" &&
+    repair.admin_note?.startsWith("ไม่อนุมัติการซ่อม:");
+
+  const getTechnicianOpenJobCount = (technicianId) =>
+    allRepairs.filter(
+      (repair) =>
+        String(repair.technician_id) === String(technicianId) &&
+        !["เสร็จเรียบร้อย", "เสร็จสิ้น", "ส่งซ่อมภายนอก", "ส่งซ่อมให้คณะ"].includes(
+          repair.status
+        ) &&
+        !isAdminCancelledRepair(repair)
+    ).length;
+
+  const eligibleTechnicians = assignmentRepair
+    ? getAssignableTechnicians(assignmentRepair)
+    : [];
+
+  const selectedTechnician = technicians.find(
+    (technician) => String(technician.id) === chosenTechId
+  );
 
   const openAssignModal = (repair) => {
     setAssignmentRepair(repair);
@@ -251,9 +276,27 @@ function TechHome() {
     event.preventDefault();
     if (!chosenTechId || !assignmentRepair) {
       toast.warning("กรุณาเลือกช่าง", {
-        description: "เลือกช่างในสาขาที่มีความถนัดตรงกับประเภทงานก่อนมอบหมาย",
+        description: "เลือกช่างที่มีความถนัดตรงกับประเภทงานก่อนมอบหมาย",
       });
       return;
+    }
+
+    const technician = technicians.find(
+      (item) => String(item.id) === chosenTechId
+    );
+    const openJobCount = getTechnicianOpenJobCount(chosenTechId);
+
+    if (openJobCount > 0) {
+      const approved = await confirm({
+        title: "ช่างมีงานค้างอยู่แล้ว",
+        description: `${
+          technician?.full_name || "ช่างคนนี้"
+        } มีงานที่ยังไม่เสร็จ ${openJobCount} งาน ต้องการมอบหมายงานนี้เพิ่มหรือไม่?`,
+        confirmLabel: "มอบหมายเพิ่ม",
+        cancelLabel: "ยกเลิก",
+      });
+
+      if (!approved) return;
     }
 
     setIsAssignSubmitting(true);
@@ -272,7 +315,7 @@ function TechHome() {
 
       if (response.ok) {
         toast.success("มอบหมายงานสำเร็จ", {
-          description: "ส่งต่องานให้ช่างในสาขาที่มีความถนัดตรงกันแล้ว",
+          description: "ส่งต่องานให้ช่างที่มีความถนัดตรงกับประเภทงานแล้ว",
         });
         setIsAssignOpen(false);
         setAssignmentRepair(null);
@@ -804,7 +847,7 @@ function TechHome() {
 
           {currentUser?.is_head_technician && repair.status === "รอซ่อม" && (
             <button
-              className="btn-details"
+              className="btn-assign"
               type="button"
               onClick={() => openAssignModal(repair)}
             >
@@ -1228,7 +1271,7 @@ function TechHome() {
 
       {isAssignOpen && assignmentRepair && (
         <div className="modal-overlay">
-          <div className="modal-box">
+          <div className="modal-box head-assign-modal">
             <button
               className="close-btn"
               type="button"
@@ -1247,34 +1290,125 @@ function TechHome() {
             </h3>
             <p className="modal-subtitle">
               {assignmentRepair.ticket_number || `#${assignmentRepair.id}`} ·{" "}
-              {assignmentRepair.problem_type}
+              {assignmentRepair.other_problem_type || assignmentRepair.problem_type}
             </p>
 
             <form onSubmit={handleAssignSubmit}>
               <div className="input-group">
-                <label htmlFor="head-technician-assignee">
-                  ช่างผู้รับงาน <span className="required">*</span>
-                </label>
-                <select
-                  id="head-technician-assignee"
-                  value={chosenTechId}
-                  onChange={(event) => setChosenTechId(event.target.value)}
-                  required
-                  disabled={getAssignableTechnicians(assignmentRepair).length === 0}
+                <div className="head-tech-card-label" id="head-tech-card-label">
+                  เลือกช่างเทคนิคที่รับผิดชอบ{" "}
+                  <span className="required">*</span>
+                </div>
+
+                <div
+                  className="head-tech-card-grid"
+                  role="radiogroup"
+                  aria-labelledby="head-tech-card-label"
                 >
-                  <option value="">-- เลือกช่างที่ถนัดงานนี้ --</option>
-                  {getAssignableTechnicians(assignmentRepair).map((technician) => (
-                    <option key={technician.id} value={technician.id}>
-                      {technician.full_name}
-                    </option>
-                  ))}
-                </select>
-                {getAssignableTechnicians(assignmentRepair).length === 0 && (
-                  <small>ไม่พบช่างในสาขาที่มีความถนัดตรงกับประเภทงานนี้</small>
+                  {eligibleTechnicians.length > 0 ? (
+                    eligibleTechnicians.map((technician) => {
+                      const openJobCount = getTechnicianOpenJobCount(
+                        technician.id
+                      );
+                      const isSelected =
+                        String(technician.id) === chosenTechId;
+
+                      return (
+                        <div className="head-tech-option" key={technician.id}>
+                          <button
+                            className={`head-tech-option-select ${
+                              isSelected ? "is-selected" : ""
+                            }`}
+                            type="button"
+                            role="radio"
+                            aria-checked={isSelected}
+                            onClick={() =>
+                              setChosenTechId(String(technician.id))
+                            }
+                          >
+                            <span className="head-tech-avatar">
+                              <UserRound size={22} aria-hidden="true" />
+                            </span>
+                            <span className="head-tech-option-content">
+                              <strong>{technician.full_name}</strong>
+                              <span className="head-tech-specialties">
+                                {technician.specialty_names?.length
+                                  ? technician.specialty_names.join(" · ")
+                                  : "ยังไม่ได้ระบุความเชี่ยวชาญ"}
+                              </span>
+                              <span
+                                className={`head-tech-status ${
+                                  openJobCount > 0
+                                    ? "is-working"
+                                    : "is-available"
+                                }`}
+                              >
+                                <span
+                                  className="head-tech-status-dot"
+                                  aria-hidden="true"
+                                />
+                                {openJobCount > 0
+                                  ? "กำลังดำเนินงาน"
+                                  : "ว่าง"}
+                              </span>
+                              <span className="head-tech-open-job-count">
+                                {openJobCount > 0
+                                  ? `งานค้าง ${openJobCount} งาน`
+                                  : "ไม่มีงานค้าง"}
+                              </span>
+                            </span>
+                            <span
+                              className="head-tech-selected-check"
+                              aria-hidden="true"
+                            >
+                              {isSelected && (
+                                <CircleCheck size={22} aria-hidden="true" />
+                              )}
+                            </span>
+                          </button>
+                          <button
+                            className="head-tech-info"
+                            type="button"
+                            onClick={() =>
+                              setSelectedTechnicianDetail(technician)
+                            }
+                            aria-label={`ดูข้อมูล ${technician.full_name}`}
+                          >
+                            <Eye size={17} aria-hidden="true" />
+                          </button>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="head-tech-empty-state" role="status">
+                      ไม่มีช่างที่มีความเชี่ยวชาญตรงกับประเภทงานนี้
+                    </p>
+                  )}
+                </div>
+
+                <small className="head-tech-assign-hint">
+                  สถานะคำนวณจากงานที่ยังไม่เสร็จและผูกกับช่างในระบบ
+                </small>
+
+                {selectedTechnician && (
+                  <p
+                    className={`head-tech-workload ${
+                      getTechnicianOpenJobCount(selectedTechnician.id) > 0
+                        ? "has-open-jobs"
+                        : ""
+                    }`}
+                    role="status"
+                  >
+                    {getTechnicianOpenJobCount(selectedTechnician.id) > 0
+                      ? `${selectedTechnician.full_name} มีงานค้าง ${getTechnicianOpenJobCount(
+                          selectedTechnician.id
+                        )} งาน ระบบจะถามยืนยันก่อนมอบหมายเพิ่ม`
+                      : `${selectedTechnician.full_name} ไม่มีงานค้าง`}
+                  </p>
                 )}
               </div>
 
-              <div className="modal-actions">
+              <div className="modal-actions head-tech-assign-actions">
                 <button
                   type="button"
                   className="btn-cancel"
@@ -1288,13 +1422,60 @@ function TechHome() {
                 </button>
                 <button
                   type="submit"
-                  className="btn-submit"
-                  disabled={isAssignSubmitting || getAssignableTechnicians(assignmentRepair).length === 0}
+                  className="head-tech-assign-submit"
+                  disabled={isAssignSubmitting || eligibleTechnicians.length === 0}
                 >
                   {isAssignSubmitting ? "กำลังมอบหมาย..." : "ยืนยันมอบหมายงาน"}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {selectedTechnicianDetail && (
+        <div className="modal-overlay">
+          <div className="modal-box head-tech-detail-modal">
+            <button
+              className="close-btn"
+              type="button"
+              onClick={() => setSelectedTechnicianDetail(null)}
+              aria-label="ปิดข้อมูลช่าง"
+            >
+              <X aria-hidden="true" />
+            </button>
+            <div className="head-tech-detail-header">
+              <div className="head-tech-detail-avatar">
+                <UserRound size={32} aria-hidden="true" />
+              </div>
+              <h3>{selectedTechnicianDetail.full_name}</h3>
+            </div>
+            <div className="head-tech-detail-section">
+              <strong>ความเชี่ยวชาญ</strong>
+              <p>
+                {selectedTechnicianDetail.specialty_names?.length
+                  ? selectedTechnicianDetail.specialty_names.join(" · ")
+                  : "ยังไม่ได้ระบุความเชี่ยวชาญ"}
+              </p>
+            </div>
+            <div className="head-tech-detail-section">
+              <strong>สถานะ</strong>
+              <p>
+                {getTechnicianOpenJobCount(selectedTechnicianDetail.id) > 0
+                  ? "🟡 กำลังดำเนินงาน"
+                  : "🟢 ว่าง"}
+              </p>
+            </div>
+            <div className="head-tech-detail-section">
+              <strong>งานที่ยังไม่เสร็จ</strong>
+              <p>{getTechnicianOpenJobCount(selectedTechnicianDetail.id)} งาน</p>
+            </div>
+            {selectedTechnicianDetail.email && (
+              <div className="head-tech-detail-section">
+                <strong>อีเมล</strong>
+                <p>{selectedTechnicianDetail.email}</p>
+              </div>
+            )}
           </div>
         </div>
       )}

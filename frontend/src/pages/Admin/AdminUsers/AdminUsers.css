@@ -56,7 +56,7 @@
 /* Toolbar: ช่องค้นหา และปุ่มเพิ่ม */
 .users-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 220px) auto;
   align-items: end;
   gap: 10px;
   margin-bottom: 25px;
@@ -65,6 +65,36 @@
 .search-section {
   min-width: 0;
   margin: 0;
+}
+
+.department-filter {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.department-filter label {
+  color: #374151;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.department-filter select {
+  width: 100%;
+  min-height: 50px;
+  padding: 12px 14px;
+  border: 1px solid #ccd6d1;
+  border-radius: 8px;
+  background: #fafbfc;
+  color: #333;
+  font: inherit;
+}
+
+.department-filter select:focus {
+  outline: none;
+  border-color: #007a53;
+  box-shadow: 0 0 0 3px rgba(0, 122, 83, 0.15);
 }
 
 .btn-create-user {
@@ -434,7 +464,7 @@
   }
 
   .users-toolbar {
-    flex-direction: column;
+    grid-template-columns: 1fr;
     align-items: stretch;
   }
 

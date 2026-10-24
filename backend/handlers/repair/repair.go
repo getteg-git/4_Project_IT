@@ -116,42 +116,44 @@ type computerHeadTechnician struct {
 func assignComputerRepairToHead(repairID int, problemTypeID, departmentID interface{}) (*computerHeadTechnician, error) {
 	var lead computerHeadTechnician
 	err := database.DB.QueryRow(`
-		SELECT u.id, u.full_name, COALESCE(u.email, '')
-		FROM users u
-		JOIN technician_specialties ts ON ts.user_id = u.id
-		JOIN problem_types pt ON pt.id = ts.problem_type_id
-		WHERE u.role = 'technician'
-		  AND u.is_active = TRUE
-		  AND u.is_head_technician = TRUE
-		  AND ts.problem_type_id = $1
-		  AND (pt.name ILIKE '%คอมพิวเตอร์%' OR pt.name ILIKE '%computer%')
-		ORDER BY CASE WHEN u.department_id IS NOT DISTINCT FROM $2 THEN 0 ELSE 1 END, u.id
-		LIMIT 1
-	`, problemTypeID, departmentID).Scan(&lead.ID, &lead.Name, &lead.Email)
+        SELECT u.id, u.full_name, COALESCE(u.email, '')
+        FROM users u
+        JOIN technician_specialties ts ON ts.user_id = u.id
+        JOIN problem_types pt ON pt.id = ts.problem_type_id
+        WHERE u.role = 'technician'
+          AND u.is_active = TRUE
+          AND u.is_head_technician = TRUE
+          AND ts.problem_type_id = $1
+        ORDER BY CASE WHEN u.department_id IS NOT DISTINCT FROM $2 THEN 0 ELSE 1 END, u.id
+        LIMIT 1
+    `, problemTypeID, departmentID).Scan(&lead.ID, &lead.Name, &lead.Email)
+
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to find a computer head technician: %w", err)
+		return nil, fmt.Errorf("failed to find head technician: %w", err)
 	}
 
 	tx, err := database.DB.Begin()
 	if err != nil {
-		return nil, fmt.Errorf("failed to start computer assignment: %w", err)
+		return nil, fmt.Errorf("failed to start repair assignment: %w", err)
 	}
 	defer tx.Rollback()
 
-	if _, err := tx.Exec(`UPDATE repairs SET technician_id = $1 WHERE id = $2`, lead.ID, repairID); err != nil {
-		return nil, fmt.Errorf("failed to assign computer repair to head technician: %w", err)
+	if _, err := tx.Exec("UPDATE repairs SET technician_id = $1 WHERE id = $2", lead.ID, repairID); err != nil {
+		return nil, fmt.Errorf("failed to assign repair to head technician: %w", err)
 	}
+
 	if _, err := tx.Exec(`
-		INSERT INTO repair_logs (repair_id, user_id, action, old_status, new_status, note)
-		VALUES ($1, $2, 'ASSIGNED', 'รอซ่อม', 'รอซ่อม', $3)
-	`, repairID, lead.ID, "ระบบส่งงานคอมพิวเตอร์ให้หัวหน้าช่าง "+lead.Name); err != nil {
-		return nil, fmt.Errorf("failed to log computer repair assignment: %w", err)
+        INSERT INTO repair_logs (repair_id, user_id, action, old_status, new_status, note)
+        VALUES ($1, $2, 'ASSIGNED', 'รอซ่อม', 'รอซ่อม', $3)
+    `, repairID, lead.ID, "ระบบส่งงานให้หัวหน้าช่างประจำหมวด: "+lead.Name); err != nil {
+		return nil, fmt.Errorf("failed to log repair assignment: %w", err)
 	}
+
 	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("failed to save computer repair assignment: %w", err)
+		return nil, fmt.Errorf("failed to save repair assignment: %w", err)
 	}
 
 	return &lead, nil
@@ -595,18 +597,15 @@ func AssignRepair(c *gin.Context) {
 				  AND u.role = 'technician'
 				  AND u.is_active = TRUE
 				  AND u.is_head_technician = FALSE
-				  AND u.department_id IS NOT DISTINCT FROM (
-					SELECT department_id FROM users WHERE id = $2
-				  )
-				  AND ts.problem_type_id = $3
+				  AND ts.problem_type_id = $2
 			)
-		`, req.TechnicianID, req.HeadTechnicianID, *repairProblemTypeID).Scan(&eligible)
+		`, req.TechnicianID, *repairProblemTypeID).Scan(&eligible)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 		if !eligible {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "เลือกได้เฉพาะช่างในสาขาเดียวกันที่ถนัดงานประเภทนี้"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "เลือกได้เฉพาะช่างที่ใช้งานอยู่และมีความถนัดตรงกับประเภทงานนี้"})
 			return
 		}
 
