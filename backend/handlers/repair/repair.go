@@ -285,8 +285,8 @@ func CreateRepair(c *gin.Context) {
 				`, html.EscapeString(ticketNumber), html.EscapeString(description), frontendURL)
 				if err := utils.SendEmailNotification(
 					[]string{computerLead.Email},
-					fmt.Sprintf("คอมพิวเตอร์: มีงานใหม่ส่งถึงหัวหน้าช่าง (%s)", ticketNumber),
-					wrapEmail(colorInfo, "มีงานคอมพิวเตอร์ส่งถึงคุณ", leadBodyContent),
+					fmt.Sprintf("มีงานใหม่ส่งถึงหัวหน้าช่าง (%s)", ticketNumber),
+					wrapEmail(colorInfo, "มีงานใหม่ส่งถึงคุณ", leadBodyContent),
 				); err != nil {
 					log.Printf("failed to email computer head technician for repair %d: %v", repairID, err)
 				}
