@@ -33,7 +33,7 @@ func main() {
 			break
 		}
 
-		fmt.Println("Waiting for DB...")
+		log.Printf("database connection failed: %v; retrying in 3 seconds", err)
 		time.Sleep(3 * time.Second)
 	}
 

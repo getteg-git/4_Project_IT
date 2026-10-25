@@ -1,10 +1,16 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
+	"net"
+	"net/url"
 	"os"
+	"strconv"
+	"strings"
+	"time"
 
 	_ "github.com/lib/pq"
 )
@@ -12,11 +18,9 @@ import (
 var DB *sql.DB
 
 func ConnectDB() error {
-	// 🛠️ แก้ไข: เปลี่ยนชื่อตัวแปรให้ตรงกับใน Railway
-	dsn := os.Getenv("DB_URL")
-
-	if dsn == "" {
-		return fmt.Errorf("DB_URL environment variable is not set")
+	dsn, err := databaseDSN()
+	if err != nil {
+		return err
 	}
 
 	db, err := sql.Open("postgres", dsn)
@@ -24,7 +28,16 @@ func ConnectDB() error {
 		return fmt.Errorf("failed to open database connection: %w", err)
 	}
 
-	if err := db.Ping(); err != nil {
+	connected := false
+	defer func() {
+		if !connected {
+			db.Close()
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := db.PingContext(ctx); err != nil {
 		return fmt.Errorf("failed to ping database: %w", err)
 	}
 
@@ -114,7 +127,60 @@ func ConnectDB() error {
 	}
 
 	DB = db
+	connected = true
 	fmt.Println("DB Connected Successfully!")
 
 	return nil
+}
+
+func databaseDSN() (string, error) {
+	for _, name := range []string{"DATABASE_URL", "DB_URL"} {
+		if dsn := strings.TrimSpace(os.Getenv(name)); dsn != "" {
+			return dsn, nil
+		}
+	}
+
+	host := strings.TrimSpace(os.Getenv("PGHOST"))
+	port := strings.TrimSpace(os.Getenv("PGPORT"))
+	user := strings.TrimSpace(os.Getenv("PGUSER"))
+	password := os.Getenv("PGPASSWORD")
+	databaseName := strings.TrimSpace(os.Getenv("PGDATABASE"))
+	missing := make([]string, 0, 5)
+	for _, variable := range []struct {
+		name  string
+		value string
+	}{
+		{name: "PGHOST", value: host},
+		{name: "PGPORT", value: port},
+		{name: "PGUSER", value: user},
+		{name: "PGPASSWORD", value: password},
+		{name: "PGDATABASE", value: databaseName},
+	} {
+		if variable.value == "" {
+			missing = append(missing, variable.name)
+		}
+	}
+	if len(missing) > 0 {
+		return "", fmt.Errorf("database is not configured: set DATABASE_URL or DB_URL, or provide PostgreSQL variables (missing %s)", strings.Join(missing, ", "))
+	}
+
+	portNumber, err := strconv.Atoi(port)
+	if err != nil || portNumber < 1 || portNumber > 65535 {
+		return "", fmt.Errorf("invalid PGPORT: expected a port between 1 and 65535")
+	}
+
+	query := url.Values{}
+	sslMode := strings.TrimSpace(os.Getenv("PGSSLMODE"))
+	if sslMode == "" {
+		sslMode = "require"
+	}
+	query.Set("sslmode", sslMode)
+	dsn := url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(user, password),
+		Host:     net.JoinHostPort(host, port),
+		Path:     "/" + databaseName,
+		RawQuery: query.Encode(),
+	}
+	return dsn.String(), nil
 }
