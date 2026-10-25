@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../../../api/baseUrl.js";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Camera, CheckCircle2, Image as ImageIcon, LoaderCircle, Send } from 'lucide-react';
@@ -63,9 +64,9 @@ function CreateRepair() {
     const fetchMasterData = async () => {
       try {
         const [locRes, typeRes, degRes] = await Promise.all([
-          fetch("http://localhost:8080/api/locations"),
-          fetch("http://localhost:8080/api/problem-types"),
-          fetch("http://localhost:8080/api/degree-levels")
+          fetch(API_BASE_URL + "/api/locations"),
+          fetch(API_BASE_URL + "/api/problem-types"),
+          fetch(API_BASE_URL + "/api/degree-levels")
         ]);
 
         if (locRes.ok) setLocations(await locRes.json());
@@ -89,7 +90,7 @@ function CreateRepair() {
 
     const fetchDepartments = async () => {
       try {
-        const res = await fetch(`http://localhost:8080/api/degree-levels/${degreeLevel}/departments`);
+        const res = await fetch(`${API_BASE_URL}/api/degree-levels/${degreeLevel}/departments`);
         if (res.ok) setDepartments(await res.json() || []);
       } catch (err) {
         console.error("ดึงข้อมูลภาควิชาไม่สำเร็จ:", err);
@@ -113,7 +114,7 @@ function CreateRepair() {
 
     const fetchFloors = async () => {
       try {
-        const res = await fetch(`http://localhost:8080/api/locations/${location}/floors`);
+        const res = await fetch(`${API_BASE_URL}/api/locations/${location}/floors`);
         if (res.ok) setFloors(await res.json() || []);
       } catch (err) {
         console.error("ดึงข้อมูลชั้นไม่สำเร็จ:", err);
@@ -135,7 +136,7 @@ function CreateRepair() {
 
     const fetchRooms = async () => {
       try {
-        const res = await fetch(`http://localhost:8080/api/floors/${floor}/rooms`);
+        const res = await fetch(`${API_BASE_URL}/api/floors/${floor}/rooms`);
         if (res.ok) {
           const data = await res.json() || [];
           // 🔥 เพิ่มตัวเลือก "อื่นๆ" ต่อท้ายรายการห้องเสมอ เพื่อให้ผู้ใช้เลือกกรอกเองได้
@@ -160,7 +161,7 @@ function CreateRepair() {
 
     const fetchEquipments = async () => {
       try {
-        const res = await fetch(`http://localhost:8080/api/rooms/${room}/equipments`);
+        const res = await fetch(`${API_BASE_URL}/api/rooms/${room}/equipments`);
         if (res.ok) setEquipments(await res.json() || []);
       } catch (err) {
         console.error("ดึงข้อมูลอุปกรณ์ไม่สำเร็จ:", err);
@@ -224,7 +225,7 @@ function CreateRepair() {
     }
 
     try {
-      const response = await fetch("http://localhost:8080/api/repairs", {
+      const response = await fetch(API_BASE_URL + "/api/repairs", {
         method: "POST",
         body: formData,
       });

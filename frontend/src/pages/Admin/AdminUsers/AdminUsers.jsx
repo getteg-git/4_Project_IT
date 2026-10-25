@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../../../api/baseUrl.js";
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import SearchField from "../../../components/ui/SearchField";
@@ -34,8 +35,8 @@ function AdminUsers() {
     try {
       setIsLoading(true);
       const [usersRes, typesRes] = await Promise.all([
-        fetch("http://localhost:8080/api/users"),
-        fetch("http://localhost:8080/api/problem-types")
+        fetch(API_BASE_URL + "/api/users"),
+        fetch(API_BASE_URL + "/api/problem-types")
       ]);
 
       if (usersRes.ok) setUsers(await usersRes.json() || []);
@@ -137,7 +138,7 @@ function AdminUsers() {
     }
     setIsSubmitting(true);
     try {
-      const response = await fetch("http://localhost:8080/api/users", {
+      const response = await fetch(API_BASE_URL + "/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -178,7 +179,7 @@ function AdminUsers() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`http://localhost:8080/api/users/${editId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/users/${editId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -217,7 +218,7 @@ function AdminUsers() {
     if (!confirmDelete) return;
 
     try {
-      const response = await fetch(`http://localhost:8080/api/users/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/users/${id}`, {
         method: "DELETE"
       });
 

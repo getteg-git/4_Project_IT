@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os" // 🛠️ เพิ่มแพ็กเกจ os สำหรับดึง Environment Variable
+	"strings"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -22,8 +23,8 @@ func main() {
 		fmt.Println("No .env file found (using system env)")
 	}
 
-	if err := utils.ValidateSMTPConfiguration(); err != nil {
-		log.Printf("email notifications are unavailable: %v; configure SMTP_HOST, SMTP_PORT, SMTP_SENDER, and SMTP_PASSWORD on the backend service and redeploy", err)
+	if err := utils.ValidateBrevoConfiguration(); err != nil {
+		log.Printf("email notifications are unavailable: %v; configure BREVO_API_KEY and BREVO_SENDER on the backend service and redeploy", err)
 	}
 
 	for {
@@ -40,14 +41,21 @@ func main() {
 
 	r.Static("/uploads", "./uploads")
 
+	allowedOrigins := []string{
+		"http://localhost:5173",
+		"http://192.168.0.11:5173",
+		"https://test-pro-mu.vercel.app",
+		"https://4-project-it.vercel.app",
+	}
+	for _, origin := range strings.Split(os.Getenv("FRONTEND_ORIGINS"), ",") {
+		if origin = strings.TrimSpace(origin); origin != "" {
+			allowedOrigins = append(allowedOrigins, origin)
+		}
+	}
+
 	r.Use(cors.New(cors.Config{
 		// 🛠️ แก้ไข: เพิ่ม URL ของ Vercel เข้าไปเพื่อให้เว็บดึงข้อมูลจาก API ได้
-		AllowOrigins: []string{
-			"http://localhost:5173",
-			"http://192.168.0.11:5173",
-			"https://test-pro-mu.vercel.app",
-			"https://4-project-it.vercel.app",
-		},
+		AllowOrigins:     allowedOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},

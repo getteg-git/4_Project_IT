@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../../../../../api/baseUrl.js";
 import React, { useState, useEffect, useRef } from "react";
 import { CircleX, Pencil, Plus, Save, Trash2, X, FileUp } from "lucide-react";
 import SearchField from "../../../../../components/ui/SearchField";
@@ -32,7 +33,7 @@ function AdminEquipments() {
   const fetchEquipments = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("http://localhost:8080/api/equipments");
+      const response = await fetch(API_BASE_URL + "/api/equipments");
       if (response.ok) {
         const data = await response.json();
         setEquipments(data || []);
@@ -84,7 +85,7 @@ function AdminEquipments() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const response = await fetch("http://localhost:8080/api/equipments", {
+      const response = await fetch(API_BASE_URL + "/api/equipments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -113,7 +114,7 @@ function AdminEquipments() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const response = await fetch(`http://localhost:8080/api/equipments/${editId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/equipments/${editId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -148,7 +149,7 @@ function AdminEquipments() {
     if (!confirmDelete) return;
 
     try {
-      const response = await fetch(`http://localhost:8080/api/equipments/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/equipments/${id}`, {
         method: "DELETE"
       });
 
@@ -181,7 +182,7 @@ function AdminEquipments() {
     formData.append("file", file);
 
     try {
-      const response = await fetch("http://localhost:8080/api/equipments/import", {
+      const response = await fetch(API_BASE_URL + "/api/equipments/import", {
         method: "POST",
         body: formData,
       });

@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../../../../../api/baseUrl.js";
 import React, { useState, useEffect } from "react";
 import { CircleX, Pencil, Plus, Save, Trash2, Wrench, Settings2, X } from "lucide-react";
 import SearchField from "../../../../../components/ui/SearchField";
@@ -26,7 +27,7 @@ function AdminProblemTypes() {
   const fetchProblemTypes = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch("http://localhost:8080/api/problem-types");
+      const response = await fetch(API_BASE_URL + "/api/problem-types");
       if (response.ok) {
         const data = await response.json();
         setProblemTypes(data || []);
@@ -76,7 +77,7 @@ function AdminProblemTypes() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const response = await fetch("http://localhost:8080/api/problem-types", {
+      const response = await fetch(API_BASE_URL + "/api/problem-types", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name })
@@ -102,7 +103,7 @@ function AdminProblemTypes() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      const response = await fetch(`http://localhost:8080/api/problem-types/${editId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/problem-types/${editId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name })
@@ -134,7 +135,7 @@ function AdminProblemTypes() {
     if (!confirmDelete) return;
 
     try {
-      const response = await fetch(`http://localhost:8080/api/problem-types/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/problem-types/${id}`, {
         method: "DELETE"
       });
 

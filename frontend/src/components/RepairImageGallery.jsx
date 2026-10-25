@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { Camera, ZoomIn, X } from "lucide-react";
+import { API_BASE_URL } from "../api/baseUrl";
 import "./RepairImageGallery.css";
-
-const API_BASE_URL = "http://localhost:8080";
 
 function RepairImageGallery({ images = [], ticketLabel = "งานซ่อม" }) {
   const [activeImage, setActiveImage] = useState(null);

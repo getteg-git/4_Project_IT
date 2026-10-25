@@ -2,71 +2,62 @@ package utils
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
-	"mime"
-	"net"
+	"io"
+	"net/http"
 	"net/mail"
-	"net/smtp"
 	"os"
-	"strconv"
 	"strings"
+	"time"
 )
 
-type smtpConfiguration struct {
-	host     string
-	port     int
-	sender   *mail.Address
-	password string
+const brevoAPIEndpoint = "https://api.brevo.com/v3/smtp/email"
+
+type brevoConfiguration struct {
+	apiKey string
+	sender *mail.Address
 }
 
-func loadSMTPConfiguration() (smtpConfiguration, error) {
-	config := smtpConfiguration{
-		host:     strings.TrimSpace(os.Getenv("SMTP_HOST")),
-		password: os.Getenv("SMTP_PASSWORD"),
-	}
-	sender := strings.TrimSpace(os.Getenv("SMTP_SENDER"))
-	port := strings.TrimSpace(os.Getenv("SMTP_PORT"))
+func loadBrevoConfiguration() (brevoConfiguration, error) {
+	apiKey := strings.TrimSpace(os.Getenv("BREVO_API_KEY"))
+	sender := strings.TrimSpace(os.Getenv("BREVO_SENDER"))
 
-	missing := make([]string, 0, 4)
-	if config.host == "" {
-		missing = append(missing, "SMTP_HOST")
-	}
-	if port == "" {
-		missing = append(missing, "SMTP_PORT")
+	missing := make([]string, 0, 2)
+	if apiKey == "" {
+		missing = append(missing, "BREVO_API_KEY")
 	}
 	if sender == "" {
-		missing = append(missing, "SMTP_SENDER")
-	}
-	if config.password == "" {
-		missing = append(missing, "SMTP_PASSWORD")
+		missing = append(missing, "BREVO_SENDER")
 	}
 	if len(missing) > 0 {
-		return smtpConfiguration{}, fmt.Errorf("email is not configured: missing %s", strings.Join(missing, ", "))
-	}
-
-	if strings.Contains(config.host, "://") {
-		return smtpConfiguration{}, fmt.Errorf("invalid SMTP_HOST: expected a hostname, not a URL")
-	}
-	config.port, _ = strconv.Atoi(port)
-	if config.port < 1 || config.port > 65535 {
-		return smtpConfiguration{}, fmt.Errorf("invalid SMTP_PORT: expected a port between 1 and 65535")
+		return brevoConfiguration{}, fmt.Errorf("email is not configured: missing %s", strings.Join(missing, ", "))
 	}
 
 	parsedSender, err := mail.ParseAddress(sender)
 	if err != nil {
-		return smtpConfiguration{}, fmt.Errorf("invalid SMTP_SENDER: %w", err)
+		return brevoConfiguration{}, fmt.Errorf("invalid BREVO_SENDER: %w", err)
 	}
-	config.sender = parsedSender
-	return config, nil
+	return brevoConfiguration{apiKey: apiKey, sender: parsedSender}, nil
 }
 
 func SendEmailNotification(toRecipients []string, subject string, bodyHTML string) error {
-	config, err := loadSMTPConfiguration()
+	config, err := loadBrevoConfiguration()
 	if err != nil {
 		return err
 	}
 
-	recipients := make([]string, 0, len(toRecipients))
+	recipients, err := parseEmailRecipients(toRecipients)
+	if err != nil {
+		return err
+	}
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	return sendBrevoEmail(client, brevoAPIEndpoint, config, recipients, subject, bodyHTML)
+}
+
+func parseEmailRecipients(toRecipients []string) ([]brevoRecipient, error) {
+	recipients := make([]brevoRecipient, 0, len(toRecipients))
 	seenRecipients := make(map[string]struct{}, len(toRecipients))
 	for _, recipient := range toRecipients {
 		recipient = strings.TrimSpace(recipient)
@@ -75,40 +66,69 @@ func SendEmailNotification(toRecipients []string, subject string, bodyHTML strin
 		}
 		parsed, parseErr := mail.ParseAddress(recipient)
 		if parseErr != nil {
-			return fmt.Errorf("invalid email recipient %q: %w", recipient, parseErr)
+			return nil, fmt.Errorf("invalid email recipient %q: %w", recipient, parseErr)
 		}
 		key := strings.ToLower(parsed.Address)
 		if _, exists := seenRecipients[key]; exists {
 			continue
 		}
 		seenRecipients[key] = struct{}{}
-		recipients = append(recipients, parsed.Address)
+		recipients = append(recipients, brevoRecipient{Email: parsed.Address})
 	}
 	if len(recipients) == 0 {
-		return fmt.Errorf("email has no valid recipients")
+		return nil, fmt.Errorf("email has no valid recipients")
+	}
+	return recipients, nil
+}
+
+type brevoRecipient struct {
+	Email string `json:"email"`
+	Name  string `json:"name,omitempty"`
+}
+
+type brevoEmailRequest struct {
+	Sender      brevoRecipient   `json:"sender"`
+	To          []brevoRecipient `json:"to"`
+	Subject     string           `json:"subject"`
+	HTMLContent string           `json:"htmlContent"`
+}
+
+func sendBrevoEmail(client *http.Client, endpoint string, config brevoConfiguration, recipients []brevoRecipient, subject string, bodyHTML string) error {
+	payload := brevoEmailRequest{
+		Sender:      brevoRecipient{Email: config.sender.Address, Name: "ระบบแจ้งซ่อม SC-SCI"},
+		To:          recipients,
+		Subject:     subject,
+		HTMLContent: bodyHTML,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("encode Brevo email request: %w", err)
 	}
 
-	message := buildSMTPMessage(config.sender, subject, bodyHTML)
-	address := net.JoinHostPort(config.host, strconv.Itoa(config.port))
-	auth := smtp.PlainAuth("", config.sender.Address, config.password, config.host)
-	if err := smtp.SendMail(address, auth, config.sender.Address, recipients, message); err != nil {
-		return fmt.Errorf("send email via SMTP: %w", err)
+	request, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("create Brevo email request: %w", err)
+	}
+	request.Header.Set("api-key", config.apiKey)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept", "application/json")
+
+	response, err := client.Do(request)
+	if err != nil {
+		return fmt.Errorf("send email via Brevo: %w", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		responseBody, readErr := io.ReadAll(io.LimitReader(response.Body, 4096))
+		if readErr != nil {
+			return fmt.Errorf("send email via Brevo: unexpected HTTP status %d (could not read response: %w)", response.StatusCode, readErr)
+		}
+		return fmt.Errorf("send email via Brevo: unexpected HTTP status %d: %s", response.StatusCode, strings.TrimSpace(string(responseBody)))
 	}
 	return nil
 }
 
-func buildSMTPMessage(sender *mail.Address, subject string, bodyHTML string) []byte {
-	var message bytes.Buffer
-	message.WriteString("From: ")
-	message.WriteString((&mail.Address{Name: "ระบบแจ้งซ่อม SC-SCI", Address: sender.Address}).String())
-	message.WriteString("\r\nTo: undisclosed-recipients:;\r\nSubject: ")
-	message.WriteString(mime.QEncoding.Encode("UTF-8", subject))
-	message.WriteString("\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\n")
-	message.WriteString(bodyHTML)
-	return message.Bytes()
-}
-
-func ValidateSMTPConfiguration() error {
-	_, err := loadSMTPConfiguration()
+func ValidateBrevoConfiguration() error {
+	_, err := loadBrevoConfiguration()
 	return err
 }

@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../../../api/baseUrl.js";
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import AppBreadcrumb from "../../../components/AppBreadcrumb";
@@ -79,10 +80,10 @@ function AdminManage() {
     try {
       setIsLoading(true);
       const [repairsRes, usersRes, locationsRes, problemTypesRes] = await Promise.all([
-        fetch("http://localhost:8080/api/repairs"),
-        fetch("http://localhost:8080/api/users"),
-        fetch("http://localhost:8080/api/locations"),
-        fetch("http://localhost:8080/api/problem-types"),
+        fetch(API_BASE_URL + "/api/repairs"),
+        fetch(API_BASE_URL + "/api/users"),
+        fetch(API_BASE_URL + "/api/locations"),
+        fetch(API_BASE_URL + "/api/problem-types"),
       ]);
 
       if (repairsRes.ok) {
@@ -134,7 +135,7 @@ function AdminManage() {
     const fetchFloors = async () => {
       try {
         const response = await fetch(
-          `http://localhost:8080/api/locations/${selectedLocation.id}/floors`
+          `${API_BASE_URL}/api/locations/${selectedLocation.id}/floors`
         );
 
         if (response.ok) {
@@ -161,7 +162,7 @@ function AdminManage() {
     const fetchRooms = async () => {
       try {
         const response = await fetch(
-          `http://localhost:8080/api/floors/${selectedFloor.id}/rooms`
+          `${API_BASE_URL}/api/floors/${selectedFloor.id}/rooms`
         );
 
         if (response.ok) {
@@ -487,7 +488,7 @@ function AdminManage() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/repairs/${selectedRepair.id}/assign`,
+        `${API_BASE_URL}/api/repairs/${selectedRepair.id}/assign`,
         {
           method: "PUT",
           headers: {
@@ -543,7 +544,7 @@ function AdminManage() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/repairs/${outsourceTarget.id}/outsource`,
+        `${API_BASE_URL}/api/repairs/${outsourceTarget.id}/outsource`,
         {
           method: "PUT",
           headers: {
@@ -606,7 +607,7 @@ function AdminManage() {
     setIsRevoking(true);
     try {
       const response = await fetch(
-        `http://localhost:8080/api/repairs/${revokeTargetId}/revoke`,
+        `${API_BASE_URL}/api/repairs/${revokeTargetId}/revoke`,
         {
           method: "PUT",
           headers: {
@@ -658,7 +659,7 @@ function AdminManage() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/repairs/${id}/approve`,
+        `${API_BASE_URL}/api/repairs/${id}/approve`,
         {
           method: "PUT",
           headers: {
@@ -717,7 +718,7 @@ function AdminManage() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/repairs/${rejectTargetId}/cancel`,
+        `${API_BASE_URL}/api/repairs/${rejectTargetId}/cancel`,
         {
           method: "PUT",
           headers: {

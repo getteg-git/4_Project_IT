@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../../../api/baseUrl.js";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle2, ClipboardPenLine, Cog, Hammer, Info, LoaderCircle, LogIn, Search, ShieldCheck, Wrench, X } from "lucide-react";
@@ -44,7 +45,7 @@ function UserHome() {
     setIsLoginSuccess(false);
 
     try {
-      const response = await fetch("http://localhost:8080/api/login", {
+      const response = await fetch(API_BASE_URL + "/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

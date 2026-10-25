@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../../../api/baseUrl.js";
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import AppBreadcrumb from "../../../components/AppBreadcrumb";
@@ -84,8 +85,8 @@ function TechHome() {
       setIsLoading(true);
 
       const [response, usersResponse] = await Promise.all([
-        fetch("http://localhost:8080/api/repairs"),
-        fetch("http://localhost:8080/api/users"),
+        fetch(API_BASE_URL + "/api/repairs"),
+        fetch(API_BASE_URL + "/api/users"),
       ]);
 
       if (response.ok) {
@@ -302,7 +303,7 @@ function TechHome() {
     setIsAssignSubmitting(true);
     try {
       const response = await fetch(
-        `http://localhost:8080/api/repairs/${assignmentRepair.id}/assign`,
+        `${API_BASE_URL}/api/repairs/${assignmentRepair.id}/assign`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -354,7 +355,7 @@ function TechHome() {
       formData.append("technician_id", currentUser.id);
 
       const response = await fetch(
-        `http://localhost:8080/api/repairs/${repair.id}/status`,
+        `${API_BASE_URL}/api/repairs/${repair.id}/status`,
         {
           method: "PUT",
           body: formData,
@@ -413,7 +414,7 @@ function TechHome() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/repairs/${id}/reject`,
+        `${API_BASE_URL}/api/repairs/${id}/reject`,
         {
           method: "PUT",
         }
@@ -471,7 +472,7 @@ function TechHome() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/repairs/${estimateTicketId}/estimate`,
+        `${API_BASE_URL}/api/repairs/${estimateTicketId}/estimate`,
         {
           method: "PUT",
           ...(!useMultipart && {
@@ -550,7 +551,7 @@ function TechHome() {
     setPriceCheckStatus("checking");
     try {
       const response = await fetch(
-        `http://localhost:8080/api/repairs/${estimateTicketId}/estimate`,
+        `${API_BASE_URL}/api/repairs/${estimateTicketId}/estimate`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -677,7 +678,7 @@ function TechHome() {
 
     try {
       const response = await fetch(
-        `http://localhost:8080/api/repairs/${currentTicket}/status`,
+        `${API_BASE_URL}/api/repairs/${currentTicket}/status`,
         {
           method: "PUT",
           body: formData,

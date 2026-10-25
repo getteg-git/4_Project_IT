@@ -1,31 +1,29 @@
 package utils
 
 import (
-	"bufio"
+	"encoding/json"
 	"fmt"
-	"net"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
 
-func setValidSMTPEnvironment(t *testing.T) {
+func setValidBrevoEnvironment(t *testing.T) {
 	t.Helper()
-	t.Setenv("SMTP_HOST", "localhost")
-	t.Setenv("SMTP_PORT", "587")
-	t.Setenv("SMTP_SENDER", "sender@example.com")
-	t.Setenv("SMTP_PASSWORD", "test-password")
+	t.Setenv("BREVO_API_KEY", "test-api-key")
+	t.Setenv("BREVO_SENDER", "sender@example.com")
 }
 
-func TestSendEmailNotificationRequiresSMTPConfiguration(t *testing.T) {
-	for _, name := range []string{"SMTP_HOST", "SMTP_PORT", "SMTP_SENDER", "SMTP_PASSWORD"} {
-		t.Setenv(name, "")
-	}
+func TestSendEmailNotificationRequiresBrevoConfiguration(t *testing.T) {
+	t.Setenv("BREVO_API_KEY", "")
+	t.Setenv("BREVO_SENDER", "")
 
 	err := SendEmailNotification([]string{"recipient@example.com"}, "subject", "<p>body</p>")
 	if err == nil {
 		t.Fatal("expected missing configuration to return an error")
 	}
-	for _, name := range []string{"SMTP_HOST", "SMTP_PORT", "SMTP_SENDER", "SMTP_PASSWORD"} {
+	for _, name := range []string{"BREVO_API_KEY", "BREVO_SENDER"} {
 		if !strings.Contains(err.Error(), name) {
 			t.Errorf("expected error to identify missing %s; got %q", name, err)
 		}
@@ -33,159 +31,113 @@ func TestSendEmailNotificationRequiresSMTPConfiguration(t *testing.T) {
 }
 
 func TestSendEmailNotificationRejectsInvalidRecipients(t *testing.T) {
-	setValidSMTPEnvironment(t)
+	setValidBrevoEnvironment(t)
 	if err := SendEmailNotification([]string{"not-an-email"}, "subject", "<p>body</p>"); err == nil {
 		t.Fatal("expected invalid recipient to return an error")
 	}
 }
 
-func TestSendEmailNotificationUsesSMTP(t *testing.T) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+func TestParseEmailRecipientsDeduplicatesAddresses(t *testing.T) {
+	recipients, err := parseEmailRecipients([]string{
+		"first@example.com",
+		" FIRST@example.com ",
+		"second@example.com",
+	})
 	if err != nil {
-		t.Fatalf("listen for SMTP test server: %v", err)
+		t.Fatalf("parseEmailRecipients returned an error: %v", err)
 	}
-	defer listener.Close()
-
-	setValidSMTPEnvironment(t)
-	t.Setenv("SMTP_PORT", fmt.Sprint(listener.Addr().(*net.TCPAddr).Port))
-
-	type smtpResult struct {
-		recipients []string
-		message    string
-		err        error
+	if got := len(recipients); got != 2 {
+		t.Fatalf("recipient count = %d, want 2", got)
 	}
-	resultChannel := make(chan smtpResult, 1)
-	go func() {
-		connection, acceptErr := listener.Accept()
-		if acceptErr != nil {
-			resultChannel <- smtpResult{err: acceptErr}
-			return
-		}
-		defer connection.Close()
+	if recipients[0].Email != "first@example.com" || recipients[1].Email != "second@example.com" {
+		t.Errorf("unexpected recipients: %+v", recipients)
+	}
+}
 
-		result := smtpResult{}
-		reader := bufio.NewReader(connection)
-		writeReply := func(reply string) bool {
-			_, writeErr := fmt.Fprint(connection, reply+"\r\n")
-			if writeErr != nil {
-				result.err = writeErr
-				return false
-			}
-			return true
+func TestSendBrevoEmailUsesAPI(t *testing.T) {
+	setValidBrevoEnvironment(t)
+	config, err := loadBrevoConfiguration()
+	if err != nil {
+		t.Fatalf("load Brevo configuration: %v", err)
+	}
+
+	requestReceived := make(chan brevoEmailRequest, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodPost {
+			t.Errorf("request method = %q, want POST", request.Method)
+		}
+		if got := request.Header.Get("api-key"); got != "test-api-key" {
+			t.Errorf("api-key header = %q, want configured key", got)
+		}
+		if got := request.Header.Get("Content-Type"); got != "application/json" {
+			t.Errorf("Content-Type = %q, want application/json", got)
 		}
 
-		if !writeReply("220 localhost ESMTP") {
-			resultChannel <- result
-			return
+		var payload brevoEmailRequest
+		if decodeErr := json.NewDecoder(request.Body).Decode(&payload); decodeErr != nil {
+			t.Errorf("decode request body: %v", decodeErr)
 		}
-		for {
-			line, readErr := reader.ReadString('\n')
-			if readErr != nil {
-				result.err = readErr
-				resultChannel <- result
-				return
-			}
-			command := strings.TrimSpace(line)
-			switch {
-			case strings.HasPrefix(command, "EHLO "), strings.HasPrefix(command, "HELO "):
-				if !writeReply("250-localhost") || !writeReply("250 AUTH PLAIN") {
-					resultChannel <- result
-					return
-				}
-			case strings.HasPrefix(command, "AUTH PLAIN "):
-				if !writeReply("235 2.7.0 authenticated") {
-					resultChannel <- result
-					return
-				}
-			case strings.HasPrefix(command, "MAIL FROM:"):
-				if !writeReply("250 2.1.0 sender accepted") {
-					resultChannel <- result
-					return
-				}
-			case strings.HasPrefix(command, "RCPT TO:"):
-				result.recipients = append(result.recipients, strings.TrimSuffix(strings.TrimPrefix(command, "RCPT TO:<"), ">"))
-				if !writeReply("250 2.1.5 recipient accepted") {
-					resultChannel <- result
-					return
-				}
-			case command == "DATA":
-				if !writeReply("354 end with dot") {
-					resultChannel <- result
-					return
-				}
-				var message strings.Builder
-				for {
-					messageLine, messageErr := reader.ReadString('\n')
-					if messageErr != nil {
-						result.err = messageErr
-						resultChannel <- result
-						return
-					}
-					if messageLine == ".\r\n" {
-						break
-					}
-					message.WriteString(strings.TrimPrefix(messageLine, ".."))
-				}
-				result.message = message.String()
-				if !writeReply("250 2.0.0 message accepted") {
-					resultChannel <- result
-					return
-				}
-			case command == "QUIT":
-				writeReply("221 2.0.0 goodbye")
-				resultChannel <- result
-				return
-			default:
-				if !writeReply("500 unexpected command") {
-					resultChannel <- result
-					return
-				}
-			}
-		}
-	}()
+		requestReceived <- payload
+		writer.WriteHeader(http.StatusCreated)
+	}))
+	defer server.Close()
 
-	err = SendEmailNotification(
-		[]string{"first@example.com", "FIRST@example.com", "second@example.com"},
+	err = sendBrevoEmail(
+		server.Client(),
+		server.URL,
+		config,
+		[]brevoRecipient{{Email: "first@example.com"}, {Email: "second@example.com"}},
 		"แจ้งซ่อม",
 		"<p>รายละเอียด</p>",
 	)
 	if err != nil {
-		t.Fatalf("SendEmailNotification returned an error: %v", err)
+		t.Fatalf("sendBrevoEmail returned an error: %v", err)
 	}
 
-	result := <-resultChannel
-	if result.err != nil {
-		t.Fatalf("SMTP test server failed: %v", result.err)
+	payload := <-requestReceived
+	if payload.Sender.Email != "sender@example.com" {
+		t.Errorf("sender = %q, want sender@example.com", payload.Sender.Email)
 	}
-	if got, want := strings.Join(result.recipients, ","), "first@example.com,second@example.com"; got != want {
-		t.Errorf("SMTP recipients = %q, want %q", got, want)
+	if got := len(payload.To); got != 2 {
+		t.Fatalf("recipient count = %d, want 2", got)
 	}
-	for _, expected := range []string{
-		"sender@example.com",
-		"Subject: =?",
-		"Content-Type: text/html; charset=UTF-8",
-		"<p>รายละเอียด</p>",
-	} {
-		if !strings.Contains(result.message, expected) {
-			t.Errorf("SMTP message does not contain %q", expected)
-		}
+	if payload.Subject != "แจ้งซ่อม" || payload.HTMLContent != "<p>รายละเอียด</p>" {
+		t.Errorf("unexpected email content: subject=%q html=%q", payload.Subject, payload.HTMLContent)
 	}
 }
 
-func TestValidateSMTPConfiguration(t *testing.T) {
-	setValidSMTPEnvironment(t)
-	if err := ValidateSMTPConfiguration(); err != nil {
-		t.Fatalf("expected valid SMTP configuration, got: %v", err)
+func TestSendBrevoEmailReportsAPIError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		http.Error(writer, "sender not verified", http.StatusBadRequest)
+	}))
+	defer server.Close()
+
+	setValidBrevoEnvironment(t)
+	config, err := loadBrevoConfiguration()
+	if err != nil {
+		t.Fatalf("load Brevo configuration: %v", err)
+	}
+	err = sendBrevoEmail(
+		server.Client(),
+		server.URL,
+		config,
+		[]brevoRecipient{{Email: "recipient@example.com"}},
+		"subject",
+		"<p>body</p>",
+	)
+	if err == nil || !strings.Contains(err.Error(), fmt.Sprint(http.StatusBadRequest)) {
+		t.Fatalf("expected HTTP error status to be reported, got: %v", err)
+	}
+}
+
+func TestValidateBrevoConfiguration(t *testing.T) {
+	setValidBrevoEnvironment(t)
+	if err := ValidateBrevoConfiguration(); err != nil {
+		t.Fatalf("expected valid Brevo configuration, got: %v", err)
 	}
 
-	t.Setenv("SMTP_SENDER", "not-an-email")
-	if err := ValidateSMTPConfiguration(); err == nil || !strings.Contains(err.Error(), "SMTP_SENDER") {
-		t.Fatalf("expected invalid sender to identify SMTP_SENDER, got: %v", err)
-	}
-
-	setValidSMTPEnvironment(t)
-	t.Setenv("SMTP_PORT", "70000")
-	if err := ValidateSMTPConfiguration(); err == nil || !strings.Contains(err.Error(), "SMTP_PORT") {
-		t.Fatalf("expected invalid port to identify SMTP_PORT, got: %v", err)
+	t.Setenv("BREVO_SENDER", "not-an-email")
+	if err := ValidateBrevoConfiguration(); err == nil || !strings.Contains(err.Error(), "BREVO_SENDER") {
+		t.Fatalf("expected invalid sender to identify BREVO_SENDER, got: %v", err)
 	}
 }

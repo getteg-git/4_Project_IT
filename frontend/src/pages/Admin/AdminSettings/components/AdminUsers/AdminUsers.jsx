@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../../../../../api/baseUrl.js";
 import React, { useState, useEffect } from "react";
 import { CircleX, Pencil, Plus, Save, ShieldCheck, Trash2, UserPlus, UsersRound, Wrench, X, Zap, Mail, Building2 } from "lucide-react";
 import SearchField from "../../../../../components/ui/SearchField";
@@ -76,9 +77,9 @@ function AdminUsers() {
     try {
       setIsLoading(true);
       const [usersRes, typesRes, deptsRes] = await Promise.all([
-        fetch("http://localhost:8080/api/users"),
-        fetch("http://localhost:8080/api/problem-types"),
-        fetch("http://localhost:8080/api/departments") // 🔥 ดึงข้อมูลสาขาวิชา
+        fetch(API_BASE_URL + "/api/users"),
+        fetch(API_BASE_URL + "/api/problem-types"),
+        fetch(API_BASE_URL + "/api/departments") // 🔥 ดึงข้อมูลสาขาวิชา
       ]);
       
       if (usersRes.ok) setUsers(await usersRes.json() || []);
@@ -202,7 +203,7 @@ function AdminUsers() {
     }
     setIsSubmitting(true);
     try {
-      const response = await fetch("http://localhost:8080/api/users", {
+      const response = await fetch(API_BASE_URL + "/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -242,7 +243,7 @@ function AdminUsers() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`http://localhost:8080/api/users/${editId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/users/${editId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -282,7 +283,7 @@ function AdminUsers() {
     if (!confirmDelete) return;
 
     try {
-      const response = await fetch(`http://localhost:8080/api/users/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/users/${id}`, {
         method: "DELETE"
       });
 
@@ -303,7 +304,7 @@ function AdminUsers() {
     setUpdatingHeadTechnicianId(user.id);
     try {
       const response = await fetch(
-        `http://localhost:8080/api/users/${user.id}/head-technician`,
+        `${API_BASE_URL}/api/users/${user.id}/head-technician`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },

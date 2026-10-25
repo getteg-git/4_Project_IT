@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../../../api/baseUrl.js";
 import React, { useState, useEffect } from "react";
 import { X, Clock, CheckCircle2, AlertCircle, PlayCircle, Ban, Camera } from "lucide-react";
 import RepairImageGallery from "../../../components/RepairImageGallery";
@@ -19,7 +20,7 @@ function RepairTimelineModal({ repairId, isOpen, onClose, images = [], ticketLab
       setError(null);
       setCurrentPage(1);
       try {
-        const response = await fetch(`http://localhost:8080/api/repairs/${repairId}/logs`);
+        const response = await fetch(`${API_BASE_URL}/api/repairs/${repairId}/logs`);
         if (response.ok) {
           const data = await response.json();
           setLogs(data || []);

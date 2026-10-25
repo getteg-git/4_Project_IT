@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "../../../api/baseUrl.js";
 import React, { useState, useEffect } from "react";
 import { BarChart3, CalendarDays, CircleX, Eye, FileText, MessageSquareText, UserRound, Wrench, X, ClipboardCheck, Clock, ZoomIn } from "lucide-react";
 import AppBreadcrumb from "../../../components/AppBreadcrumb";
@@ -47,7 +48,7 @@ function MyRepairs() {
   useEffect(() => {
     const fetchRepairs = async () => {
       try {
-        const response = await fetch("http://localhost:8080/api/repairs");
+        const response = await fetch(API_BASE_URL + "/api/repairs");
         if (response.ok) {
           const data = await response.json();
           setRepairs(data || []);
@@ -68,8 +69,8 @@ function MyRepairs() {
     const fetchMasterData = async () => {
       try {
         const [locationResponse, problemResponse] = await Promise.all([
-          fetch("http://localhost:8080/api/locations"),
-          fetch("http://localhost:8080/api/problem-types"),
+          fetch(API_BASE_URL + "/api/locations"),
+          fetch(API_BASE_URL + "/api/problem-types"),
         ]);
         if (locationResponse.ok) setLocations(await locationResponse.json() || []);
         if (problemResponse.ok) setProblemTypes(await problemResponse.json() || []);
@@ -88,7 +89,7 @@ function MyRepairs() {
     }
     const fetchFloors = async () => {
       try {
-        const response = await fetch(`http://localhost:8080/api/locations/${selectedLocation.id}/floors`);
+        const response = await fetch(`${API_BASE_URL}/api/locations/${selectedLocation.id}/floors`);
         if (response.ok) setFloors(await response.json() || []);
       } catch (error) {
         console.error("Error fetching filter floors:", error);
@@ -105,7 +106,7 @@ function MyRepairs() {
     }
     const fetchRooms = async () => {
       try {
-        const response = await fetch(`http://localhost:8080/api/floors/${selectedFloor.id}/rooms`);
+        const response = await fetch(`${API_BASE_URL}/api/floors/${selectedFloor.id}/rooms`);
         if (response.ok) setRooms(await response.json() || []);
       } catch (error) {
         console.error("Error fetching filter rooms:", error);
