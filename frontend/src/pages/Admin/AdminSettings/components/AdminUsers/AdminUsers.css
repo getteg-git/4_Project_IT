@@ -186,7 +186,179 @@
 /* โซนปุ่ม Action ลบ/แก้ไข */
 .user-actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 10px;
+}
+
+.btn-user-details {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid #2563eb;
+  border-radius: 8px;
+  color: #1d4ed8;
+  background: #eff6ff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-user-details:hover {
+  background: #dbeafe;
+}
+
+.modal-box.technician-account-detail-modal {
+  max-width: 600px;
+}
+
+.technician-account-detail-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin: -8px 0 20px;
+  color: #475569;
+}
+
+.technician-account-detail-summary strong {
+  color: #1e293b;
+  font-size: 1.15rem;
+}
+
+.technician-account-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.technician-account-detail-grid > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.technician-account-detail-grid strong,
+.technician-account-detail-section h4 {
+  color: #334155;
+}
+
+.technician-account-detail-grid span {
+  overflow-wrap: anywhere;
+  color: #64748b;
+}
+
+.technician-account-detail-section {
+  margin-top: 20px;
+}
+
+.technician-account-detail-section h4 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 10px;
+}
+
+.technician-account-detail-section > p {
+  margin: 0;
+  color: #64748b;
+}
+
+.technician-detail-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.technician-detail-tags span,
+.technician-account-area-list li {
+  padding: 7px 10px;
+  border: 1px solid #dbeafe;
+  border-radius: 7px;
+  color: #475569;
+  background: #f8fbff;
+}
+
+.technician-account-area-list {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.technician-detail-error {
+  color: #b91c1c !important;
+}
+
+.modal-box.responsible-area-modal {
+  max-width: 560px;
+}
+
+.responsible-area-technician {
+  margin: -10px 0 8px;
+  color: #475569;
+  text-align: center;
+  font-weight: 700;
+}
+
+.responsible-area-help,
+.responsible-area-empty {
+  color: #64748b;
+  line-height: 1.5;
+  font-size: 0.9rem;
+}
+
+.btn-add-area {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border: 1px solid #0f766e;
+  border-radius: 8px;
+  background: #ecfdf5;
+  color: #0f766e;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.responsible-area-list {
+  margin-top: 20px;
+  padding: 14px;
+  border: 1px solid #e0e8e4;
+  border-radius: 10px;
+  background: #f9fbfb;
+}
+
+.responsible-area-list h4 {
+  margin: 0 0 10px;
+  color: #334155;
+}
+
+.responsible-area-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-top: 1px solid #e2e8f0;
+  color: #334155;
+}
+
+.responsible-area-item button {
+  display: inline-flex;
+  padding: 5px;
+  border: 0;
+  border-radius: 6px;
+  background: #fee2e2;
+  color: #b91c1c;
+  cursor: pointer;
 }
 
 .btn-edit, .btn-delete {
@@ -329,6 +501,9 @@
    Responsive สำหรับมือถือและแท็บเล็ต
    ======================================= */
 @media (max-width: 768px) {
+  .technician-account-detail-grid {
+    grid-template-columns: 1fr;
+  }
   .admin-users-container { padding: 20px 15px; }
   .admin-header { flex-direction: column; text-align: center; gap: 15px; }
   .users-toolbar { flex-direction: column; align-items: stretch; }

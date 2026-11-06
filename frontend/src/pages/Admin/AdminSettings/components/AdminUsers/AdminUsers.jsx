@@ -1,6 +1,6 @@
 import { API_BASE_URL } from "../../../../../api/baseUrl.js";
 import React, { useState, useEffect } from "react";
-import { CircleX, Pencil, Plus, Save, ShieldCheck, Trash2, UserPlus, UsersRound, Wrench, X, Zap, Mail, Building2 } from "lucide-react";
+import { CircleX, Eye, Pencil, Plus, Save, ShieldCheck, Trash2, UserPlus, UsersRound, Wrench, X, Zap, Mail, Building2, MapPin, UserRound } from "lucide-react";
 import SearchField from "../../../../../components/ui/SearchField";
 import FilterBar from "../../../../../components/ui/FilterBar";
 import Pagination from "../../../../../components/ui/Pagination";
@@ -15,6 +15,9 @@ function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [problemTypes, setProblemTypes] = useState([]); 
   const [departments, setDepartments] = useState([]); // 🔥 เพิ่ม State เก็บสาขาวิชา
+  const [locations, setLocations] = useState([]);
+  const [areaFloors, setAreaFloors] = useState([]);
+  const [areaRooms, setAreaRooms] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
@@ -37,6 +40,19 @@ function AdminUsers() {
   const [specialties, setSpecialties] = useState([]); 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [updatingHeadTechnicianId, setUpdatingHeadTechnicianId] = useState(null);
+  const [areaTechnician, setAreaTechnician] = useState(null);
+  const [detailTechnician, setDetailTechnician] = useState(null);
+  const [detailAreas, setDetailAreas] = useState([]);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [detailLoadError, setDetailLoadError] = useState("");
+  const [responsibleAreas, setResponsibleAreas] = useState([]);
+  const [areaScope, setAreaScope] = useState("location");
+  const [areaLocationId, setAreaLocationId] = useState("");
+  const [areaFloorId, setAreaFloorId] = useState("");
+  const [areaRoomId, setAreaRoomId] = useState("");
+  const [isAreaLoading, setIsAreaLoading] = useState(false);
+  const [isAreaSubmitting, setIsAreaSubmitting] = useState(false);
+  const [areaLoadError, setAreaLoadError] = useState("");
 
   const validateUserForm = (allowEmptyPassword = false) => {
     const trimmedUsername = username.trim();
@@ -76,15 +92,17 @@ function AdminUsers() {
   const fetchMasterData = async () => {
     try {
       setIsLoading(true);
-      const [usersRes, typesRes, deptsRes] = await Promise.all([
+      const [usersRes, typesRes, deptsRes, locationsRes] = await Promise.all([
         fetch(API_BASE_URL + "/api/users"),
         fetch(API_BASE_URL + "/api/problem-types"),
-        fetch(API_BASE_URL + "/api/departments") // 🔥 ดึงข้อมูลสาขาวิชา
+        fetch(API_BASE_URL + "/api/departments"), // 🔥 ดึงข้อมูลสาขาวิชา
+        fetch(API_BASE_URL + "/api/locations"),
       ]);
       
       if (usersRes.ok) setUsers(await usersRes.json() || []);
       if (typesRes.ok) setProblemTypes(await typesRes.json() || []);
       if (deptsRes.ok) setDepartments(await deptsRes.json() || []);
+      if (locationsRes.ok) setLocations(await locationsRes.json() || []);
     } catch (error) {
       console.error("Fetch Users Error:", error);
     } finally {
@@ -95,6 +113,48 @@ function AdminUsers() {
   useEffect(() => {
     fetchMasterData();
   }, []);
+
+  useEffect(() => {
+    if (!areaLocationId) {
+      setAreaFloors([]);
+      setAreaFloorId("");
+      setAreaRooms([]);
+      setAreaRoomId("");
+      return;
+    }
+
+    const fetchAreaFloors = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/locations/${areaLocationId}/floors`);
+        if (!response.ok) throw new Error("ไม่สามารถดึงข้อมูลชั้นได้");
+        setAreaFloors(await response.json() || []);
+      } catch (error) {
+        console.error("Fetch responsible-area floors error:", error);
+        toast.error("โหลดข้อมูลชั้นไม่สำเร็จ", { description: "กรุณาลองใหม่อีกครั้ง" });
+      }
+    };
+    fetchAreaFloors();
+  }, [areaLocationId, toast]);
+
+  useEffect(() => {
+    if (!areaFloorId) {
+      setAreaRooms([]);
+      setAreaRoomId("");
+      return;
+    }
+
+    const fetchAreaRooms = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/floors/${areaFloorId}/rooms`);
+        if (!response.ok) throw new Error("ไม่สามารถดึงข้อมูลห้องได้");
+        setAreaRooms(await response.json() || []);
+      } catch (error) {
+        console.error("Fetch responsible-area rooms error:", error);
+        toast.error("โหลดข้อมูลห้องไม่สำเร็จ", { description: "กรุณาลองใหม่อีกครั้ง" });
+      }
+    };
+    fetchAreaRooms();
+  }, [areaFloorId, toast]);
 
   const technicianUsers = users.filter((user) => user.role === "technician");
   const specialtyCounts = new Map(
@@ -356,6 +416,127 @@ function AdminUsers() {
     }
   };
 
+  const openResponsibleAreas = async (technician) => {
+    setAreaTechnician(technician);
+    setResponsibleAreas([]);
+    setAreaScope("location");
+    setAreaLocationId("");
+    setAreaFloorId("");
+    setAreaRoomId("");
+    setAreaLoadError("");
+    setIsAreaLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users/${technician.id}/responsible-areas`);
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "ไม่สามารถโหลดพื้นที่รับผิดชอบได้");
+      }
+      setResponsibleAreas(await response.json() || []);
+    } catch (error) {
+      console.error("Fetch technician responsible areas error:", error);
+      setAreaLoadError(error.message || "กรุณาลองใหม่อีกครั้ง");
+      toast.error("โหลดพื้นที่รับผิดชอบไม่สำเร็จ", { description: error.message || "กรุณาลองใหม่อีกครั้ง" });
+    } finally {
+      setIsAreaLoading(false);
+    }
+  };
+
+  const openTechnicianDetails = async (technician) => {
+    setDetailTechnician(technician);
+    setDetailAreas([]);
+    setDetailLoadError("");
+    setIsDetailLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users/${technician.id}/responsible-areas`);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "ไม่สามารถโหลดพื้นที่รับผิดชอบได้");
+      }
+      setDetailAreas(data || []);
+    } catch (error) {
+      console.error("Fetch technician detail areas error:", error);
+      setDetailLoadError(error.message || "กรุณาลองใหม่อีกครั้ง");
+      toast.error("โหลดรายละเอียดพื้นที่ช่างไม่สำเร็จ", {
+        description: error.message || "กรุณาลองใหม่อีกครั้ง",
+      });
+    } finally {
+      setIsDetailLoading(false);
+    }
+  };
+
+  const addResponsibleArea = () => {
+    const newArea = areaScope === "location"
+      ? { scope: "location", location_id: Number(areaLocationId) }
+      : areaScope === "floor"
+        ? { scope: "floor", floor_id: Number(areaFloorId) }
+        : { scope: "room", room_id: Number(areaRoomId) };
+    const selectedLocation = locations.find((location) => String(location.id) === String(areaLocationId));
+    const selectedFloor = areaFloors.find((floor) => String(floor.id) === String(areaFloorId));
+    const selectedRoom = areaRooms.find((room) => String(room.id) === String(areaRoomId));
+    const hasSelection = areaScope === "location"
+      ? Boolean(areaLocationId)
+      : areaScope === "floor"
+        ? Boolean(areaFloorId)
+        : Boolean(areaRoomId);
+
+    if (!hasSelection) {
+      toast.warning("กรุณาเลือกพื้นที่", { description: "เลือกอาคาร ชั้น หรือห้องก่อนเพิ่มรายการ" });
+      return;
+    }
+
+    const duplicate = responsibleAreas.some((area) =>
+      area.scope === newArea.scope &&
+      String(area.location_id || area.floor_id || area.room_id) ===
+        String(newArea.location_id || newArea.floor_id || newArea.room_id)
+    );
+    if (duplicate) {
+      toast.warning("พื้นที่นี้ถูกเพิ่มแล้ว");
+      return;
+    }
+
+    setResponsibleAreas((currentAreas) => [
+      ...currentAreas,
+      {
+        ...newArea,
+        location_name: selectedLocation?.name,
+        floor_name: selectedFloor?.floor_name,
+        room_number: selectedRoom?.room_number,
+      },
+    ]);
+  };
+
+  const removeResponsibleArea = (indexToRemove) => {
+    setResponsibleAreas((currentAreas) => currentAreas.filter((_, index) => index !== indexToRemove));
+  };
+
+  const saveResponsibleAreas = async () => {
+    if (!areaTechnician) return;
+    setIsAreaSubmitting(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users/${areaTechnician.id}/responsible-areas`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          areas: responsibleAreas.map(({ scope, location_id, floor_id, room_id }) => ({
+            scope,
+            location_id,
+            floor_id,
+            room_id,
+          })),
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "ไม่สามารถบันทึกพื้นที่รับผิดชอบได้");
+      toast.success("บันทึกพื้นที่รับผิดชอบแล้ว");
+      setAreaTechnician(null);
+    } catch (error) {
+      console.error("Save technician responsible areas error:", error);
+      toast.error("บันทึกพื้นที่ไม่สำเร็จ", { description: error.message || "กรุณาลองใหม่อีกครั้ง" });
+    } finally {
+      setIsAreaSubmitting(false);
+    }
+  };
+
   return (
     <div className="admin-users-container" style={{ padding: 0 }}>
       <div className="admin-wrapper">
@@ -430,20 +611,36 @@ function AdminUsers() {
                 
                 <div className="user-actions">
                   {user.role === "technician" && (
-                    <button
-                      className={`btn-head-tech${user.is_head_technician ? " is-active" : ""}`}
-                      type="button"
-                      onClick={() => handleToggleHeadTechnician(user)}
-                      disabled={updatingHeadTechnicianId === user.id}
-                      aria-pressed={Boolean(user.is_head_technician)}
-                    >
-                      <Wrench size={16} aria-hidden="true" />
-                      {updatingHeadTechnicianId === user.id
-                        ? "กำลังบันทึก..."
-                        : user.is_head_technician
-                          ? "ยกเลิกหัวหน้าช่าง"
-                          : "ตั้งเป็นหัวหน้าช่าง"}
-                    </button>
+                    <>
+                      <button
+                        className="btn-user-details"
+                        type="button"
+                        onClick={() => openTechnicianDetails(user)}
+                      >
+                        <Eye size={16} aria-hidden="true" /> ดูรายละเอียด
+                      </button>
+                      <button
+                        className="btn-head-tech"
+                        type="button"
+                        onClick={() => openResponsibleAreas(user)}
+                      >
+                        <MapPin size={16} aria-hidden="true" /> กำหนดพื้นที่
+                      </button>
+                      <button
+                        className={`btn-head-tech${user.is_head_technician ? " is-active" : ""}`}
+                        type="button"
+                        onClick={() => handleToggleHeadTechnician(user)}
+                        disabled={updatingHeadTechnicianId === user.id}
+                        aria-pressed={Boolean(user.is_head_technician)}
+                      >
+                        <Wrench size={16} aria-hidden="true" />
+                        {updatingHeadTechnicianId === user.id
+                          ? "กำลังบันทึก..."
+                          : user.is_head_technician
+                            ? "ยกเลิกหัวหน้าช่าง"
+                            : "ตั้งเป็นหัวหน้าช่าง"}
+                      </button>
+                    </>
                   )}
                   <button className="btn-edit" onClick={() => openEditModal(user)}>
                     <Pencil size={16} aria-hidden="true" /> แก้ไข
@@ -696,6 +893,221 @@ function AdminUsers() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {areaTechnician && (
+        <div className="modal-overlay">
+          <div className="modal-box responsible-area-modal">
+            <button
+              className="close-btn"
+              type="button"
+              onClick={() => setAreaTechnician(null)}
+              disabled={isAreaSubmitting}
+              aria-label="ปิดหน้าต่าง"
+            >
+              <X aria-hidden="true" />
+            </button>
+            <h3 className="modal-title"><MapPin size={20} aria-hidden="true" /> พื้นที่รับผิดชอบของช่าง</h3>
+            <p className="responsible-area-technician">{areaTechnician.full_name}</p>
+            <p className="responsible-area-help">เพิ่มพื้นที่เป็นระดับอาคาร ชั้น หรือห้องได้ งานที่ไม่มีพื้นที่ตรงกับรายการนี้จะไม่แสดงช่างคนนี้ในตัวเลือกมอบหมายงาน</p>
+
+            {isAreaLoading ? (
+              <div className="loading-state">กำลังโหลดพื้นที่...</div>
+            ) : areaLoadError ? (
+              <div className="error-state" role="alert">
+                โหลดพื้นที่รับผิดชอบไม่สำเร็จ: {areaLoadError}
+              </div>
+            ) : (
+              <>
+                <div className="input-group">
+                  <label htmlFor="responsible-area-scope">ระดับพื้นที่</label>
+                  <select
+                    id="responsible-area-scope"
+                    value={areaScope}
+                    onChange={(event) => {
+                      setAreaScope(event.target.value);
+                      setAreaFloorId("");
+                      setAreaRoomId("");
+                    }}
+                  >
+                    <option value="location">ทั้งอาคาร</option>
+                    <option value="floor">เฉพาะชั้น</option>
+                    <option value="room">เฉพาะห้อง</option>
+                  </select>
+                </div>
+
+                <div className="input-group">
+                  <label htmlFor="responsible-area-location">อาคาร</label>
+                  <select
+                    id="responsible-area-location"
+                    value={areaLocationId}
+                    onChange={(event) => {
+                      setAreaLocationId(event.target.value);
+                      setAreaFloorId("");
+                      setAreaRoomId("");
+                    }}
+                  >
+                    <option value="">-- เลือกอาคาร --</option>
+                    {locations.map((location) => (
+                      <option key={location.id} value={location.id}>{location.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {areaScope !== "location" && (
+                  <div className="input-group">
+                    <label htmlFor="responsible-area-floor">ชั้น</label>
+                    <select
+                      id="responsible-area-floor"
+                      value={areaFloorId}
+                      disabled={!areaLocationId}
+                      onChange={(event) => {
+                        setAreaFloorId(event.target.value);
+                        setAreaRoomId("");
+                      }}
+                    >
+                      <option value="">-- เลือกชั้น --</option>
+                      {areaFloors.map((floor) => (
+                        <option key={floor.id} value={floor.id}>{floor.floor_name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {areaScope === "room" && (
+                  <div className="input-group">
+                    <label htmlFor="responsible-area-room">ห้อง</label>
+                    <select
+                      id="responsible-area-room"
+                      value={areaRoomId}
+                      disabled={!areaFloorId}
+                      onChange={(event) => setAreaRoomId(event.target.value)}
+                    >
+                      <option value="">-- เลือกห้อง --</option>
+                      {areaRooms.map((room) => (
+                        <option key={room.id} value={room.id}>{room.room_number}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <button className="btn-add-area" type="button" onClick={addResponsibleArea}>
+                  <Plus size={16} aria-hidden="true" /> เพิ่มพื้นที่
+                </button>
+
+                <div className="responsible-area-list">
+                  <h4>พื้นที่ที่เลือก ({responsibleAreas.length})</h4>
+                  {responsibleAreas.length === 0 ? (
+                    <p className="responsible-area-empty">ยังไม่ได้กำหนดพื้นที่ ช่างจะยังไม่ปรากฏในรายชื่อมอบหมายงาน</p>
+                  ) : responsibleAreas.map((area, index) => (
+                    <div className="responsible-area-item" key={`${area.scope}-${area.location_id || area.floor_id || area.room_id}`}>
+                      <span>
+                        {area.scope === "location"
+                          ? `ทั้งอาคาร: ${area.location_name || locations.find((location) => String(location.id) === String(area.location_id))?.name || ""}`
+                          : area.scope === "floor"
+                            ? `ชั้น: ${area.location_name ? `${area.location_name} / ` : ""}${area.floor_name || areaFloors.find((floor) => String(floor.id) === String(area.floor_id))?.floor_name || `ID ${area.floor_id}`}`
+                            : `ห้อง: ${area.location_name ? `${area.location_name} / ` : ""}${area.floor_name ? `${area.floor_name} / ` : ""}${area.room_number || `ID ${area.room_id}`}`}
+                      </span>
+                      <button type="button" onClick={() => removeResponsibleArea(index)} aria-label="นำพื้นที่ออก">
+                        <X size={15} aria-hidden="true" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="modal-actions">
+                  <button type="button" className="btn-cancel" onClick={() => setAreaTechnician(null)} disabled={isAreaSubmitting}>ยกเลิก</button>
+                  <button type="button" className="btn-submit" onClick={saveResponsibleAreas} disabled={isAreaSubmitting || isAreaLoading}>
+                    {isAreaSubmitting ? "กำลังบันทึก..." : <><Save size={18} aria-hidden="true" /> บันทึกพื้นที่</>}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {detailTechnician && (
+        <div className="modal-overlay">
+          <div
+            className="modal-box technician-account-detail-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="technician-account-detail-title"
+          >
+            <button
+              className="close-btn"
+              type="button"
+              onClick={() => setDetailTechnician(null)}
+              aria-label="ปิดรายละเอียดช่าง"
+            >
+              <X aria-hidden="true" />
+            </button>
+            <h3 className="modal-title" id="technician-account-detail-title">
+              <UserRound size={21} aria-hidden="true" /> รายละเอียดช่าง
+            </h3>
+            <div className="technician-account-detail-summary">
+              <strong>{detailTechnician.full_name}</strong>
+              <span>@{detailTechnician.username}</span>
+            </div>
+            <div className="technician-account-detail-grid">
+              <div>
+                <strong>อีเมล</strong>
+                <span>{detailTechnician.email || "ไม่ได้ระบุ"}</span>
+              </div>
+              <div>
+                <strong>สาขา / สังกัด</strong>
+                <span>{detailTechnician.department_name || "ไม่ได้ระบุ"}</span>
+              </div>
+              <div>
+                <strong>สถานะบัญชี</strong>
+                <span>{detailTechnician.is_active === false ? "ปิดใช้งาน" : "ใช้งานอยู่"}</span>
+              </div>
+              <div>
+                <strong>ตำแหน่ง</strong>
+                <span>{detailTechnician.is_head_technician ? "หัวหน้าช่าง" : "ช่างเทคนิค"}</span>
+              </div>
+            </div>
+            <section className="technician-account-detail-section">
+              <h4><Zap size={16} aria-hidden="true" /> ความเชี่ยวชาญ</h4>
+              {detailTechnician.specialty_names?.length ? (
+                <div className="technician-detail-tags">
+                  {detailTechnician.specialty_names.map((name) => (
+                    <span key={name}>{name}</span>
+                  ))}
+                </div>
+              ) : (
+                <p>ยังไม่ได้ระบุความเชี่ยวชาญ</p>
+              )}
+            </section>
+            <section className="technician-account-detail-section">
+              <h4><MapPin size={16} aria-hidden="true" /> พื้นที่รับผิดชอบ</h4>
+              {isDetailLoading ? (
+                <p>กำลังโหลดพื้นที่รับผิดชอบ...</p>
+              ) : detailLoadError ? (
+                <p className="technician-detail-error" role="alert">{detailLoadError}</p>
+              ) : detailAreas.length ? (
+                <ul className="technician-account-area-list">
+                  {detailAreas.map((area) => {
+                    const locationName = area.location_name || `อาคาร ID ${area.location_id || ""}`;
+                    const label = area.scope === "location"
+                      ? `ทั้งอาคาร: ${locationName}`
+                      : area.scope === "floor"
+                        ? `ชั้น: ${locationName} / ${area.floor_name || `ID ${area.floor_id}`}`
+                        : `ห้อง: ${locationName} / ${area.floor_name || `ชั้น ID ${area.floor_id || ""}`} / ${area.room_number || `ID ${area.room_id}`}`;
+                    return (
+                      <li key={`${area.scope}-${area.location_id || area.floor_id || area.room_id}`}>
+                        {label}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p>ยังไม่ได้กำหนดพื้นที่รับผิดชอบ</p>
+              )}
+            </section>
           </div>
         </div>
       )}

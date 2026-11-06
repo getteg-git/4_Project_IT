@@ -113,14 +113,11 @@ type computerHeadTechnician struct {
 	Email string
 }
 
-func assignComputerRepairToHead(repairID int, problemTypeID, departmentID interface{}) (*computerHeadTechnician, error) {
+func assignComputerRepairToHead(repairID int, problemTypeID, departmentID, locationID, floorID, roomID interface{}) (*computerHeadTechnician, error) {
 
 	var lead computerHeadTechnician
 	err := database.DB.QueryRow(`
-=======
-    var lead computerHeadTechnician
-    err := database.DB.QueryRow(`
->>>>>>> Stashed changes
+
         SELECT u.id, u.full_name, COALESCE(u.email, '')
         FROM users u
         JOIN technician_specialties ts ON ts.user_id = u.id
@@ -129,10 +126,19 @@ func assignComputerRepairToHead(repairID int, problemTypeID, departmentID interf
           AND u.is_active = TRUE
           AND u.is_head_technician = TRUE
           AND ts.problem_type_id = $1
+          AND EXISTS (
+              SELECT 1
+              FROM technician_responsible_areas ra
+              WHERE ra.technician_id = u.id
+                AND (
+                    ra.location_id = $3
+                    OR ra.floor_id = $4
+                    OR ra.room_id = $5
+                )
+          )
         ORDER BY CASE WHEN u.department_id IS NOT DISTINCT FROM $2 THEN 0 ELSE 1 END, u.id
         LIMIT 1
-    `, problemTypeID, departmentID).Scan(&lead.ID, &lead.Name, &lead.Email)
-
+    `, problemTypeID, departmentID, locationID, floorID, roomID).Scan(&lead.ID, &lead.Name, &lead.Email)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -161,38 +167,8 @@ func assignComputerRepairToHead(repairID int, problemTypeID, departmentID interf
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("failed to save repair assignment: %w", err)
 	}
-=======
-    
-    if err == sql.ErrNoRows {
-        return nil, nil
-    }
-    if err != nil {
-        return nil, fmt.Errorf("failed to find head technician: %w", err)
-    }
 
-    tx, err := database.DB.Begin()
-    if err != nil {
-        return nil, fmt.Errorf("failed to start repair assignment: %w", err)
-    }
-    defer tx.Rollback()
-
-    if _, err := tx.Exec(`UPDATE repairs SET technician_id = $1 WHERE id = $2`, lead.ID, repairID); err != nil {
-        return nil, fmt.Errorf("failed to assign repair to head technician: %w", err)
-    }
-    
-    if _, err := tx.Exec(`
-        INSERT INTO repair_logs (repair_id, user_id, action, old_status, new_status, note)
-        VALUES ($1, $2, 'ASSIGNED', 'รอซ่อม', 'รอซ่อม', $3)
-    `, repairID, lead.ID, "ระบบส่งงานให้หัวหน้าช่างประจำหมวด: "+lead.Name); err != nil {
-        return nil, fmt.Errorf("failed to log repair assignment: %w", err)
-    }
-    
-    if err := tx.Commit(); err != nil {
-        return nil, fmt.Errorf("failed to save repair assignment: %w", err)
-    }
->>>>>>> Stashed changes
-
-    return &lead, nil
+	return &lead, nil
 }
 
 // =========================================================
@@ -240,6 +216,10 @@ func wrapEmail(headerColor string, headerText string, bodyContent string) string
 func CreateRepair(c *gin.Context) {
 	ticketNumber := generateTicketNumber() // 🔥 Gen รหัสอัตโนมัติ
 	reporterEmail := c.PostForm("reporter_email")
+	reporterType := strings.TrimSpace(c.PostForm("reporter_type"))
+	reporterDepartment := strings.TrimSpace(c.PostForm("reporter_department"))
+	reporterDegreeLevel := strings.TrimSpace(c.PostForm("reporter_degree_level"))
+	reporterDepartmentOther := c.PostForm("reporter_department_other") == "true"
 	departmentID := nullIfEmpty(c.PostForm("department_id")) // 🔥 รับสาขาของคนแจ้ง
 	locationID := nullIfEmpty(c.PostForm("location_id"))
 	otherLocation := nullIfEmpty(c.PostForm("other_location"))
@@ -251,11 +231,48 @@ func CreateRepair(c *gin.Context) {
 	otherProblemType := nullIfEmpty(c.PostForm("other_problem_type"))
 	description := c.PostForm("description")
 
+	validReporterTypes := map[string]bool{
+		"นักศึกษา":             true,
+		"อาจารย์":              true,
+		"บุคลากร":              true,
+		"บุคคลภายนอก / อื่น ๆ": true,
+	}
+	if !validReporterTypes[reporterType] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาระบุประเภทผู้แจ้งให้ถูกต้อง"})
+		return
+	}
+	if reporterDepartment == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาระบุสาขาวิชา หน่วยงาน หรือความเกี่ยวข้อง"})
+		return
+	}
+	if reporterType == "นักศึกษา" && (reporterDegreeLevel == "" || departmentID == nil) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาระบุระดับการศึกษาและสาขาวิชา"})
+		return
+	}
+	if reporterType != "นักศึกษา" && reporterType != "บุคคลภายนอก / อื่น ๆ" && !reporterDepartmentOther {
+		validDepartments := map[string]bool{
+			"คณิตศาสตร์":  true,
+			"เคมี":        true,
+			"ชีววิทยา":    true,
+			"ฟิสิกส์":     true,
+			"สถิติ":       true,
+			"คอมพิวเตอร์": true,
+			"จุลชีววิทยา": true,
+			"วิทยาศาสตร์สิ่งแวดล้อม": true,
+			"สำนักงานคณบดี":          true,
+		}
+		if !validDepartments[reporterDepartment] {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาเลือกสาขาวิชาหรือหน่วยงานจากรายการ"})
+			return
+		}
+	}
+
 	var repairID int
 	err := database.DB.QueryRow(
-		`INSERT INTO repairs (ticket_number, reporter_email, department_id, location_id, other_location, floor_id, room_id, other_room, equipment_id, problem_type_id, other_problem_type, description, status)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'รอซ่อม') RETURNING id`,
-		ticketNumber, reporterEmail, departmentID, locationID, otherLocation, floorID, roomID, otherRoom, equipmentID, problemTypeID, otherProblemType, description,
+		`INSERT INTO repairs (ticket_number, reporter_email, reporter_type, reporter_degree_level, reporter_department, department_id, location_id, other_location, floor_id, room_id, other_room, equipment_id, problem_type_id, other_problem_type, description, status)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'รอซ่อม') RETURNING id`,
+		ticketNumber, reporterEmail, reporterType, nullIfEmpty(reporterDegreeLevel), reporterDepartment,
+		departmentID, locationID, otherLocation, floorID, roomID, otherRoom, equipmentID, problemTypeID, otherProblemType, description,
 	).Scan(&repairID)
 
 	if err != nil {
@@ -269,7 +286,7 @@ func CreateRepair(c *gin.Context) {
 	var computerLead *computerHeadTechnician
 	if problemTypeID != nil {
 		var routingErr error
-		computerLead, routingErr = assignComputerRepairToHead(repairID, problemTypeID, departmentID)
+		computerLead, routingErr = assignComputerRepairToHead(repairID, problemTypeID, departmentID, locationID, floorID, roomID)
 		if routingErr != nil {
 			log.Printf("failed to route computer repair %d to a head technician: %v", repairID, routingErr)
 		}
@@ -368,6 +385,8 @@ func GetAllRepairs(c *gin.Context) {
 
 	query := `
 		SELECT r.id, r.ticket_number, r.description, r.status, r.created_at, r.technician_id, r.problem_type_id, r.technician_note, r.admin_note, r.reporter_email,
+			   r.reporter_type, r.reporter_degree_level, r.reporter_department,
+			   r.location_id, r.floor_id, r.room_id,
 			   r.estimated_cost, r.actual_cost, r.accepted_at, r.completed_at, r.other_location, r.other_room, r.other_problem_type,
 			   r.department_id, d.name as department_name,
 			   l.name as location_name, f.floor_name, ro.room_number,
@@ -406,14 +425,17 @@ func GetAllRepairs(c *gin.Context) {
 	for rows.Next() {
 		var id int
 		var desc, status, reporterEmail string
+		var reporterType, reporterDegreeLevel, reporterDepartment *string
 		var ticketNumber, locName, otherLoc, otherRoom, floorName, roomNumber, eqName, assetCode, probName, otherProb, techName, techNote, adminNote, deptName *string
 		var basePrice *float64
 		var estimatedCost, actualCost float64
 		var createdAt time.Time
 		var acceptedAt, completedAt *time.Time
-		var techID, problemTypeID, dID *int
+		var techID, problemTypeID, dID, locationID, floorID, roomID *int
 
 		err := rows.Scan(&id, &ticketNumber, &desc, &status, &createdAt, &techID, &problemTypeID, &techNote, &adminNote, &reporterEmail,
+			&reporterType, &reporterDegreeLevel, &reporterDepartment,
+			&locationID, &floorID, &roomID,
 			&estimatedCost, &actualCost, &acceptedAt, &completedAt, &otherLoc, &otherRoom, &otherProb,
 			&dID, &deptName, &locName, &floorName, &roomNumber, &eqName, &assetCode, &basePrice, &probName, &techName)
 		if err != nil {
@@ -437,34 +459,40 @@ func GetAllRepairs(c *gin.Context) {
 		}
 
 		repairs = append(repairs, map[string]interface{}{
-			"id":                 id,
-			"ticket_number":      getString(ticketNumber),
-			"description":        desc,
-			"status":             status,
-			"created_at":         createdAt,
-			"department_id":      dID,
-			"problem_type_id":    problemTypeID,
-			"department_name":    getString(deptName),
-			"location_name":      getString(locName),
-			"other_location":     getString(otherLoc),
-			"floor_name":         getString(floorName),
-			"room_number":        getString(roomNumber),
-			"other_room":         getString(otherRoom), // 🔥 [เพิ่มใหม่] คืนค่าชื่อห้องที่พิมพ์เอง
-			"equipment_name":     getString(eqName),
-			"asset_code":         getString(assetCode),
-			"base_price":         basePrice,
-			"problem_type":       getString(probName),
-			"other_problem_type": getString(otherProb),
-			"reporter_email":     reporterEmail,
-			"technician_id":      techID,
-			"technician_note":    getString(techNote),
-			"admin_note":         getString(adminNote),
-			"technician_name":    getString(techName),
-			"estimated_cost":     estimatedCost,
-			"actual_cost":        actualCost,
-			"accepted_at":        acceptedAt,
-			"completed_at":       completedAt,
-			"images":             images,
+			"id":                    id,
+			"ticket_number":         getString(ticketNumber),
+			"description":           desc,
+			"status":                status,
+			"created_at":            createdAt,
+			"department_id":         dID,
+			"problem_type_id":       problemTypeID,
+			"department_name":       getString(deptName),
+			"location_name":         getString(locName),
+			"other_location":        getString(otherLoc),
+			"floor_name":            getString(floorName),
+			"room_number":           getString(roomNumber),
+			"other_room":            getString(otherRoom), // 🔥 [เพิ่มใหม่] คืนค่าชื่อห้องที่พิมพ์เอง
+			"equipment_name":        getString(eqName),
+			"asset_code":            getString(assetCode),
+			"base_price":            basePrice,
+			"problem_type":          getString(probName),
+			"other_problem_type":    getString(otherProb),
+			"reporter_email":        reporterEmail,
+			"reporter_type":         getString(reporterType),
+			"reporter_degree_level": getString(reporterDegreeLevel),
+			"reporter_department":   getString(reporterDepartment),
+			"location_id":           locationID,
+			"floor_id":              floorID,
+			"room_id":               roomID,
+			"technician_id":         techID,
+			"technician_note":       getString(techNote),
+			"admin_note":            getString(adminNote),
+			"technician_name":       getString(techName),
+			"estimated_cost":        estimatedCost,
+			"actual_cost":           actualCost,
+			"accepted_at":           acceptedAt,
+			"completed_at":          completedAt,
+			"images":                images,
 		})
 	}
 	c.JSON(http.StatusOK, repairs)
@@ -478,6 +506,7 @@ func GetRepairByID(c *gin.Context) {
 
 	var id int
 	var desc, status, reporterEmail string
+	var reporterType, reporterDegreeLevel, reporterDepartment *string
 	var ticketNumber, locName, otherLoc, otherRoom, floorName, roomNumber, eqName, assetCode, probName, otherProb, techName, techNote, adminNote, deptName *string
 	var estimatedCost, actualCost float64
 	var createdAt time.Time
@@ -485,7 +514,9 @@ func GetRepairByID(c *gin.Context) {
 	var dID *int
 
 	err := database.DB.QueryRow(`
-		SELECT r.id, r.ticket_number, r.description, r.status, r.reporter_email, r.technician_note, r.admin_note, r.created_at,
+		SELECT r.id, r.ticket_number, r.description, r.status, r.reporter_email,
+			   r.reporter_type, r.reporter_degree_level, r.reporter_department,
+			   r.technician_note, r.admin_note, r.created_at,
 			   r.estimated_cost, r.actual_cost, r.accepted_at, r.completed_at, r.other_location, r.other_room, r.other_problem_type,
 			   r.department_id, d.name as department_name,
 			   l.name, f.floor_name, ro.room_number, eq.name, eq.asset_code, p.name, u.full_name
@@ -498,7 +529,9 @@ func GetRepairByID(c *gin.Context) {
 		LEFT JOIN problem_types p ON r.problem_type_id = p.id
 		LEFT JOIN users u ON r.technician_id = u.id
 		WHERE r.id = $1`, repairID).Scan(
-		&id, &ticketNumber, &desc, &status, &reporterEmail, &techNote, &adminNote, &createdAt,
+		&id, &ticketNumber, &desc, &status, &reporterEmail,
+		&reporterType, &reporterDegreeLevel, &reporterDepartment,
+		&techNote, &adminNote, &createdAt,
 		&estimatedCost, &actualCost, &acceptedAt, &completedAt, &otherLoc, &otherRoom, &otherProb,
 		&dID, &deptName, &locName, &floorName, &roomNumber, &eqName, &assetCode, &probName, &techName)
 
@@ -525,31 +558,34 @@ func GetRepairByID(c *gin.Context) {
 	}
 
 	repair := map[string]interface{}{
-		"id":                 id,
-		"ticket_number":      getString(ticketNumber),
-		"description":        desc,
-		"status":             status,
-		"reporter_email":     reporterEmail,
-		"department_id":      dID,
-		"department_name":    getString(deptName),
-		"technician_note":    getString(techNote),
-		"admin_note":         getString(adminNote),
-		"technician_name":    getString(techName),
-		"location_name":      getString(locName),
-		"other_location":     getString(otherLoc),
-		"floor_name":         getString(floorName),
-		"room_number":        getString(roomNumber),
-		"other_room":         getString(otherRoom), // 🔥 [เพิ่มใหม่] คืนค่าชื่อห้องที่พิมพ์เอง
-		"equipment_name":     getString(eqName),
-		"asset_code":         getString(assetCode),
-		"problem_type":       getString(probName),
-		"other_problem_type": getString(otherProb),
-		"estimated_cost":     estimatedCost,
-		"actual_cost":        actualCost,
-		"accepted_at":        acceptedAt,
-		"completed_at":       completedAt,
-		"created_at":         createdAt,
-		"images":             images,
+		"id":                    id,
+		"ticket_number":         getString(ticketNumber),
+		"description":           desc,
+		"status":                status,
+		"reporter_email":        reporterEmail,
+		"reporter_type":         getString(reporterType),
+		"reporter_degree_level": getString(reporterDegreeLevel),
+		"reporter_department":   getString(reporterDepartment),
+		"department_id":         dID,
+		"department_name":       getString(deptName),
+		"technician_note":       getString(techNote),
+		"admin_note":            getString(adminNote),
+		"technician_name":       getString(techName),
+		"location_name":         getString(locName),
+		"other_location":        getString(otherLoc),
+		"floor_name":            getString(floorName),
+		"room_number":           getString(roomNumber),
+		"other_room":            getString(otherRoom), // 🔥 [เพิ่มใหม่] คืนค่าชื่อห้องที่พิมพ์เอง
+		"equipment_name":        getString(eqName),
+		"asset_code":            getString(assetCode),
+		"problem_type":          getString(probName),
+		"other_problem_type":    getString(otherProb),
+		"estimated_cost":        estimatedCost,
+		"actual_cost":           actualCost,
+		"accepted_at":           acceptedAt,
+		"completed_at":          completedAt,
+		"created_at":            createdAt,
+		"images":                images,
 	}
 	c.JSON(http.StatusOK, repair)
 }
@@ -579,11 +615,11 @@ func AssignRepair(c *gin.Context) {
 	defer tx.Rollback()
 
 	var currentStatus string
-	var currentTechnicianID, repairProblemTypeID *int
+	var currentTechnicianID, repairProblemTypeID, locationID, floorID, roomID *int
 	err = tx.QueryRow(`
-		SELECT status, technician_id, problem_type_id
+		SELECT status, technician_id, problem_type_id, location_id, floor_id, room_id
 		FROM repairs WHERE id = $1 FOR UPDATE
-	`, repairID).Scan(&currentStatus, &currentTechnicianID, &repairProblemTypeID)
+	`, repairID).Scan(&currentStatus, &currentTechnicianID, &repairProblemTypeID, &locationID, &floorID, &roomID)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบรายการแจ้งซ่อม"})
 		return
@@ -624,7 +660,7 @@ func AssignRepair(c *gin.Context) {
 		}
 
 		var eligible bool
-<<<<<<< Updated upstream
+
 		err = tx.QueryRow(`
 			SELECT EXISTS (
 				SELECT 1
@@ -645,31 +681,31 @@ func AssignRepair(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "เลือกได้เฉพาะช่างที่ใช้งานอยู่และมีความถนัดตรงกับประเภทงานนี้"})
 			return
 		}
-=======
-        err = tx.QueryRow(`
-            SELECT EXISTS (
-                SELECT 1
-                FROM users u
-                JOIN technician_specialties ts ON ts.user_id = u.id
-                WHERE u.id = $1
-                  AND u.role = 'technician'
-                  AND u.is_active = TRUE
-                  AND u.is_head_technician = FALSE
-                  AND ts.problem_type_id = $2
-            )
-        `, req.TechnicianID, *repairProblemTypeID).Scan(&eligible) // ตัด req.HeadTechnicianID ออกเพราะไม่ได้ใช้เทียบ department แล้ว
-        if err != nil {
-            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-            return
-        }
-        if !eligible {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "ช่างที่เลือกไม่มีความถนัดตรงกับประเภทงานนี้"})
-            return
-        }
->>>>>>> Stashed changes
 
 		actorID = req.HeadTechnicianID
 		assignmentNote = fmt.Sprintf("หัวหน้าช่าง ID: %d มอบหมายงานให้ช่าง ID: %d", req.HeadTechnicianID, req.TechnicianID)
+	}
+
+	var areaMatch bool
+	err = tx.QueryRow(`
+		SELECT EXISTS (
+			SELECT 1
+			FROM technician_responsible_areas ra
+			WHERE ra.technician_id = $1
+			  AND (
+				(ra.scope = 'location' AND ra.location_id = $2)
+				OR (ra.scope = 'floor' AND ra.floor_id = $3)
+				OR (ra.scope = 'room' AND ra.room_id = $4)
+			  )
+		)
+	`, req.TechnicianID, locationID, floorID, roomID).Scan(&areaMatch)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถตรวจสอบพื้นที่รับผิดชอบของช่างได้"})
+		return
+	}
+	if !areaMatch {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ช่างที่เลือกไม่ได้รับผิดชอบพื้นที่ของงานนี้"})
+		return
 	}
 
 	_, err = tx.Exec(

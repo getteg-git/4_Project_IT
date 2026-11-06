@@ -28,7 +28,7 @@ function Login() {
 
       // 2. เช็ค Role แล้วแยกทางไปตามหน้าของแต่ละคน
       if (res.data.user.role === "admin") {
-        navigate("/admin/home");
+        navigate("/admin/manage", { replace: true });
       } else if (res.data.user.role === "technician") {
         navigate("/tech/home"); // พาช่างเทคนิคไปที่หน้า TechHome
       } else {

@@ -1,6 +1,6 @@
 import { API_BASE_URL } from "../../../api/baseUrl.js";
 import React, { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import AppBreadcrumb from "../../../components/AppBreadcrumb";
 import RepairImageGallery from "../../../components/RepairImageGallery";
 import {
@@ -21,9 +21,12 @@ import {
   UserRoundPlus,
   Wrench,
   X,
-  Clock
+  Clock,
+  LayoutDashboard,
+  Settings,
+  LogOut,
+  MapPin
 } from "lucide-react";
-import BackButton from "../../../components/ui/BackButton";
 import SearchField from "../../../components/ui/SearchField";
 import Pagination from "../../../components/ui/Pagination";
 import { getPageItems, REPAIR_PAGE_SIZE } from "../../../components/ui/paginationUtils";
@@ -35,10 +38,12 @@ import "./AdminManage.css";
 
 function AdminManage() {
   const { toast, confirm } = useToast();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   const [repairs, setRepairs] = useState([]);
   const [technicians, setTechnicians] = useState([]);
+  const [technicianResponsibleAreas, setTechnicianResponsibleAreas] = useState([]);
   const [locations, setLocations] = useState([]);
   const [floors, setFloors] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -79,11 +84,12 @@ function AdminManage() {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      const [repairsRes, usersRes, locationsRes, problemTypesRes] = await Promise.all([
+      const [repairsRes, usersRes, locationsRes, problemTypesRes, areasRes] = await Promise.all([
         fetch(API_BASE_URL + "/api/repairs"),
         fetch(API_BASE_URL + "/api/users"),
         fetch(API_BASE_URL + "/api/locations"),
         fetch(API_BASE_URL + "/api/problem-types"),
+        fetch(API_BASE_URL + "/api/technician-responsible-areas"),
       ]);
 
       if (repairsRes.ok) {
@@ -104,8 +110,15 @@ function AdminManage() {
       if (problemTypesRes.ok) {
         setProblemTypes(await problemTypesRes.json() || []);
       }
+
+      if (areasRes.ok) {
+        setTechnicianResponsibleAreas(await areasRes.json() || []);
+      } else {
+        throw new Error("ไม่สามารถโหลดพื้นที่รับผิดชอบของช่างได้ กรุณาตรวจสอบ Backend และฐานข้อมูล");
+      }
     } catch (error) {
       console.error("ดึงข้อมูลไม่สำเร็จ:", error);
+      toast.error("โหลดข้อมูลมอบหมายงานไม่สำเร็จ", { description: error.message || "กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่" });
     } finally {
       setIsLoading(false);
     }
@@ -439,18 +452,44 @@ function AdminManage() {
     ? getTechnicianOpenJobCount(selectedTechnician.id)
     : 0;
 
+  const getResponsibleAreaLabel = (area) => {
+    const locationName = area.location_name || `อาคาร ID ${area.location_id || ""}`;
+    if (area.scope === "location") return `ทั้งอาคาร: ${locationName}`;
+    if (area.scope === "floor") {
+      return `ชั้น: ${locationName} / ${area.floor_name || `ID ${area.floor_id}`}`;
+    }
+    return `ห้อง: ${locationName} / ${area.floor_name || `ชั้น ID ${area.floor_id || ""}`} / ${area.room_number || `ID ${area.room_id}`}`;
+  };
+
   const eligibleTechnicians = selectedRepair
-    ? technicians.filter((tech) => {
-        const isSkillMatch =
-          tech.specialty_names &&
-          tech.specialty_names.includes(selectedRepair.problem_type);
+    ? technicians
+        .filter((tech) => {
+          const isSkillMatch =
+            tech.specialty_names &&
+            tech.specialty_names.includes(selectedRepair.problem_type);
 
-        const isAreaMatch =
-          !selectedRepair.department_id ||
-          String(tech.department_id) === String(selectedRepair.department_id);
+          const hasAreaCoverage = technicianResponsibleAreas.some((area) => {
+            if (String(area.technician_id) !== String(tech.id)) return false;
+            if (area.scope === "location") {
+              return String(area.location_id) === String(selectedRepair.location_id);
+            }
+            if (area.scope === "floor") {
+              return String(area.floor_id) === String(selectedRepair.floor_id);
+            }
+            if (area.scope === "room") {
+              return String(area.room_id) === String(selectedRepair.room_id);
+            }
+            return false;
+          });
 
-        return isSkillMatch && isAreaMatch;
-      })
+          return isSkillMatch && hasAreaCoverage;
+        })
+        .sort((left, right) => {
+          const matchesDepartment = (technician) =>
+            selectedRepair.department_id &&
+            String(technician.department_id) === String(selectedRepair.department_id);
+          return Number(matchesDepartment(right)) - Number(matchesDepartment(left));
+        })
     : [];
 
   // ==============================
@@ -754,17 +793,12 @@ function AdminManage() {
       <div className="admin-wrapper">
 
         <nav
-          className="page-navigation"
+          className="page-navigation admin-manage-navigation"
           aria-label="การนำทางหน้าย่อย"
         >
           <AppBreadcrumb items={[
-            { label: "แดชบอร์ดผู้ดูแล", to: "/admin/home" },
-            { label: "จัดการและมอบหมายงานซ่อม" },
+            { label: "หน้ามอบหมายงาน" },
           ]} />
-          <BackButton
-            to="/admin/home"
-            label="กลับหน้าแดชบอร์ด"
-          />
         </nav>
 
         <div className="admin-header">
@@ -778,6 +812,39 @@ function AdminManage() {
             </h2>
             <p>ค้นหาและจ่ายงานให้ช่างเทคนิค</p>
           </div>
+          <div className="admin-navigation-actions" aria-label="เมนูผู้ดูแลระบบ">
+            <button
+              className="admin-navigation-link btn-logout"
+              type="button"
+              onClick={async () => {
+                const approved = await confirm({
+                  title: "ยืนยันออกจากระบบ",
+                  description: "คุณแน่ใจหรือไม่ว่าต้องการออกจากระบบผู้ดูแล?",
+                  confirmLabel: "ออกจากระบบ",
+                  cancelLabel: "ยกเลิก",
+                  variant: "danger",
+                });
+                if (approved) {
+                  localStorage.removeItem("user");
+                  navigate("/");
+                }
+              }}
+            >
+              <LogOut size={17} aria-hidden="true" />
+              ออกจากระบบ
+            </button>
+          </div>
+        </div>
+
+        <div className="admin-dashboard-shortcut-row">
+          <Link className="admin-dashboard-shortcut btn-users" to="/admin/home">
+            <LayoutDashboard size={17} aria-hidden="true" />
+            ไปหน้าแดชบอร์ด
+          </Link>
+          <Link className="admin-dashboard-shortcut btn-manage" to="/admin/settings">
+            <Settings size={17} aria-hidden="true" />
+            ตั้งค่าระบบ
+          </Link>
         </div>
 
         <div className="assignment-content">
@@ -1381,6 +1448,27 @@ function AdminManage() {
                   {selectedRepair.reporter_email}
                 </p>
 
+                {selectedRepair.reporter_type && (
+                  <p>
+                    <strong>ประเภทผู้แจ้ง:</strong>{" "}
+                    {selectedRepair.reporter_type}
+                  </p>
+                )}
+
+                {selectedRepair.reporter_degree_level && (
+                  <p>
+                    <strong>ระดับการศึกษา:</strong>{" "}
+                    {selectedRepair.reporter_degree_level}
+                  </p>
+                )}
+
+                {selectedRepair.reporter_department && (
+                  <p>
+                    <strong>สาขาวิชา / หน่วยงาน:</strong>{" "}
+                    {selectedRepair.reporter_department}
+                  </p>
+                )}
+
                 <p>
                   <strong>วันที่แจ้งเรื่อง:</strong>{" "}
                   {formatDate(
@@ -1731,6 +1819,24 @@ function AdminManage() {
             </div>
 
             <div className="technician-detail-section">
+              <strong className="technician-detail-section-title">
+                <MapPin size={16} aria-hidden="true" /> พื้นที่รับผิดชอบ
+              </strong>
+              <ul className="technician-detail-area-list">
+                {technicianResponsibleAreas
+                  .filter((area) => String(area.technician_id) === String(selectedTechnicianDetail.id))
+                  .map((area) => (
+                    <li key={`${area.scope}-${area.location_id || area.floor_id || area.room_id}`}>
+                      {getResponsibleAreaLabel(area)}
+                    </li>
+                  ))}
+              </ul>
+              {!technicianResponsibleAreas.some(
+                (area) => String(area.technician_id) === String(selectedTechnicianDetail.id)
+              ) && <p>ยังไม่ได้กำหนดพื้นที่รับผิดชอบ</p>}
+            </div>
+
+            <div className="technician-detail-section">
               <strong>สถานะ</strong>
               <p>
                 {getTechnicianOpenJobCount(
@@ -1996,6 +2102,7 @@ function AdminManage() {
         repairId={selectedRepair?.id}
         images={selectedRepair?.images}
         ticketLabel={selectedRepair?.ticket_number || `#${selectedRepair?.id}`}
+        view="details"
         isOpen={isTimelineOpen}
         onClose={() => {
           setIsTimelineOpen(false);

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Settings, UsersRound, MapPin, Wrench, Monitor } from "lucide-react"; // เพิ่มไอคอน Monitor
+import { ClipboardList, Settings, UsersRound, MapPin, Wrench, Monitor } from "lucide-react"; // เพิ่มไอคอน Monitor
+import { Link } from "react-router-dom";
 import AppBreadcrumb from "../../../components/AppBreadcrumb";
-import BackButton from "../../../components/ui/BackButton"; // เช็ค path ให้ตรงกับโปรเจกต์คุณด้วยนะครับ
 
 import AdminUsers from "./components/AdminUsers/AdminUsers";
 import AdminLocations from "./components/AdminLocations/AdminLocations"; 
@@ -25,11 +25,9 @@ function AdminSettings() {
       <div className="admin-settings-wrapper">
         <nav className="page-navigation" aria-label="การนำทางย้อนกลับ">
           <AppBreadcrumb items={[
-            { label: "แดชบอร์ดผู้ดูแล", to: "/admin/home" },
             { label: "ตั้งค่าระบบ", to: "/admin/settings" },
             { label: activeTabLabel },
           ]} />
-          <BackButton to="/admin/home" label="กลับหน้าแดชบอร์ด" />
         </nav>
 
         {/* Header ของหน้าการตั้งค่า */}
@@ -38,6 +36,10 @@ function AdminSettings() {
             <h2><Settings size={26} aria-hidden="true" /> ตั้งค่าระบบ (System Settings)</h2>
             <p>จัดการข้อมูลพื้นฐาน ผู้ใช้งาน สถานที่ อุปกรณ์ และหมวดหมู่งานซ่อม</p>
           </div>
+          <Link className="settings-back-to-assignments" to="/admin/manage">
+            <ClipboardList size={17} aria-hidden="true" />
+            กลับหน้ามอบหมายงาน
+          </Link>
         </div>
 
         {/* เมนู Tab สลับหน้า */}

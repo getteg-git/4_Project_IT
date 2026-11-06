@@ -27,6 +27,9 @@ func SetupRoutes(r *gin.Engine) {
 		// ใช้สำหรับแก้ไขข้อมูลผู้ใช้งาน
 		api.PUT("/users/:id", handler.UpdateUser)
 		api.PUT("/users/:id/head-technician", handler.UpdateHeadTechnician)
+		api.GET("/users/:id/responsible-areas", userHandler.GetUserResponsibleAreas)
+		api.PUT("/users/:id/responsible-areas", userHandler.UpdateUserResponsibleAreas)
+		api.GET("/technician-responsible-areas", userHandler.GetTechnicianResponsibleAreas)
 		// ใช้สำหรับลบข้อมูลผู้ใช้งาน
 		api.DELETE("/users/:id", handler.DeleteUser)
 		// --- หมวดสถานที่ (Locations) ---

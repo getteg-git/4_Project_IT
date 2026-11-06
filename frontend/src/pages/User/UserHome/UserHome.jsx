@@ -66,7 +66,7 @@ function UserHome() {
         await new Promise((resolve) => window.setTimeout(resolve, 650));
 
         if (data.user.role === "admin") {
-          navigate("/admin/home", { replace: true });
+          navigate("/admin/manage", { replace: true });
         } else if (data.user.role === "technician") {
           navigate("/tech/home", { replace: true });
         }

@@ -20,6 +20,7 @@ function App() {
         <Route path="/repair/history" element={<MyRepairs />} />
 
         {/* ฝั่งแอดมิน */}
+        <Route path="/admin" element={<Navigate to="/admin/manage" replace />} />
         <Route path="/admin/home" element={<AdminDashboard />} />
         <Route path="/admin/manage" element={<AdminManage />} />
         {/* เปลี่ยน Path และ Element ให้ชี้ไปที่หน้าตั้งค่าระบบ */}

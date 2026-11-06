@@ -1,6 +1,6 @@
 import { API_BASE_URL } from "../../../api/baseUrl.js";
 import React, { useState, useEffect } from "react";
-import { BarChart3, CalendarDays, CircleX, Eye, FileText, MessageSquareText, UserRound, Wrench, X, ClipboardCheck, Clock, ZoomIn } from "lucide-react";
+import { BarChart3, CalendarDays, CircleX, Eye, FileText, Mail, MessageSquareText, UserRound, Wrench, X, ClipboardCheck, Clock, ZoomIn } from "lucide-react";
 import AppBreadcrumb from "../../../components/AppBreadcrumb";
 import RepairImageGallery from "../../../components/RepairImageGallery";
 import BackButton from "../../../components/ui/BackButton";
@@ -160,6 +160,7 @@ function MyRepairs() {
     const status = (repair.status || "").replace(/\s+/g, '').toLowerCase();
     const ticketId = (repair.ticket_number || String(repair.id)).toLowerCase();
     const techName = (repair.technician_name || "").replace(/\s+/g, '').toLowerCase();
+    const reporterEmail = (repair.reporter_email || "").replace(/\s+/g, '').toLowerCase();
 
     return (
       loc.includes(normalizedSearch) ||
@@ -172,8 +173,24 @@ function MyRepairs() {
       desc.includes(normalizedSearch) ||
       status.includes(normalizedSearch) ||
       ticketId.includes(normalizedSearch) ||
-      techName.includes(normalizedSearch)
+      techName.includes(normalizedSearch) ||
+      reporterEmail.includes(normalizedSearch)
     );
+  });
+
+  const getRepairPriority = (repair) => {
+    if (repair.status === "รอซ่อม" && repair.admin_note?.trim()) return 0;
+    if (repair.status === "รอซ่อม") return 1;
+    if (["รับงานแล้ว", "กำลังซ่อม"].includes(repair.status)) return 2;
+    return 3;
+  };
+  const sortedRepairs = [...filteredRepairs].sort((left, right) => {
+    const priorityDifference = getRepairPriority(left) - getRepairPriority(right);
+    if (priorityDifference !== 0) return priorityDifference;
+
+    const leftCreatedAt = Date.parse(left.created_at) || 0;
+    const rightCreatedAt = Date.parse(right.created_at) || 0;
+    return rightCreatedAt - leftCreatedAt || Number(right.id) - Number(left.id);
   });
 
   const statusFilters = [
@@ -185,7 +202,7 @@ function MyRepairs() {
     { id: "outsourced", label: "ส่งซ่อมภายนอก", count: repairs.filter((repair) => matchesStatusFilter(repair, "outsourced")).length },
     { id: "faculty_forward", label: "ส่งซ่อมให้คณะ", count: repairs.filter((repair) => matchesStatusFilter(repair, "faculty_forward")).length }
   ];
-  const paginatedRepairs = getPageItems(filteredRepairs, currentPage, REPAIR_PAGE_SIZE);
+  const paginatedRepairs = getPageItems(sortedRepairs, currentPage, REPAIR_PAGE_SIZE);
 
   const getStatusClass = (status) => {
     switch (status) {
@@ -285,8 +302,14 @@ function MyRepairs() {
                   <h3 className="repair-title">[{displayProblemType}] {displayLocation}</h3>
 
                   <p className="repair-room">
-                    <strong>ชั้น / พิกัด:</strong> {repair.floor_name || "-"} {repair.room_number ? `(${repair.room_number})` : ""}
+                    <strong>ชั้น / พิกัด:</strong> {repair.floor_name || "-"} {(repair.other_room || repair.room_number) ? `(${repair.other_room || repair.room_number})` : ""}
                   </p>
+
+                  {repair.reporter_email && (
+                    <p className="repair-reporter-email">
+                      <Mail size={15} aria-hidden="true" /> <strong>อีเมลผู้แจ้ง:</strong> {repair.reporter_email}
+                    </p>
+                  )}
 
                   {repair.equipment_name && (
                     <p className="repair-equipment" style={{ margin: "4px 0", fontSize: "0.9rem", color: "#e67e22" }}>
@@ -390,7 +413,7 @@ function MyRepairs() {
                 <p><strong>หมวดหมู่งาน:</strong> {selectedRepair.other_problem_type || selectedRepair.problem_type}</p>
                 <p><strong>สถานที่:</strong> {selectedRepair.other_location || selectedRepair.location_name}</p>
                 <p>
-                  <strong>ชั้น / พิกัด:</strong> {selectedRepair.floor_name || "-"} {selectedRepair.room_number ? `(${selectedRepair.room_number})` : ""}
+                  <strong>ชั้น / พิกัด:</strong> {selectedRepair.floor_name || "-"} {(selectedRepair.other_room || selectedRepair.room_number) ? `(${selectedRepair.other_room || selectedRepair.room_number})` : ""}
                 </p>
                 {selectedRepair.equipment_name && (
                   <p>
@@ -398,6 +421,15 @@ function MyRepairs() {
                   </p>
                 )}
                 <p><strong>อีเมลผู้แจ้ง:</strong> {selectedRepair.reporter_email}</p>
+                {selectedRepair.reporter_type && (
+                  <p><strong>ประเภทผู้แจ้ง:</strong> {selectedRepair.reporter_type}</p>
+                )}
+                {selectedRepair.reporter_degree_level && (
+                  <p><strong>ระดับการศึกษา:</strong> {selectedRepair.reporter_degree_level}</p>
+                )}
+                {selectedRepair.reporter_department && (
+                  <p><strong>สาขาวิชา / หน่วยงาน:</strong> {selectedRepair.reporter_department}</p>
+                )}
                 <p><strong>วันที่แจ้งเรื่อง:</strong> {formatDate(selectedRepair.created_at)}</p>
               </div>
 
@@ -496,6 +528,8 @@ function MyRepairs() {
         repairId={selectedRepair?.id} 
         images={selectedRepair?.images}
         ticketLabel={selectedRepair?.ticket_number || `#${selectedRepair?.id}`}
+        assignedTechnician={selectedRepair?.technician_name}
+        view="summary"
         isOpen={isTimelineOpen} 
         onClose={() => { setIsTimelineOpen(false); setSelectedRepair(null); }} 
       />

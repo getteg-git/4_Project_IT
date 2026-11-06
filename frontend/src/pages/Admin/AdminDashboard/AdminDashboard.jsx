@@ -1,6 +1,6 @@
 import { API_BASE_URL } from "../../../api/baseUrl.js";
 import React, { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Pagination from "../../../components/ui/Pagination";
 import { getPageItems, REPAIR_PAGE_SIZE } from "../../../components/ui/paginationUtils";
 import AppBreadcrumb from "../../../components/AppBreadcrumb";
@@ -8,14 +8,12 @@ import {
   PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend
 } from "recharts";
-import { AlertTriangle, Ban, Calendar, CircleDot, ClipboardList, LayoutDashboard, LogOut, Monitor, TrendingUp, Settings } from 'lucide-react';
-import useToast from "../../../hooks/useToast";
+import { AlertTriangle, Ban, Calendar, CircleDot, ClipboardList, LayoutDashboard, Monitor, TrendingUp } from 'lucide-react';
 import dayjs from 'dayjs';
 import "./AdminDashboard.css";
 
 function AdminDashboard() {
   const navigate = useNavigate();
-  const { confirm } = useToast();
   const [repairs, setRepairs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -68,18 +66,6 @@ function AdminDashboard() {
   const progressCount = filteredRepairs.filter(r => r.status === "กำลังซ่อม").length;
   const cannotRepairCount = filteredRepairs.filter(r => r.status === "ซ่อมไม่ได้" || r.status === "ส่งซ่อมภายนอก").length;
   const completedCount = filteredRepairs.filter(r => r.status === "เสร็จเรียบร้อย" || r.status === "เสร็จสิ้น").length;
-
-  // ✅ [เพิ่มใหม่] คำนวณจำนวนงานที่รอการมอบหมาย (ตัวอย่างเช็กจากสถานะ "รอซ่อม" หรือปรับเปลี่ยนตามเงื่อนไข Backend ของคุณ)
-  const unassignedCount = repairs.filter(
-    (repair) =>
-      repair.status === "รอซ่อม" &&
-      !repair.technician_id
-  ).length;
-  const reviewCount = repairs.filter(
-    (repair) =>
-      repair.status === "รอซ่อม" &&
-      Boolean(repair.admin_note?.trim())
-  ).length;
 
   // ฟังก์ชันคำนวณหาเวลาซ่อมเฉลี่ย (MTTR)
   const calculateAverageRepairTime = (repairsList) => {
@@ -180,41 +166,13 @@ function AdminDashboard() {
           <h1><LayoutDashboard size={25} aria-hidden="true" /> แดชบอร์ดผู้ดูแลระบบ</h1>
           <p>ดูภาพรวมงานแจ้งซ่อมและจัดการระบบได้จากที่นี่</p>
         </div>
-        <div className="header-actions page-logout-group">
-          <button className="btn-logout page-logout" aria-label="ออกจากระบบ" title="ออกจากระบบ" onClick={async () => {
-            const approved = await confirm({ title: "ยืนยันออกจากระบบ", description: "คุณแน่ใจหรือไม่ว่าต้องการออกจากระบบผู้ดูแล?", confirmLabel: "ออกจากระบบ", cancelLabel: "ยกเลิก", variant: "danger" });
-            if (approved) { localStorage.removeItem("user"); navigate("/"); }
-          }}>
-            <LogOut size={17} aria-hidden="true" className="logout-icon" />
-            <span className="logout-label">ออกจากระบบ</span>
-          </button>
+        <div className="header-actions">
+          <Link className="admin-dashboard-assignment-link" to="/admin/manage">
+            <ClipboardList size={17} aria-hidden="true" />
+            <span>กลับหน้ามอบหมายงาน</span>
+          </Link>
         </div>
       </header>
-
-      <div className="admin-action-bar">
-        <button
-          className="btn-manage"
-          onClick={() => navigate("/admin/settings")}
-        >
-          <Settings size={17} aria-hidden="true" /> ตั้งค่าระบบ
-        </button>
-
-        <div className="assign-btn-wrapper">
-          <button
-            className="btn-users"
-            onClick={() => navigate("/admin/manage")}
-          >
-            <ClipboardList size={17} aria-hidden="true" /> มอบหมายงานซ่อม
-          </button>
-          {(unassignedCount > 0 || reviewCount > 0) && (
-            <span
-              className="notification-dot"
-              role="img"
-              aria-label="มีงานรอมอบหมายหรือรอพิจารณา"
-            ></span>
-          )}
-        </div>
-      </div>
 
       <div className="filter-section">
         <div className="filter-group">

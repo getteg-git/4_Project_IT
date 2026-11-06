@@ -81,11 +81,31 @@ CREATE TABLE technician_specialties (
     PRIMARY KEY (user_id, problem_type_id)
 );
 
+CREATE TABLE technician_responsible_areas (
+    id SERIAL PRIMARY KEY,
+    technician_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    scope VARCHAR(20) NOT NULL CHECK (scope IN ('location', 'floor', 'room')),
+    location_id INT REFERENCES locations(id) ON DELETE CASCADE,
+    floor_id INT REFERENCES floors(id) ON DELETE CASCADE,
+    room_id INT REFERENCES rooms(id) ON DELETE CASCADE,
+    CHECK (
+        (scope = 'location' AND location_id IS NOT NULL AND floor_id IS NULL AND room_id IS NULL) OR
+        (scope = 'floor' AND location_id IS NULL AND floor_id IS NOT NULL AND room_id IS NULL) OR
+        (scope = 'room' AND location_id IS NULL AND floor_id IS NULL AND room_id IS NOT NULL)
+    ),
+    UNIQUE (technician_id, location_id),
+    UNIQUE (technician_id, floor_id),
+    UNIQUE (technician_id, room_id)
+);
+
 -- 5. ตารางการแจ้งซ่อม (อัปเกรด)
 CREATE TABLE repairs (
     id SERIAL PRIMARY KEY,
     ticket_number VARCHAR(50) UNIQUE, -- [เพิ่มใหม่] รหัสอ้างอิงตั๋ว (เช่น REQ-2609001)
-    reporter_email VARCHAR(255) NOT NULL, 
+    reporter_email VARCHAR(255) NOT NULL,
+    reporter_type VARCHAR(50),
+    reporter_degree_level VARCHAR(100),
+    reporter_department VARCHAR(255),
     department_id INT REFERENCES departments(id) ON DELETE SET NULL, -- [เพิ่มใหม่] งานนี้เป็นของสาขาไหน?
     technician_id INT REFERENCES users(id) ON DELETE SET NULL,
     location_id INT REFERENCES locations(id),
@@ -105,6 +125,10 @@ CREATE TABLE repairs (
     completed_at TIMESTAMP,                      
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE repairs ADD COLUMN IF NOT EXISTS reporter_type VARCHAR(50);
+ALTER TABLE repairs ADD COLUMN IF NOT EXISTS reporter_degree_level VARCHAR(100);
+ALTER TABLE repairs ADD COLUMN IF NOT EXISTS reporter_department VARCHAR(255);
 
 -- 6. ตารางเก็บรูปภาพ
 CREATE TABLE repair_images (

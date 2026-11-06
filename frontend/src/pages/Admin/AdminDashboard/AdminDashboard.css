@@ -59,7 +59,37 @@
   display: flex;
   justify-content: flex-end;
   align-items: center;
+  gap: 10px;
   margin-left: auto;
+}
+
+.admin-dashboard-assignment-link {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 10px;
+  color: #f7faf9;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.admin-dashboard-assignment-link:hover {
+  border-color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.admin-dashboard-assignment-link:focus-visible {
+  outline: 3px solid #f4c86a;
+  outline-offset: 3px;
 }
 
 .admin-action-bar {
@@ -445,12 +475,17 @@
   }
   .header-actions {
     width: 100%;
-    justify-content: flex-end;
+    justify-content: space-between;
     margin-left: 0;
   }
   .btn-logout {
     align-self: flex-end;
     min-width: 150px;
+  }
+  .admin-dashboard-assignment-link {
+    min-width: 0;
+    padding: 9px 12px;
+    font-size: 0.88rem;
   }
   .admin-action-bar {
     justify-content: space-between;

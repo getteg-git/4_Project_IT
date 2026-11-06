@@ -60,6 +60,38 @@ func ConnectDB() error {
 	}
 
 	_, err = db.Exec(`
+		ALTER TABLE repairs
+			ADD COLUMN IF NOT EXISTS reporter_type VARCHAR(50),
+			ADD COLUMN IF NOT EXISTS reporter_degree_level VARCHAR(100),
+			ADD COLUMN IF NOT EXISTS reporter_department VARCHAR(255)
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to migrate repair reporter details: %w", err)
+	}
+
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS technician_responsible_areas (
+			id SERIAL PRIMARY KEY,
+			technician_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			scope VARCHAR(20) NOT NULL CHECK (scope IN ('location', 'floor', 'room')),
+			location_id INT REFERENCES locations(id) ON DELETE CASCADE,
+			floor_id INT REFERENCES floors(id) ON DELETE CASCADE,
+			room_id INT REFERENCES rooms(id) ON DELETE CASCADE,
+			CHECK (
+				(scope = 'location' AND location_id IS NOT NULL AND floor_id IS NULL AND room_id IS NULL) OR
+				(scope = 'floor' AND location_id IS NULL AND floor_id IS NOT NULL AND room_id IS NULL) OR
+				(scope = 'room' AND location_id IS NULL AND floor_id IS NULL AND room_id IS NOT NULL)
+			),
+			UNIQUE (technician_id, location_id),
+			UNIQUE (technician_id, floor_id),
+			UNIQUE (technician_id, room_id)
+		)
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to create technician responsible areas: %w", err)
+	}
+
+	_, err = db.Exec(`
 		INSERT INTO problem_types (name)
 		SELECT 'งานคอมพิวเตอร์'
 		WHERE NOT EXISTS (

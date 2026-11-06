@@ -140,6 +140,39 @@
   padding-bottom: 0;
 }
 
+.timeline-summary .timeline-item {
+  padding-bottom: 28px;
+}
+
+.timeline-summary .timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+.timeline-summary .timeline-item.is-pending .timeline-status {
+  font-weight: 500;
+}
+
+.timeline-summary .timeline-item.is-current .timeline-status {
+  font-weight: 700;
+}
+
+.timeline-public-detail {
+  margin: 4px 0 0;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.timeline-terminal {
+  margin: 8px 0 0;
+  padding: 9px 11px;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 /* เส้นเชื่อมต่อแนวตั้ง */
 .timeline-line {
   position: absolute;

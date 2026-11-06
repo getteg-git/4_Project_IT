@@ -1928,6 +1928,7 @@ function TechHome() {
         repairId={selectedRepair?.id}
         images={selectedRepair?.images}
         ticketLabel={selectedRepair?.ticket_number || `#${selectedRepair?.id}`}
+        view="details"
         isOpen={isTimelineOpen}
         onClose={() => {
           setIsTimelineOpen(false);
