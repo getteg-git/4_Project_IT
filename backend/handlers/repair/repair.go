@@ -114,8 +114,13 @@ type computerHeadTechnician struct {
 }
 
 func assignComputerRepairToHead(repairID int, problemTypeID, departmentID interface{}) (*computerHeadTechnician, error) {
+
 	var lead computerHeadTechnician
 	err := database.DB.QueryRow(`
+=======
+    var lead computerHeadTechnician
+    err := database.DB.QueryRow(`
+>>>>>>> Stashed changes
         SELECT u.id, u.full_name, COALESCE(u.email, '')
         FROM users u
         JOIN technician_specialties ts ON ts.user_id = u.id
@@ -127,6 +132,7 @@ func assignComputerRepairToHead(repairID int, problemTypeID, departmentID interf
         ORDER BY CASE WHEN u.department_id IS NOT DISTINCT FROM $2 THEN 0 ELSE 1 END, u.id
         LIMIT 1
     `, problemTypeID, departmentID).Scan(&lead.ID, &lead.Name, &lead.Email)
+
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -155,8 +161,38 @@ func assignComputerRepairToHead(repairID int, problemTypeID, departmentID interf
 	if err := tx.Commit(); err != nil {
 		return nil, fmt.Errorf("failed to save repair assignment: %w", err)
 	}
+=======
+    
+    if err == sql.ErrNoRows {
+        return nil, nil
+    }
+    if err != nil {
+        return nil, fmt.Errorf("failed to find head technician: %w", err)
+    }
 
-	return &lead, nil
+    tx, err := database.DB.Begin()
+    if err != nil {
+        return nil, fmt.Errorf("failed to start repair assignment: %w", err)
+    }
+    defer tx.Rollback()
+
+    if _, err := tx.Exec(`UPDATE repairs SET technician_id = $1 WHERE id = $2`, lead.ID, repairID); err != nil {
+        return nil, fmt.Errorf("failed to assign repair to head technician: %w", err)
+    }
+    
+    if _, err := tx.Exec(`
+        INSERT INTO repair_logs (repair_id, user_id, action, old_status, new_status, note)
+        VALUES ($1, $2, 'ASSIGNED', 'รอซ่อม', 'รอซ่อม', $3)
+    `, repairID, lead.ID, "ระบบส่งงานให้หัวหน้าช่างประจำหมวด: "+lead.Name); err != nil {
+        return nil, fmt.Errorf("failed to log repair assignment: %w", err)
+    }
+    
+    if err := tx.Commit(); err != nil {
+        return nil, fmt.Errorf("failed to save repair assignment: %w", err)
+    }
+>>>>>>> Stashed changes
+
+    return &lead, nil
 }
 
 // =========================================================
@@ -588,6 +624,7 @@ func AssignRepair(c *gin.Context) {
 		}
 
 		var eligible bool
+<<<<<<< Updated upstream
 		err = tx.QueryRow(`
 			SELECT EXISTS (
 				SELECT 1
@@ -608,6 +645,28 @@ func AssignRepair(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "เลือกได้เฉพาะช่างที่ใช้งานอยู่และมีความถนัดตรงกับประเภทงานนี้"})
 			return
 		}
+=======
+        err = tx.QueryRow(`
+            SELECT EXISTS (
+                SELECT 1
+                FROM users u
+                JOIN technician_specialties ts ON ts.user_id = u.id
+                WHERE u.id = $1
+                  AND u.role = 'technician'
+                  AND u.is_active = TRUE
+                  AND u.is_head_technician = FALSE
+                  AND ts.problem_type_id = $2
+            )
+        `, req.TechnicianID, *repairProblemTypeID).Scan(&eligible) // ตัด req.HeadTechnicianID ออกเพราะไม่ได้ใช้เทียบ department แล้ว
+        if err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+            return
+        }
+        if !eligible {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "ช่างที่เลือกไม่มีความถนัดตรงกับประเภทงานนี้"})
+            return
+        }
+>>>>>>> Stashed changes
 
 		actorID = req.HeadTechnicianID
 		assignmentNote = fmt.Sprintf("หัวหน้าช่าง ID: %d มอบหมายงานให้ช่าง ID: %d", req.HeadTechnicianID, req.TechnicianID)
