@@ -213,6 +213,11 @@ INSERT INTO locations (name) VALUES
 ('อาคารวิทยาศาสตร์ 4'), -- id 4
 ('อื่นๆ');               -- id 5
 
+INSERT INTO locations (name) VALUES
+('อาคาร รวท.'),
+('อาคารธรรมชาติ'),
+('อาคาร 55 ปี');
+
 -- 3. สร้างข้อมูลชั้น (เพิ่มให้ครบตามจริงทั้งหมด)
 INSERT INTO floors (location_id, floor_name) VALUES
 -- อาคาร 1 (มี 9 ชั้น) -> ได้ id 1-9

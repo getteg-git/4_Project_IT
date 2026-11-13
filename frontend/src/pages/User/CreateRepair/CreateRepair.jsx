@@ -50,6 +50,8 @@ function CreateRepair() {
   const [departments, setDepartments] = useState([]); 
   const [locations, setLocations] = useState([]);
   const [floors, setFloors] = useState([]);
+  const [isFloorDataLoaded, setIsFloorDataLoaded] = useState(false);
+  const [floorLoadError, setFloorLoadError] = useState(false);
   const [rooms, setRooms] = useState([]);
   const [equipments, setEquipments] = useState([]);
   const [problemTypes, setProblemTypes] = useState([]);
@@ -74,6 +76,12 @@ function CreateRepair() {
     const selectedType = problemTypes.find(type => String(type.id) === String(problemType));
     return selectedType && (selectedType.name.includes("อื่นๆ") || selectedType.name.toLowerCase() === "other");
   };
+
+  const uniqueEquipments = [...new Map(
+    equipments
+      .filter((item) => item.name?.trim())
+      .map((item) => [item.name.trim().toLocaleLowerCase(), item])
+  ).values()];
 
   // 1. โหลดข้อมูลเริ่มต้น (สถานที่, หมวดหมู่ปัญหา, ระดับการศึกษา)
   useEffect(() => {
@@ -106,8 +114,13 @@ function CreateRepair() {
 
     const fetchDepartments = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/degree-levels/${degreeLevel}/departments`);
-        if (res.ok) setDepartments(await res.json() || []);
+        const endpoint = requesterStatus === "นักศึกษา"
+          ? degreeLevel && `${API_BASE_URL}/api/degree-levels/${degreeLevel}/departments`
+          : `${API_BASE_URL}/api/departments`;
+        if (!endpoint) return;
+        const res = await fetch(endpoint);
+        if (!res.ok) throw new Error(`ไม่สามารถโหลดภาควิชาได้ (${res.status})`);
+        setDepartments(await res.json() || []);
       } catch (err) {
         console.error("ดึงข้อมูลภาควิชาไม่สำเร็จ:", err);
       }
@@ -125,15 +138,23 @@ function CreateRepair() {
 
     if (!location || isOtherLocation()) {
       setFloors([]);
+      setIsFloorDataLoaded(true);
+      setFloorLoadError(false);
       return;
     }
 
+    setIsFloorDataLoaded(false);
+    setFloorLoadError(false);
     const fetchFloors = async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/api/locations/${location}/floors`);
-        if (res.ok) setFloors(await res.json() || []);
+        if (!res.ok) throw new Error(`ไม่สามารถโหลดข้อมูลชั้นได้ (${res.status})`);
+        setFloors(await res.json() || []);
       } catch (err) {
         console.error("ดึงข้อมูลชั้นไม่สำเร็จ:", err);
+        setFloorLoadError(true);
+      } finally {
+        setIsFloorDataLoaded(true);
       }
     };
     fetchFloors();
@@ -210,8 +231,11 @@ function CreateRepair() {
     }
     if (!location) nextErrors.location = "กรุณาเลือกอาคารหรือสถานที่";
     if (isOtherLocation() && !customLocationName.trim()) nextErrors.customLocation = "กรุณาระบุรายละเอียดอาคารหรือสถานที่";
-    if (location && !isOtherLocation() && !floor) nextErrors.floor = "กรุณาเลือกชั้น";
-    if (location && !isOtherLocation() && !room) nextErrors.room = "กรุณาเลือกห้องหรือจุดเกิดเหตุ";
+    if (location && !isOtherLocation() && !isFloorDataLoaded) nextErrors.floor = "กรุณารอให้โหลดข้อมูลชั้นเสร็จก่อน";
+    if (location && !isOtherLocation() && floorLoadError) nextErrors.floor = "ไม่สามารถโหลดข้อมูลชั้นได้ กรุณาลองใหม่";
+    if (location && !isOtherLocation() && isFloorDataLoaded && floors.length > 0 && !floor) nextErrors.floor = "กรุณาเลือกชั้น";
+    if (location && !isOtherLocation() && isFloorDataLoaded && floors.length === 0 && !customRoomName.trim()) nextErrors.customRoom = "กรุณาระบุห้องหรือจุดเกิดเหตุ";
+    if (floor && !room) nextErrors.room = "กรุณาเลือกห้องหรือจุดเกิดเหตุ";
     if (isOtherRoom() && !customRoomName.trim()) nextErrors.customRoom = "กรุณาระบุชื่อห้องหรือจุดเกิดเหตุเพิ่มเติม";
     if (!problemType) nextErrors.problemType = "กรุณาเลือกหมวดหมู่งานซ่อม";
     if (isOtherProblem() && !customProblemName.trim()) nextErrors.customProblem = "กรุณาระบุหมวดหมู่งานซ่อมอื่น ๆ";
@@ -252,7 +276,7 @@ function CreateRepair() {
 
     if (isOtherLocation()) {
       formData.append("other_location", customLocationName);
-    } else {
+    } else if (floors.length > 0) {
       formData.append("floor_id", floor);
       
       // 🔥 ถ้าเลือกห้องเป็น "อื่นๆ" ให้ส่ง other_room ไปแทน room_id
@@ -262,6 +286,8 @@ function CreateRepair() {
         formData.append("room_id", room);
         if (equipment) formData.append("equipment_id", equipment);
       }
+    } else if (isFloorDataLoaded && !floorLoadError && customRoomName.trim()) {
+      formData.append("other_room", customRoomName.trim());
     }
 
     if (isOtherProblem()) {
@@ -489,41 +515,71 @@ function CreateRepair() {
                 </div>
               ) : (
                 <>
-                  <div className="form-group slide-down">
-                    <label>ชั้น <span className="required">*</span></label>
-                    <select value={floor} onChange={(e) => { setFloor(e.target.value); setValidationErrors((current) => ({ ...current, floor: undefined })); }} aria-invalid={Boolean(validationErrors.floor)}>
-                      <option value="">-- กรุณาเลือกชั้น --</option>
-                      {floors.length > 0 ? (
-                        floors.map((f) => (
-                          <option key={f.id} value={f.id}>{f.floor_name}</option>
-                        ))
-                      ) : (
-                        <option value="" disabled>ไม่มีข้อมูลชั้นสำหรับอาคารนี้</option>
-                      )}
-                    </select>
-                    {validationErrors.floor && <p className="field-error">{validationErrors.floor}</p>}
-                  </div>
+                  {!isFloorDataLoaded ? (
+                    <div className="form-group slide-down">
+                      <label>ชั้น</label>
+                      <p role="status">กำลังโหลดข้อมูลชั้น...</p>
+                    </div>
+                  ) : floorLoadError ? (
+                    <p className="field-error" role="alert">ไม่สามารถโหลดข้อมูลชั้นได้ กรุณาลองใหม่</p>
+                  ) : floors.length > 0 ? (
+                    <>
+                      <div className="form-group slide-down">
+                        <label>ชั้น <span className="required">*</span></label>
+                        <select value={floor} onChange={(e) => { setFloor(e.target.value); setValidationErrors((current) => ({ ...current, floor: undefined })); }} aria-invalid={Boolean(validationErrors.floor)}>
+                          <option value="">-- กรุณาเลือกชั้น --</option>
+                          {floors.map((f) => (
+                            <option key={f.id} value={f.id}>{f.floor_name}</option>
+                          ))}
+                        </select>
+                        {validationErrors.floor && <p className="field-error">{validationErrors.floor}</p>}
+                      </div>
 
-                  {floor && (
+                      {floor && (
+                        <div className="form-group slide-down">
+                          <label>ห้อง / จุดเกิดเหตุ <span className="required">*</span></label>
+                          <select value={room} onChange={(e) => { setRoom(e.target.value); setValidationErrors((current) => ({ ...current, room: undefined })); }} aria-invalid={Boolean(validationErrors.room)}>
+                            <option value="">-- กรุณาเลือกห้อง --</option>
+                            {rooms.map((r) => (
+                              <option key={r.id} value={r.id}>{r.room_number}</option>
+                            ))}
+                          </select>
+                          {validationErrors.room && <p className="field-error">{validationErrors.room}</p>}
+                        </div>
+                      )}
+
+                      {room && isOtherRoom() && (
+                        <div className="form-group slide-down">
+                          <label>ระบุชื่อห้อง / จุดเกิดเหตุอื่นๆ <span className="required">*</span></label>
+                          <input
+                            type="text"
+                            placeholder="เช่น โถงทางเดินหน้าห้องน้ำชั้น 2, ห้องเก็บของข้างบันได"
+                            value={customRoomName}
+                            onChange={(e) => { setCustomRoomName(e.target.value); setValidationErrors((current) => ({ ...current, customRoom: undefined })); }}
+                            aria-invalid={Boolean(validationErrors.customRoom)}
+                          />
+                          {validationErrors.customRoom && <p className="field-error">{validationErrors.customRoom}</p>}
+                        </div>
+                      )}
+
+                      {room && !isOtherRoom() && (
+                        <div className="form-group slide-down">
+                          <label>อุปกรณ์ที่ชำรุด (ไม่บังคับ)</label>
+                          <select value={equipment} onChange={(e) => setEquipment(e.target.value)}>
+                            <option value="">-- ไม่ระบุ / ซ่อมโครงสร้างห้อง --</option>
+                            {uniqueEquipments.map((eq) => (
+                              <option key={eq.id} value={eq.id}>{eq.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </>
+                  ) : (
                     <div className="form-group slide-down">
                       <label>ห้อง / จุดเกิดเหตุ <span className="required">*</span></label>
-                      <select value={room} onChange={(e) => { setRoom(e.target.value); setValidationErrors((current) => ({ ...current, room: undefined })); }} aria-invalid={Boolean(validationErrors.room)}>
-                        <option value="">-- กรุณาเลือกห้อง --</option>
-                        {rooms.map((r) => (
-                          <option key={r.id} value={r.id}>{r.room_number}</option>
-                        ))}
-                      </select>
-                      {validationErrors.room && <p className="field-error">{validationErrors.room}</p>}
-                    </div>
-                  )}
-
-                  {/* 🔥 [เพิ่มใหม่] ช่องกรอกชื่อห้องเอง กรณีเลือก "อื่นๆ" */}
-                  {room && isOtherRoom() && (
-                    <div className="form-group slide-down">
-                      <label>ระบุชื่อห้อง / จุดเกิดเหตุอื่นๆ <span className="required">*</span></label>
                       <input
                         type="text"
-                        placeholder="เช่น โถงทางเดินหน้าห้องน้ำชั้น 2, ห้องเก็บของข้างบันได"
+                        placeholder="ระบุห้องหรือจุดเกิดเหตุในอาคารนี้"
                         value={customRoomName}
                         onChange={(e) => { setCustomRoomName(e.target.value); setValidationErrors((current) => ({ ...current, customRoom: undefined })); }}
                         aria-invalid={Boolean(validationErrors.customRoom)}
@@ -532,19 +588,6 @@ function CreateRepair() {
                     </div>
                   )}
 
-                  {room && !isOtherRoom() && (
-                    <div className="form-group slide-down">
-                      <label>อุปกรณ์ที่ชำรุด (ไม่บังคับ)</label>
-                      <select value={equipment} onChange={(e) => setEquipment(e.target.value)}>
-                        <option value="">-- ไม่ระบุ / ซ่อมโครงสร้างห้อง --</option>
-                        {equipments.map((eq) => (
-                          <option key={eq.id} value={eq.id}>
-                            {eq.name} {eq.asset_code ? `(${eq.asset_code})` : ""}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
                 </>
               )
             )}
@@ -577,7 +620,7 @@ function CreateRepair() {
             <div className="form-group">
               <label>อธิบายรายละเอียดของปัญหา <span className="required">*</span></label>
               <textarea
-                placeholder="เช่น แอร์น้ำหยดตรงมุมห้อง, หลอดไฟกะพริบ, หรือรายละเอียดเพิ่มเติม"
+                placeholder="ระบุตำแหน่งให้ชัดเจน เช่น เครื่องปรับอากาศตัวซ้าย, เก้าอี้ปฏิบัติการแถวหน้าสุด ตัวที่ 2"
                 rows="4"
                 value={details}
                 onChange={(e) => { setDetails(e.target.value); setValidationErrors((current) => ({ ...current, details: undefined })); }}

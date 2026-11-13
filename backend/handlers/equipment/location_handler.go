@@ -144,7 +144,10 @@ func GetEquipmentsByRoom(c *gin.Context) {
 	roomID := c.Param("id")
 
 	rows, err := database.DB.Query(
-		"SELECT id, room_id, name, asset_code, base_price FROM equipments WHERE room_id = $1 ORDER BY name",
+		`SELECT DISTINCT ON (LOWER(BTRIM(name))) id, room_id, name, asset_code, base_price
+		 FROM equipments
+		 WHERE room_id = $1 AND BTRIM(name) <> ''
+		 ORDER BY LOWER(BTRIM(name)), name, id`,
 		roomID,
 	)
 

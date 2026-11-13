@@ -179,8 +179,14 @@ const (
 	colorInfo    = "#2563eb" // ฟ้า: แจ้งเตือนทั่วไป / ข้อมูล
 	colorWarning = "#92400e" // ส้มเข้มเพื่อให้อ่านชัดบนพื้นขาว
 	colorDanger  = "#dc2626" // แดง: ปัญหา / ยกเลิก / ปฏิเสธ
-	frontendURL  = "https://4-project-it.vercel.app"
 )
+
+func frontendURL() string {
+	if configuredURL := strings.TrimRight(strings.TrimSpace(os.Getenv("FRONTEND_URL")), "/"); configuredURL != "" {
+		return configuredURL
+	}
+	return "http://localhost:5173"
+}
 
 func emailHTMLStyle() string {
 	return `
@@ -306,7 +312,7 @@ func CreateRepair(c *gin.Context) {
 
 	// ---------- ส่งอีเมลแจ้งเตือน ----------
 	go func() {
-		formURL := frontendURL + "/repair/history"
+		formURL := frontendURL() + "/repair/history"
 
 		// 1. อีเมลสำหรับผู้แจ้ง
 		userBodyContent := fmt.Sprintf(`
@@ -335,7 +341,7 @@ func CreateRepair(c *gin.Context) {
 					<p><strong>รหัสอ้างอิง:</strong> %s</p>
 					<p><strong>รายละเอียดงาน:</strong> %s</p>
 					<a href="%s/tech/home" class="btn">เปิดรายการงานช่าง</a>
-				`, html.EscapeString(ticketNumber), html.EscapeString(description), frontendURL)
+				`, html.EscapeString(ticketNumber), html.EscapeString(description), frontendURL())
 				if err := utils.SendEmailNotification(
 					[]string{computerLead.Email},
 					fmt.Sprintf("มีงานใหม่ส่งถึงหัวหน้าช่าง (%s)", ticketNumber),
@@ -347,7 +353,7 @@ func CreateRepair(c *gin.Context) {
 		}
 
 		// 2. อีเมลสำหรับ Admin
-		adminLink := frontendURL + "/admin/manage"
+		adminLink := frontendURL() + "/admin/home"
 		adminInstruction := "กรุณาเข้าสู่ระบบเพื่อพิจารณามอบหมายช่างดำเนินการ"
 		if computerLead != nil {
 			adminInstruction = "ระบบส่งงานให้หัวหน้าช่าง " + html.EscapeString(computerLead.Name) + " แล้ว"
@@ -654,6 +660,7 @@ func AssignRepair(c *gin.Context) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "หัวหน้าช่างมอบหมายได้เฉพาะงานที่ได้รับมอบหมายและยังไม่เริ่มดำเนินการ"})
 			return
 		}
+
 		if repairProblemTypeID == nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "ไม่สามารถตรวจสอบความถนัดของช่างสำหรับงานนี้ได้"})
 			return
@@ -762,7 +769,7 @@ func AssignRepair(c *gin.Context) {
 				<p><strong>รหัสอ้างอิง:</strong> %s</p>
 				<p><strong>รายละเอียดงาน:</strong> %s</p>
 				<a href="%s/tech/home" class="btn">เปิดรายการงานช่าง</a>
-			`, html.EscapeString(tNumber), html.EscapeString(description), frontendURL)
+			`, html.EscapeString(tNumber), html.EscapeString(description), frontendURL())
 			if err := utils.SendEmailNotification([]string{techEmail}, fmt.Sprintf("🔧 คุณได้รับมอบหมายงานซ่อมใหม่ (%s)", tNumber), wrapEmail(colorInfo, "คุณได้รับมอบหมายงานซ่อมใหม่", techBodyContent)); err != nil {
 				log.Printf("failed to email repair assignment to technician for repair %s: %v", repairID, err)
 			}
@@ -838,7 +845,7 @@ func RevokeRepair(c *gin.Context) {
 				<p><strong>รายละเอียดงาน:</strong> %s</p>
 				<div class="box-warning"><strong>📌 เหตุผล:</strong><br>%s</div>
 				<a href="%s/tech/home" class="btn">เปิดหน้ารายการงานช่าง</a>
-			`, html.EscapeString(techName), html.EscapeString(tNumber), html.EscapeString(description), html.EscapeString(revokeReason), frontendURL)
+			`, html.EscapeString(techName), html.EscapeString(tNumber), html.EscapeString(description), html.EscapeString(revokeReason), frontendURL())
 			if err := utils.SendEmailNotification([]string{techEmail}, fmt.Sprintf("⚠️ แจ้งเตือนการดึงงานซ่อมกลับ (%s)", tNumber), wrapEmail(colorDanger, "แจ้งเตือนการดึงงานซ่อมกลับ", bodyContent)); err != nil {
 				log.Printf("failed to email revoked repair assignment to technician for repair %s: %v", repairID, err)
 			}

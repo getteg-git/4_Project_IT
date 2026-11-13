@@ -1,5 +1,28 @@
 # React + Vite
 
+## Local development
+
+1. Start PostgreSQL from the repository root:
+
+   ```sh
+   docker compose -f database/docker-compose.yml up -d db
+   ```
+
+2. Make sure `backend/.env` contains local PostgreSQL settings and SMTP settings if email notifications are needed. `backend/.env.example` is the template; do not overwrite an existing `.env` that contains your local credentials.
+3. Start the API from the `backend` directory:
+
+   ```sh
+   go run main.go
+   ```
+
+4. Start the frontend from the `frontend` directory:
+
+   ```sh
+   npm run dev
+   ```
+
+   In Vite development mode, the API defaults to `http://localhost:8080`. `frontend/.env` is optional; if used, set `VITE_API_BASE_URL=http://localhost:8080`.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

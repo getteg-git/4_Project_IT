@@ -20,8 +20,7 @@ import {
   UserRound,
   UserRoundPlus,
   Wrench,
-  X,
-  Clock
+  X
 } from "lucide-react";
 import useToast from "../../../hooks/useToast";
 import SearchField from "../../../components/ui/SearchField";
@@ -29,7 +28,6 @@ import Pagination from "../../../components/ui/Pagination";
 import { getPageItems, REPAIR_PAGE_SIZE } from "../../../components/ui/paginationUtils";
 import RepairCardNotes from "../../../components/RepairCardNotes";
 import FilterBar from "../../../components/ui/FilterBar";
-import RepairTimelineModal from "../../User/Timeline/RepairTimelineModal";
 import "./TechHome.css";
 
 function TechHome() {
@@ -48,7 +46,6 @@ function TechHome() {
 
   const [selectedRepair, setSelectedRepair] = useState(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [assignmentRepair, setAssignmentRepair] = useState(null);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [chosenTechId, setChosenTechId] = useState("");
@@ -821,29 +818,6 @@ function TechHome() {
           >
             <Eye size={16} aria-hidden="true" />{" "}
             รายละเอียด
-          </button>
-
-          <button
-            className="btn-timeline"
-            onClick={() => {
-              setSelectedRepair(repair);
-              setIsTimelineOpen(true);
-            }}
-            style={{
-              backgroundColor: "#f1f5f9",
-              color: "#334155",
-              border: "none",
-              padding: "6px 12px",
-              borderRadius: "6px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: "4px",
-              fontSize: "0.85rem",
-            }}
-          >
-            <Clock size={16} aria-hidden="true" />{" "}
-            ไทม์ไลน์
           </button>
 
           {currentUser?.is_head_technician && repair.status === "รอซ่อม" && (

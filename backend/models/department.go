@@ -8,7 +8,8 @@ type DegreeLevel struct {
 
 // ภาควิชา / สาขาวิชา
 type Department struct {
-	ID            int    `json:"id"`
-	DegreeLevelID int    `json:"degree_level_id"` // เชื่อมโยงกับระดับการศึกษา
-	Name          string `json:"name"`
+	ID              int    `json:"id"`
+	DegreeLevelID   int    `json:"degree_level_id"` // เชื่อมโยงกับระดับการศึกษา
+	DegreeLevelName string `json:"degree_level_name,omitempty"`
+	Name            string `json:"name"`
 }

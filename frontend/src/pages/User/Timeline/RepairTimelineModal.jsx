@@ -169,7 +169,7 @@ function RepairTimelineModal({
             <div className="loading-state">กำลังโหลดประวัติ...</div>
           ) : error ? (
             <div className="error-state">{error}</div>
-          ) : logs.length === 0 ? (
+          ) : visibleLogs.length === 0 ? (
             <div className="no-data">ไม่พบประวัติการทำรายการ</div>
           ) : view === "summary" ? (
             <div className="timeline-container timeline-summary">
@@ -217,7 +217,7 @@ function RepairTimelineModal({
                     <div className="timeline-details">
                       <div className="timeline-header">
                         <span className={`timeline-status ${config.color}`}>
-                          {log.new_status || log.action}
+                          {log.displayStatus}
                         </span>
                         <span className="timeline-date">{formatDate(log.created_at)}</span>
                       </div>
@@ -238,7 +238,7 @@ function RepairTimelineModal({
               })}
               <Pagination
                 currentPage={currentPage}
-                totalItems={logs.length}
+                totalItems={visibleLogs.length}
                 onPageChange={setCurrentPage}
               />
             </div>

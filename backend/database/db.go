@@ -41,6 +41,24 @@ func ConnectDB() error {
 		return fmt.Errorf("failed to ping database: %w", err)
 	}
 
+	if _, err := db.Exec(`
+		ALTER TABLE repairs
+		ADD COLUMN IF NOT EXISTS requester_status VARCHAR(50) NOT NULL DEFAULT 'นักศึกษา'
+	`); err != nil {
+		return fmt.Errorf("failed to ensure repair requester status exists: %w", err)
+	}
+
+	if _, err := db.Exec(`
+		INSERT INTO locations (name)
+		SELECT requested.name
+		FROM (VALUES ('อาคาร รวท.'), ('อาคารธรรมชาติ'), ('อาคาร 55 ปี')) AS requested(name)
+		WHERE NOT EXISTS (
+			SELECT 1 FROM locations existing WHERE existing.name = requested.name
+		)
+	`); err != nil {
+		return fmt.Errorf("failed to ensure additional locations exist: %w", err)
+	}
+
 	_, err = db.Exec(`
 		DO $$
 		BEGIN

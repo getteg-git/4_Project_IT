@@ -247,7 +247,7 @@ function AdminUsers() {
             <p>เพิ่ม แก้ไข หรือลบบัญชีของแอดมินและช่างเทคนิค</p>
           </div>
           <div className="header-actions">
-            <button className="btn-back-dashboard" onClick={() => navigate("/admin/home")}>
+            <button className="btn-back-dashboard" onClick={() => navigate("/admin/dashboard")}>
               📊 กลับหน้า Dashboard
             </button>
           </div>

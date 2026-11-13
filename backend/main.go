@@ -23,8 +23,8 @@ func main() {
 		fmt.Println("No .env file found (using system env)")
 	}
 
-	if err := utils.ValidateBrevoConfiguration(); err != nil {
-		log.Printf("email notifications are unavailable: %v; configure BREVO_API_KEY and BREVO_SENDER on the backend service and redeploy", err)
+	if err := utils.ValidateSMTPConfiguration(); err != nil {
+		log.Printf("email notifications are unavailable: %v; configure SMTP_HOST, SMTP_PORT, and SMTP_SENDER in the backend environment", err)
 	}
 
 	for {
