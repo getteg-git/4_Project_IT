@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { ClipboardList, Settings, UsersRound, MapPin, Wrench, Monitor } from "lucide-react"; // เพิ่มไอคอน Monitor
-import { Link } from "react-router-dom";
+import { Settings, UsersRound, MapPin, Wrench, Monitor } from "lucide-react"; // เพิ่มไอคอน Monitor
 import AppBreadcrumb from "../../../components/AppBreadcrumb";
 
 import AdminUsers from "./components/AdminUsers/AdminUsers";
@@ -36,10 +35,6 @@ function AdminSettings() {
             <h2><Settings size={26} aria-hidden="true" /> ตั้งค่าระบบ (System Settings)</h2>
             <p>จัดการข้อมูลพื้นฐาน ผู้ใช้งาน สถานที่ อุปกรณ์ และหมวดหมู่งานซ่อม</p>
           </div>
-          <Link className="settings-back-to-assignments" to="/admin/manage">
-            <ClipboardList size={17} aria-hidden="true" />
-            กลับหน้ามอบหมายงาน
-          </Link>
         </div>
 
         {/* เมนู Tab สลับหน้า */}

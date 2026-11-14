@@ -225,7 +225,6 @@ func CreateRepair(c *gin.Context) {
 	reporterType := strings.TrimSpace(c.PostForm("reporter_type"))
 	reporterDepartment := strings.TrimSpace(c.PostForm("reporter_department"))
 	reporterDegreeLevel := strings.TrimSpace(c.PostForm("reporter_degree_level"))
-	reporterDepartmentOther := c.PostForm("reporter_department_other") == "true"
 	departmentID := nullIfEmpty(c.PostForm("department_id")) // 🔥 รับสาขาของคนแจ้ง
 	locationID := nullIfEmpty(c.PostForm("location_id"))
 	otherLocation := nullIfEmpty(c.PostForm("other_location"))
@@ -237,39 +236,54 @@ func CreateRepair(c *gin.Context) {
 	otherProblemType := nullIfEmpty(c.PostForm("other_problem_type"))
 	description := c.PostForm("description")
 
-	validReporterTypes := map[string]bool{
-		"นักศึกษา":             true,
-		"อาจารย์":              true,
-		"บุคลากร":              true,
-		"บุคคลภายนอก / อื่น ๆ": true,
+	switch reporterType {
+	case "บุคลากร":
+		reporterType = "เจ้าหน้าที่"
+	case "บุคคลภายนอก / อื่น ๆ":
+		reporterType = "บุคลากรภายนอก"
 	}
-	if !validReporterTypes[reporterType] {
+
+	if reporterType != "นักศึกษา" && reporterType != "อาจารย์" &&
+		reporterType != "เจ้าหน้าที่" && reporterType != "บุคลากรภายนอก" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาระบุประเภทผู้แจ้งให้ถูกต้อง"})
 		return
 	}
-	if reporterDepartment == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาระบุสาขาวิชา หน่วยงาน หรือความเกี่ยวข้อง"})
-		return
-	}
-	if reporterType == "นักศึกษา" && (reporterDegreeLevel == "" || departmentID == nil) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาระบุระดับการศึกษาและสาขาวิชา"})
-		return
-	}
-	if reporterType != "นักศึกษา" && reporterType != "บุคคลภายนอก / อื่น ๆ" && !reporterDepartmentOther {
-		validDepartments := map[string]bool{
-			"คณิตศาสตร์":  true,
-			"เคมี":        true,
-			"ชีววิทยา":    true,
-			"ฟิสิกส์":     true,
-			"สถิติ":       true,
-			"คอมพิวเตอร์": true,
-			"จุลชีววิทยา": true,
-			"วิทยาศาสตร์สิ่งแวดล้อม": true,
-			"สำนักงานคณบดี":          true,
-		}
-		if !validDepartments[reporterDepartment] {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาเลือกสาขาวิชาหรือหน่วยงานจากรายการ"})
+
+	if reporterType == "บุคลากรภายนอก" {
+		if reporterDepartment == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาระบุหน่วยงานหรือความเกี่ยวข้อง"})
 			return
+		}
+		departmentID = nil
+		reporterDegreeLevel = ""
+	} else {
+		if departmentID == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาเลือกภาควิชาสังกัดจากฐานข้อมูล"})
+			return
+		}
+
+		var departmentName, departmentDegree string
+		err := database.DB.QueryRow(`
+			SELECT d.name, COALESCE(dl.name, '')
+			FROM departments d
+			LEFT JOIN degree_levels dl ON dl.id = d.degree_level_id
+			WHERE d.id = $1
+		`, departmentID).Scan(&departmentName, &departmentDegree)
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ไม่พบภาควิชาที่เลือก"})
+			return
+		}
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถตรวจสอบภาควิชาที่เลือกได้"})
+			return
+		}
+		if reporterType == "นักศึกษา" && (reporterDegreeLevel == "" || reporterDegreeLevel != departmentDegree) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ระดับการศึกษาไม่ตรงกับภาควิชาที่เลือก"})
+			return
+		}
+		reporterDepartment = departmentName
+		if reporterType != "นักศึกษา" {
+			reporterDegreeLevel = ""
 		}
 	}
 

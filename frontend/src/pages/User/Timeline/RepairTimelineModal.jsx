@@ -12,7 +12,6 @@ function RepairTimelineModal({
   onClose,
   images = [],
   ticketLabel,
-  assignedTechnician,
   view = "details",
 }) {
   const [logs, setLogs] = useState([]);
@@ -68,65 +67,35 @@ function RepairTimelineModal({
     }
   };
 
+  const normalizeStatus = (status) => {
+    switch (status?.trim()) {
+      case "รับงาน":
+      case "รับงานแล้ว":
+        return "รับงาน";
+      case "กำลังซ่อม":
+        return "กำลังซ่อม";
+      case "เสร็จเรียบร้อย":
+      case "เสร็จสิ้น":
+        return "เสร็จสิ้น";
+      default:
+        return "";
+    }
+  };
+  const visibleLogs = logs
+    .map((log) => ({ ...log, displayStatus: normalizeStatus(log.new_status) }))
+    .filter((log) => log.displayStatus);
+
   const getPublicProgress = () => {
     const chronologicalLogs = [...logs].sort(
       (left, right) => new Date(left.created_at) - new Date(right.created_at)
     );
-    const creationLog = chronologicalLogs.find((log) => log.action === "CREATED") || chronologicalLogs[0];
-    let assignmentLog = null;
-    let assignmentIsActive = false;
-    let startedLog = null;
-    let completedLog = null;
-    let latestLog = null;
-
-    chronologicalLogs.forEach((log) => {
-      latestLog = log;
-      if (log.action === "ASSIGNED") {
-        assignmentLog = log;
-        assignmentIsActive = true;
-      } else if (log.action === "REVOKED") {
-        assignmentIsActive = false;
-      }
-
-      if (log.new_status === "รับงานแล้ว" && !assignmentLog) {
-        assignmentLog = log;
-        assignmentIsActive = true;
-      }
-      if (!startedLog && (log.new_status === "กำลังซ่อม" || log.action === "APPROVED")) {
-        startedLog = log;
-      }
-      if (!completedLog && ["เสร็จเรียบร้อย", "เสร็จสิ้น"].includes(log.new_status)) {
-        completedLog = log;
-      }
-    });
-
-    const terminalLabels = {
-      "ซ่อมไม่ได้": "งานนี้ไม่สามารถซ่อมได้",
-      "ไม่สามารถซ่อมได้": "งานนี้ไม่สามารถซ่อมได้",
-      "ส่งซ่อมภายนอก": "ส่งงานซ่อมต่อภายนอก",
-      "ส่งซ่อมให้คณะ": "ส่งงานซ่อมต่อ",
-      "ยกเลิก": "ยกเลิกงานซ่อม",
-      "ยกเลิกงาน": "ยกเลิกงานซ่อม",
-    };
-    let terminalMessage = latestLog?.action === "CANCELLED"
-      ? "ยกเลิกงานซ่อม"
-      : latestLog?.action === "OUTSOURCED"
-        ? "ส่งงานซ่อมต่อภายนอก"
-        : terminalLabels[latestLog?.new_status];
-
-    if (!assignmentIsActive) {
-      assignmentLog = null;
-    }
-
+    const acceptedLog = chronologicalLogs.find((log) => normalizeStatus(log.new_status) === "รับงาน");
+    const startedLog = chronologicalLogs.find((log) => normalizeStatus(log.new_status) === "กำลังซ่อม");
+    const completedLog = chronologicalLogs.find((log) => normalizeStatus(log.new_status) === "เสร็จสิ้น");
     return [
-      { label: "รับแจ้งแล้ว", log: creationLog, complete: Boolean(creationLog) },
-      {
-        label: "มอบหมายช่างแล้ว",
-        log: assignmentLog,
-        complete: Boolean(assignmentLog || assignedTechnician),
-      },
-      { label: "กำลังดำเนินการ", log: startedLog, complete: Boolean(startedLog) },
-      { label: "ดำเนินการเสร็จแล้ว", log: completedLog, complete: Boolean(completedLog) },
+      { label: "รับงาน", log: acceptedLog, complete: Boolean(acceptedLog) },
+      { label: "กำลังซ่อม", log: startedLog, complete: Boolean(startedLog) },
+      { label: "เสร็จสิ้น", log: completedLog, complete: Boolean(completedLog) },
     ].map((stage, index, stages) => ({
       ...stage,
       current: stage.complete && !stages.slice(index + 1).some((next) => next.complete),
@@ -137,11 +106,10 @@ function RepairTimelineModal({
         : index === 0
           ? <Clock size={17} />
           : <Circle size={17} />,
-      terminalMessage: index === 3 && terminalMessage && !completedLog ? terminalMessage : null,
     }));
   };
 
-  const paginatedLogs = getPageItems(logs, currentPage);
+  const paginatedLogs = getPageItems(visibleLogs, currentPage);
   const publicProgress = view === "summary" ? getPublicProgress() : [];
 
   return (
@@ -169,8 +137,6 @@ function RepairTimelineModal({
             <div className="loading-state">กำลังโหลดประวัติ...</div>
           ) : error ? (
             <div className="error-state">{error}</div>
-          ) : visibleLogs.length === 0 ? (
-            <div className="no-data">ไม่พบประวัติการทำรายการ</div>
           ) : view === "summary" ? (
             <div className="timeline-container timeline-summary">
               {publicProgress.map((stage, index) => (
@@ -191,16 +157,12 @@ function RepairTimelineModal({
                         <span className="timeline-date">{formatDate(stage.log.created_at)}</span>
                       )}
                     </div>
-                    {index === 1 && stage.complete && assignedTechnician && (
-                      <p className="timeline-public-detail">ช่างผู้รับผิดชอบ: {assignedTechnician}</p>
-                    )}
-                    {stage.terminalMessage && (
-                      <p className="timeline-terminal">{stage.terminalMessage}</p>
-                    )}
                   </div>
                 </div>
               ))}
             </div>
+          ) : visibleLogs.length === 0 ? (
+            <div className="no-data">ไม่พบประวัติการทำรายการ</div>
           ) : (
             <div className="timeline-container">
               {paginatedLogs.map((log, index) => {

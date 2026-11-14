@@ -6,8 +6,8 @@ import MyRepairs from "./pages/User/MyRepairs/MyRepairs";
 import TechHome from "./pages/Technician/TechHome/TechHome";
 import AdminDashboard from "./pages/Admin/AdminDashboard/AdminDashboard"; 
 import AdminManage from "./pages/Admin/AdminManage/AdminManage";
-// เปลี่ยนการ Import มาเป็นไฟล์แม่ (AdminSettings) แทน
 import AdminSettings from "./pages/Admin/AdminSettings/AdminSettings";
+import AdminLayout from "./pages/Admin/AdminLayout/AdminLayout";
 
 function App() {
   return (
@@ -20,11 +20,12 @@ function App() {
         <Route path="/repair/history" element={<MyRepairs />} />
 
         {/* ฝั่งแอดมิน */}
-        <Route path="/admin" element={<Navigate to="/admin/manage" replace />} />
-        <Route path="/admin/home" element={<AdminDashboard />} />
-        <Route path="/admin/manage" element={<AdminManage />} />
-        {/* เปลี่ยน Path และ Element ให้ชี้ไปที่หน้าตั้งค่าระบบ */}
-        <Route path="/admin/settings" element={<AdminSettings />} />
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<Navigate to="/admin/manage" replace />} />
+          <Route path="home" element={<AdminDashboard />} />
+          <Route path="manage" element={<AdminManage />} />
+          <Route path="settings" element={<AdminSettings />} />
+        </Route>
         
         {/* ฝั่งช่าง */}
         <Route path="/tech/home" element={<TechHome />} />

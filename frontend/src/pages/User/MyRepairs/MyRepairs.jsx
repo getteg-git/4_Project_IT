@@ -301,10 +301,6 @@ function MyRepairs() {
 
                   <h3 className="repair-title">[{displayProblemType}] {displayLocation}</h3>
 
-                  <p className="repair-reporter-email">
-                    <strong>อีเมลผู้แจ้ง:</strong> {repair.reporter_email}
-                  </p>
-
                   <p className="repair-room">
                     <strong>ชั้น / พิกัด:</strong> {repair.floor_name || "-"} {(repair.other_room || repair.room_number) ? `(${repair.other_room || repair.room_number})` : ""}
                   </p>

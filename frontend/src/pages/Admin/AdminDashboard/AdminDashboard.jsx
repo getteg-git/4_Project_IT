@@ -1,6 +1,6 @@
 import { API_BASE_URL } from "../../../api/baseUrl.js";
 import React, { useState, useEffect, useMemo } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Pagination from "../../../components/ui/Pagination";
 import { getPageItems, REPAIR_PAGE_SIZE } from "../../../components/ui/paginationUtils";
 import AppBreadcrumb from "../../../components/AppBreadcrumb";
@@ -8,7 +8,7 @@ import {
   PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend
 } from "recharts";
-import { AlertTriangle, Ban, Calendar, CircleDot, ClipboardList, LayoutDashboard, Monitor, TrendingUp } from 'lucide-react';
+import { AlertTriangle, Ban, Calendar, CircleDot, LayoutDashboard, Monitor, TrendingUp } from 'lucide-react';
 import dayjs from 'dayjs';
 import "./AdminDashboard.css";
 
@@ -165,12 +165,6 @@ function AdminDashboard() {
         <div>
           <h1><LayoutDashboard size={25} aria-hidden="true" /> แดชบอร์ดผู้ดูแลระบบ</h1>
           <p>ดูภาพรวมงานแจ้งซ่อมและจัดการระบบได้จากที่นี่</p>
-        </div>
-        <div className="header-actions">
-          <Link className="admin-dashboard-assignment-link" to="/admin/manage">
-            <ClipboardList size={17} aria-hidden="true" />
-            <span>กลับหน้ามอบหมายงาน</span>
-          </Link>
         </div>
       </header>
 

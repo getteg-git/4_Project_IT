@@ -1,7 +1,6 @@
 import { API_BASE_URL } from "../../../api/baseUrl.js";
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import AppBreadcrumb from "../../../components/AppBreadcrumb";
+import { useSearchParams } from "react-router-dom";
 import RepairImageGallery from "../../../components/RepairImageGallery";
 import {
   AlertTriangle,
@@ -20,14 +19,9 @@ import {
   UserRound,
   UserRoundPlus,
   Wrench,
-
   X,
   Clock,
-  LayoutDashboard,
-  Settings,
-  LogOut,
-  MapPin,
-  X
+  MapPin
 } from "lucide-react";
 import SearchField from "../../../components/ui/SearchField";
 import Pagination from "../../../components/ui/Pagination";
@@ -39,7 +33,6 @@ import "./AdminManage.css";
 
 function AdminManage() {
   const { toast, confirm } = useToast();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   const [repairs, setRepairs] = useState([]);
@@ -794,16 +787,6 @@ function AdminManage() {
   return (
     <div className={`admin-manage-container ${!isLoading && displayedRepairs.length === 0 ? "has-empty-repairs" : ""}`}>
       <div className="admin-wrapper">
-
-        <nav
-          className="page-navigation admin-manage-navigation"
-          aria-label="การนำทางหน้าย่อย"
-        >
-          <AppBreadcrumb items={[
-            { label: "หน้ามอบหมายงาน" },
-          ]} />
-        </nav>
-
         <div className="admin-header">
           <div>
             <h2>
@@ -815,39 +798,6 @@ function AdminManage() {
             </h2>
             <p>ค้นหาและจ่ายงานให้ช่างเทคนิค</p>
           </div>
-          <div className="admin-navigation-actions" aria-label="เมนูผู้ดูแลระบบ">
-            <button
-              className="admin-navigation-link btn-logout"
-              type="button"
-              onClick={async () => {
-                const approved = await confirm({
-                  title: "ยืนยันออกจากระบบ",
-                  description: "คุณแน่ใจหรือไม่ว่าต้องการออกจากระบบผู้ดูแล?",
-                  confirmLabel: "ออกจากระบบ",
-                  cancelLabel: "ยกเลิก",
-                  variant: "danger",
-                });
-                if (approved) {
-                  localStorage.removeItem("user");
-                  navigate("/");
-                }
-              }}
-            >
-              <LogOut size={17} aria-hidden="true" />
-              ออกจากระบบ
-            </button>
-          </div>
-        </div>
-
-        <div className="admin-dashboard-shortcut-row">
-          <Link className="admin-dashboard-shortcut btn-users" to="/admin/home">
-            <LayoutDashboard size={17} aria-hidden="true" />
-            ไปหน้าแดชบอร์ด
-          </Link>
-          <Link className="admin-dashboard-shortcut btn-manage" to="/admin/settings">
-            <Settings size={17} aria-hidden="true" />
-            ตั้งค่าระบบ
-          </Link>
         </div>
 
         <div className="assignment-content">
@@ -2074,18 +2024,6 @@ function AdminManage() {
         </div>
       )}
 
-      {/* POPUP: ไทม์ไลน์ */}
-      <RepairTimelineModal
-        repairId={selectedRepair?.id}
-        images={selectedRepair?.images}
-        ticketLabel={selectedRepair?.ticket_number || `#${selectedRepair?.id}`}
-        view="details"
-        isOpen={isTimelineOpen}
-        onClose={() => {
-          setIsTimelineOpen(false);
-          setSelectedRepair(null);
-        }}
-      />
     </div>
   );
 }

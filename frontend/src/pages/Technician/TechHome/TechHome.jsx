@@ -491,6 +491,10 @@ function TechHome() {
           toast.success("เริ่มดำเนินการซ่อมแล้ว", {
             description: data.message || "เปลี่ยนสถานะงานเป็นกำลังซ่อมและเริ่มบันทึกเวลาแล้ว",
           });
+          if (data.status === "กำลังซ่อม") {
+            setJobView("progress");
+            setCurrentPage(1);
+          }
         } else if (data.status === "รอซ่อม") {
           toast.info("งานรอการอนุมัติ", {
             description: data.message || "ระบบส่งเรื่องกลับให้ผู้ดูแลพิจารณาแล้ว",
@@ -1897,18 +1901,6 @@ function TechHome() {
         </div>
       )}
 
-      {/* POPUP 4: Timeline */}
-      <RepairTimelineModal
-        repairId={selectedRepair?.id}
-        images={selectedRepair?.images}
-        ticketLabel={selectedRepair?.ticket_number || `#${selectedRepair?.id}`}
-        view="details"
-        isOpen={isTimelineOpen}
-        onClose={() => {
-          setIsTimelineOpen(false);
-          setSelectedRepair(null);
-        }}
-      />
     </div>
   );
 }

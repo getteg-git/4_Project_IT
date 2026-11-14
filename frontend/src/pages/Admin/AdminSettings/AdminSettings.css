@@ -33,36 +33,6 @@
   margin-bottom: 16px;
 }
 
-.admin-settings-container .settings-back-to-assignments {
-  display: inline-flex;
-  min-height: 42px;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 9px 15px;
-  border: 1px solid var(--color-primary);
-  border-radius: 9px;
-  color: #fff;
-  background: var(--color-primary);
-  box-shadow: 0 4px 10px rgba(65, 74, 84, 0.16);
-  font-size: 0.92rem;
-  font-weight: 700;
-  text-decoration: none;
-  transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.admin-settings-container .settings-back-to-assignments:hover {
-  border-color: var(--color-primary-hover);
-  background: var(--color-primary-hover);
-  box-shadow: 0 6px 14px rgba(65, 74, 84, 0.22);
-  transform: translateY(-1px);
-}
-
-.admin-settings-container .settings-back-to-assignments:focus-visible {
-  outline: 3px solid var(--color-accent);
-  outline-offset: 3px;
-}
-
 .settings-header {
   display: flex;
   align-items: center;
@@ -101,9 +71,6 @@
     padding: 22px 20px;
   }
 
-  .admin-settings-container .settings-back-to-assignments {
-    align-self: flex-start;
-  }
 }
 
 .settings-tabs {

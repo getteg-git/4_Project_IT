@@ -1,0 +1,111 @@
+.admin-shell-header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  display: flex;
+  min-height: 68px;
+  align-items: center;
+  gap: 24px;
+  padding: 10px clamp(16px, 4vw, 52px);
+  color: #f8fafc;
+  background: linear-gradient(110deg, #123b59, #176c87);
+  box-shadow: 0 4px 16px rgba(15, 41, 58, 0.2);
+}
+
+.admin-shell-brand {
+  flex: 0 0 auto;
+  font-size: 1.05rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.admin-shell-navigation {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  margin: 0 auto;
+}
+
+.admin-shell-navigation a,
+.admin-shell-logout {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 13px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.18s ease, border-color 0.18s ease;
+}
+
+.admin-shell-navigation a:hover,
+.admin-shell-logout:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.admin-shell-navigation a.is-active {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.admin-shell-logout {
+  flex: 0 0 auto;
+  border-color: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+}
+
+.admin-shell-navigation a:focus-visible,
+.admin-shell-logout:focus-visible {
+  outline: 3px solid #f6d37b;
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .admin-shell-header {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+  }
+
+  .admin-shell-brand {
+    margin-right: auto;
+  }
+
+  .admin-shell-navigation {
+    order: 3;
+    width: 100%;
+    justify-content: flex-start;
+    overflow-x: auto;
+    margin: 0;
+  }
+
+  .admin-shell-navigation a {
+    flex: 0 0 auto;
+    padding: 8px 10px;
+  }
+}
+
+@media (max-width: 420px) {
+  .admin-shell-brand {
+    font-size: 0.94rem;
+  }
+
+  .admin-shell-logout {
+    min-height: 38px;
+    padding: 7px 9px;
+    font-size: 0.82rem;
+  }
+
+  .admin-shell-navigation a {
+    gap: 6px;
+    font-size: 0.84rem;
+  }
+}

@@ -7,18 +7,8 @@ import BackButton from "../../../components/ui/BackButton";
 import useToast from "../../../hooks/useToast";
 import "./CreateRepair.css";
 
-const reporterTypes = ["นักศึกษา", "อาจารย์", "บุคลากร", "บุคคลภายนอก / อื่น ๆ"];
-const reporterDepartments = [
-  "คณิตศาสตร์",
-  "เคมี",
-  "ชีววิทยา",
-  "ฟิสิกส์",
-  "สถิติ",
-  "คอมพิวเตอร์",
-  "จุลชีววิทยา",
-  "วิทยาศาสตร์สิ่งแวดล้อม",
-  "สำนักงานคณบดี",
-];
+const reporterTypes = ["นักศึกษา", "อาจารย์", "เจ้าหน้าที่", "บุคลากรภายนอก"];
+const internalReporterTypes = ["นักศึกษา", "อาจารย์", "เจ้าหน้าที่"];
 
 function CreateRepair() {
   const navigate = useNavigate();
@@ -27,7 +17,6 @@ function CreateRepair() {
   // State สำหรับเก็บข้อมูลที่ผู้ใช้กรอก
   const [email, setEmail] = useState("");
   const [reporterType, setReporterType] = useState("");
-  const [reporterDepartment, setReporterDepartment] = useState("");
   const [otherReporterDepartment, setOtherReporterDepartment] = useState("");
   const [degreeLevel, setDegreeLevel] = useState(""); 
   const [department, setDepartment] = useState(""); 
@@ -77,10 +66,14 @@ function CreateRepair() {
     return selectedType && (selectedType.name.includes("อื่นๆ") || selectedType.name.toLowerCase() === "other");
   };
 
+  const normalizeEquipmentName = (name) =>
+    name.replace(/\s*\(\s*\d[^)]*\)/g, "").replace(/\s+/g, " ").trim();
+
   const uniqueEquipments = [...new Map(
     equipments
-      .filter((item) => item.name?.trim())
-      .map((item) => [item.name.trim().toLocaleLowerCase(), item])
+      .map((item) => ({ ...item, displayName: normalizeEquipmentName(item.name || "") }))
+      .filter((item) => item.displayName)
+      .map((item) => [item.displayName.toLocaleLowerCase(), item])
   ).values()];
 
   // 1. โหลดข้อมูลเริ่มต้น (สถานที่, หมวดหมู่ปัญหา, ระดับการศึกษา)
@@ -103,21 +96,20 @@ function CreateRepair() {
     fetchMasterData();
   }, []);
 
-  // โหลดภาควิชาของนักศึกษาตามระดับการศึกษาที่เลือก
+  // Load department options from the database for the selected reporter type.
   useEffect(() => {
     setDepartment("");
     setDepartments([]);
 
-    if (reporterType !== "นักศึกษา" || !degreeLevel) {
+    if (!internalReporterTypes.includes(reporterType) || (reporterType === "นักศึกษา" && !degreeLevel)) {
       return;
     }
 
     const fetchDepartments = async () => {
       try {
-        const endpoint = requesterStatus === "นักศึกษา"
-          ? degreeLevel && `${API_BASE_URL}/api/degree-levels/${degreeLevel}/departments`
+        const endpoint = reporterType === "นักศึกษา"
+          ? `${API_BASE_URL}/api/degree-levels/${degreeLevel}/departments`
           : `${API_BASE_URL}/api/departments`;
-        if (!endpoint) return;
         const res = await fetch(endpoint);
         if (!res.ok) throw new Error(`ไม่สามารถโหลดภาควิชาได้ (${res.status})`);
         setDepartments(await res.json() || []);
@@ -213,20 +205,12 @@ function CreateRepair() {
     const reporterEmail = email.trim();
     const nextErrors = {};
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reporterEmail)) nextErrors.email = "กรุณากรอกอีเมลให้ถูกต้อง";
-    if (!reporterType) nextErrors.reporterType = "กรุณาเลือกประเภทผู้แจ้ง";
+    if (!reporterType) nextErrors.reporterType = "กรุณาเลือกสถานะผู้แจ้ง";
     if (reporterType === "นักศึกษา" && !degreeLevel) nextErrors.degreeLevel = "กรุณาเลือกระดับการศึกษา";
-    if (reporterType === "นักศึกษา" && !department) nextErrors.department = "กรุณาเลือกสาขาวิชา";
-    if (["อาจารย์", "บุคลากร"].includes(reporterType) && !reporterDepartment) {
-      nextErrors.reporterDepartment = "กรุณาเลือกสาขาวิชาหรือหน่วยงาน";
+    if (internalReporterTypes.includes(reporterType) && !department) {
+      nextErrors.department = "กรุณาเลือกภาควิชาสังกัดจากฐานข้อมูล";
     }
-    if (
-      ["อาจารย์", "บุคลากร"].includes(reporterType) &&
-      reporterDepartment === "อื่น ๆ" &&
-      !otherReporterDepartment.trim()
-    ) {
-      nextErrors.otherReporterDepartment = "กรุณาระบุสาขาวิชาหรือหน่วยงาน";
-    }
-    if (reporterType === "บุคคลภายนอก / อื่น ๆ" && !otherReporterDepartment.trim()) {
+    if (reporterType === "บุคลากรภายนอก" && !otherReporterDepartment.trim()) {
       nextErrors.otherReporterDepartment = "กรุณาระบุหน่วยงานหรือความเกี่ยวข้อง";
     }
     if (!location) nextErrors.location = "กรุณาเลือกอาคารหรือสถานที่";
@@ -253,20 +237,14 @@ function CreateRepair() {
     const formData = new FormData();
     formData.append("reporter_email", reporterEmail);
     formData.append("reporter_type", reporterType);
-    if (reporterType === "นักศึกษา") {
+    if (internalReporterTypes.includes(reporterType)) {
       const selectedDepartment = departments.find((item) => String(item.id) === String(department));
-      const selectedDegreeLevel = degreeLevels.find((item) => String(item.id) === String(degreeLevel));
       formData.append("department_id", department);
       formData.append("reporter_department", selectedDepartment?.name || "");
-      formData.append("reporter_degree_level", selectedDegreeLevel?.name || "");
-    } else if (["อาจารย์", "บุคลากร"].includes(reporterType)) {
-      if (reporterDepartment === "อื่น ๆ") {
-        formData.append("reporter_department_other", "true");
+      if (reporterType === "นักศึกษา") {
+        const selectedDegreeLevel = degreeLevels.find((item) => String(item.id) === String(degreeLevel));
+        formData.append("reporter_degree_level", selectedDegreeLevel?.name || "");
       }
-      formData.append(
-        "reporter_department",
-        reporterDepartment === "อื่น ๆ" ? otherReporterDepartment.trim() : reporterDepartment
-      );
     } else {
       formData.append("reporter_department", otherReporterDepartment.trim());
     }
@@ -351,34 +329,6 @@ function CreateRepair() {
 
           <form onSubmit={handleSubmit} noValidate>
             <div className="form-group">
-              <label htmlFor="reporter-type">ประเภทผู้แจ้ง <span className="required">*</span></label>
-              <select
-                id="reporter-type"
-                value={reporterType}
-                onChange={(event) => {
-                  setReporterType(event.target.value);
-                  setDegreeLevel("");
-                  setDepartment("");
-                  setReporterDepartment("");
-                  setOtherReporterDepartment("");
-                  setValidationErrors((current) => ({
-                    ...current,
-                    reporterType: undefined,
-                    degreeLevel: undefined,
-                    department: undefined,
-                    reporterDepartment: undefined,
-                    otherReporterDepartment: undefined,
-                  }));
-                }}
-                aria-invalid={Boolean(validationErrors.reporterType)}
-              >
-                <option value="">-- เลือกประเภทผู้แจ้ง --</option>
-                {reporterTypes.map((type) => <option key={type} value={type}>{type}</option>)}
-              </select>
-              {validationErrors.reporterType && <p className="field-error">{validationErrors.reporterType}</p>}
-            </div>
-
-            <div className="form-group">
               <label htmlFor="reporter-email">อีเมลผู้แจ้ง (ที่ต้องการรับข้อมูลการแจ้งซ่อม)<span className="required">*</span></label>
               <input
                 id="reporter-email"
@@ -389,6 +339,32 @@ function CreateRepair() {
                 aria-invalid={Boolean(validationErrors.email)}
               />
               {validationErrors.email && <p className="field-error">{validationErrors.email}</p>}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="reporter-type">สถานะผู้แจ้ง <span className="required">*</span></label>
+              <select
+                id="reporter-type"
+                value={reporterType}
+                onChange={(event) => {
+                  setReporterType(event.target.value);
+                  setDegreeLevel("");
+                  setDepartment("");
+                  setOtherReporterDepartment("");
+                  setValidationErrors((current) => ({
+                    ...current,
+                    reporterType: undefined,
+                    degreeLevel: undefined,
+                    department: undefined,
+                    otherReporterDepartment: undefined,
+                  }));
+                }}
+                aria-invalid={Boolean(validationErrors.reporterType)}
+              >
+                <option value="">-- เลือกสถานะผู้แจ้ง --</option>
+                {reporterTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+              </select>
+              {validationErrors.reporterType && <p className="field-error">{validationErrors.reporterType}</p>}
             </div>
 
             {reporterType === "นักศึกษา" && (
@@ -412,66 +388,53 @@ function CreateRepair() {
                   {validationErrors.degreeLevel && <p className="field-error">{validationErrors.degreeLevel}</p>}
                 </div>
 
-                <div className="form-group">
-                  <label htmlFor="student-department">สาขาวิชา <span className="required">*</span></label>
-                  <select
-                    id="student-department"
-                    value={department}
-                    onChange={(event) => {
-                      setDepartment(event.target.value);
-                      setValidationErrors((current) => ({ ...current, department: undefined }));
-                    }}
-                    disabled={!degreeLevel}
-                    aria-invalid={Boolean(validationErrors.department)}
-                  >
-                    <option value="">{!degreeLevel ? "-- กรุณาเลือกระดับการศึกษาก่อน --" : "-- กรุณาเลือกสาขาวิชา --"}</option>
-                    {departments.map((item) => (
-                      <option key={item.id} value={item.id}>{item.name}</option>
-                    ))}
-                  </select>
-                  {validationErrors.department && <p className="field-error">{validationErrors.department}</p>}
-                </div>
+                {degreeLevel && (
+                  <div className="form-group">
+                    <label htmlFor="student-department">ภาควิชาสังกัด <span className="required">*</span></label>
+                    <select
+                      id="student-department"
+                      value={department}
+                      onChange={(event) => {
+                        setDepartment(event.target.value);
+                        setValidationErrors((current) => ({ ...current, department: undefined }));
+                      }}
+                      aria-invalid={Boolean(validationErrors.department)}
+                    >
+                      <option value="">-- กรุณาเลือกภาควิชาสังกัด --</option>
+                      {departments.map((item) => (
+                        <option key={item.id} value={item.id}>{item.name}</option>
+                      ))}
+                    </select>
+                    {validationErrors.department && <p className="field-error">{validationErrors.department}</p>}
+                  </div>
+                )}
               </>
             )}
 
-            {["อาจารย์", "บุคลากร"].includes(reporterType) && (
-              <div className="form-group">
-                <label htmlFor="reporter-department">สาขาวิชา / หน่วยงาน <span className="required">*</span></label>
+            {internalReporterTypes.includes(reporterType) && reporterType !== "นักศึกษา" && (
+              <div className="form-group slide-down">
+                <label htmlFor="staff-department">ภาควิชาสังกัด <span className="required">*</span></label>
                 <select
-                  id="reporter-department"
-                  value={reporterDepartment}
+                  id="staff-department"
+                  value={department}
                   onChange={(event) => {
-                    setReporterDepartment(event.target.value);
-                    setValidationErrors((current) => ({ ...current, reporterDepartment: undefined }));
+                    setDepartment(event.target.value);
+                    setValidationErrors((current) => ({ ...current, department: undefined }));
                   }}
-                  aria-invalid={Boolean(validationErrors.reporterDepartment)}
+                  aria-invalid={Boolean(validationErrors.department)}
                 >
-                  <option value="">-- เลือกสาขาวิชาหรือหน่วยงาน --</option>
-                  {reporterDepartments.map((item) => <option key={item} value={item}>{item}</option>)}
-                  <option value="อื่น ๆ">อื่น ๆ</option>
+                  <option value="">-- เลือกภาควิชาสังกัด --</option>
+                  {departments.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}{item.degree_level_name ? ` (${item.degree_level_name})` : ""}
+                    </option>
+                  ))}
                 </select>
-                {validationErrors.reporterDepartment && <p className="field-error">{validationErrors.reporterDepartment}</p>}
-                {reporterDepartment === "อื่น ๆ" && (
-                  <div className="form-group slide-down">
-                    <label htmlFor="custom-reporter-department">ระบุสาขาวิชาหรือหน่วยงาน <span className="required">*</span></label>
-                    <input
-                      id="custom-reporter-department"
-                      type="text"
-                      placeholder="กรอกสาขาวิชาหรือหน่วยงาน"
-                      value={otherReporterDepartment}
-                      onChange={(event) => {
-                        setOtherReporterDepartment(event.target.value);
-                        setValidationErrors((current) => ({ ...current, otherReporterDepartment: undefined }));
-                      }}
-                      aria-invalid={Boolean(validationErrors.otherReporterDepartment)}
-                    />
-                    {validationErrors.otherReporterDepartment && <p className="field-error">{validationErrors.otherReporterDepartment}</p>}
-                  </div>
-                )}
+                {validationErrors.department && <p className="field-error">{validationErrors.department}</p>}
               </div>
             )}
 
-            {reporterType === "บุคคลภายนอก / อื่น ๆ" && (
+            {reporterType === "บุคลากรภายนอก" && (
               <div className="form-group">
                 <label htmlFor="other-reporter-department">หน่วยงานหรือความเกี่ยวข้อง <span className="required">*</span></label>
                 <input
@@ -568,7 +531,7 @@ function CreateRepair() {
                           <select value={equipment} onChange={(e) => setEquipment(e.target.value)}>
                             <option value="">-- ไม่ระบุ / ซ่อมโครงสร้างห้อง --</option>
                             {uniqueEquipments.map((eq) => (
-                              <option key={eq.id} value={eq.id}>{eq.name}</option>
+                              <option key={eq.id} value={eq.id}>{eq.displayName}</option>
                             ))}
                           </select>
                         </div>
