@@ -23,7 +23,10 @@ type BreakEvenAnalysis struct {
 	BasePrice       float64 `json:"base_price"`
 	TotalRepairCost float64 `json:"total_repair_cost"`
 	RepairRatio     float64 `json:"repair_ratio_percent"` // เปอร์เซ็นต์เทียบกับราคาต้นทุน
-	IsExceeded      bool    `json:"is_exceeded"`          // เกินเกณฑ์แจ้งเตือน (Hybrid Logic) หรือยัง (true/false)
+	Threshold30     float64 `json:"threshold_30"`
+	Threshold50     float64 `json:"threshold_50"`
+	IsWarning       bool    `json:"is_warning"`
+	IsExceeded      bool    `json:"is_exceeded"`
 }
 
 type ProblemTypeStat struct {

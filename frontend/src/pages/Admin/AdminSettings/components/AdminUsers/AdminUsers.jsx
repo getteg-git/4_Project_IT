@@ -956,7 +956,7 @@ function AdminUsers() {
                   </select>
                 </div>
 
-                {areaScope !== "location" && (
+                {(areaScope === "floor" || areaScope === "room") && (
                   <div className="input-group">
                     <label htmlFor="responsible-area-floor">ชั้น</label>
                     <select

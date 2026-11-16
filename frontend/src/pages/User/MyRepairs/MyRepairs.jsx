@@ -1,6 +1,6 @@
 import { API_BASE_URL } from "../../../api/baseUrl.js";
 import React, { useState, useEffect } from "react";
-import { BarChart3, CalendarDays, CircleX, Eye, FileText, Mail, MessageSquareText, UserRound, Wrench, X, ClipboardCheck, Clock, ZoomIn } from "lucide-react";
+import { BarChart3, CalendarDays, CircleX, Eye, FileText, Mail, UserRound, Wrench, X, ClipboardCheck, Clock, ZoomIn } from "lucide-react";
 import AppBreadcrumb from "../../../components/AppBreadcrumb";
 import RepairImageGallery from "../../../components/RepairImageGallery";
 import BackButton from "../../../components/ui/BackButton";
@@ -10,6 +10,7 @@ import { getPageItems, REPAIR_PAGE_SIZE } from "../../../components/ui/paginatio
 import RepairCardNotes from "../../../components/RepairCardNotes";
 import FilterBar from "../../../components/ui/FilterBar";
 import RepairTimelineModal from "../Timeline/RepairTimelineModal"; // 🔥 แก้ไข Path ให้ถูกต้องตามโครงสร้างโฟลเดอร์
+import { getRepairStatusLabel } from "../../../utils/repairStatus.js";
 import "./MyRepairs.css";
 
 function MyRepairs() {
@@ -136,7 +137,7 @@ function MyRepairs() {
     if (filter === "pending") return repair.status === "รอซ่อม" || repair.status === "รับงานแล้ว";
     if (filter === "progress") return repair.status === "กำลังซ่อม";
     if (filter === "failed") return repair.status === "ซ่อมไม่ได้";
-    if (filter === "outsourced") return repair.status === "ส่งซ่อมภายนอก";
+    if (filter === "outsourced") return ["ส่งซ่อมภายนอก", "ส่งซ่อมภายนอก / คณะ"].includes(repair.status);
     if (filter === "faculty_forward") return repair.status === "ส่งซ่อมให้คณะ" || repair.assigned_department === "CENTRAL";
     return true;
   };
@@ -195,9 +196,9 @@ function MyRepairs() {
 
   const statusFilters = [
     { id: "all", label: "ทั้งหมด", count: repairs.length },
-    { id: "pending", label: "รอช่างรับ/เข้าหน้างาน", count: repairs.filter((repair) => matchesStatusFilter(repair, "pending")).length },
-    { id: "progress", label: "กำลังซ่อม", count: repairs.filter((repair) => matchesStatusFilter(repair, "progress")).length },
-    { id: "completed", label: "เสร็จแล้ว", count: repairs.filter((repair) => matchesStatusFilter(repair, "completed")).length },
+    { id: "pending", label: "รอรับงาน / รับงานแล้ว", count: repairs.filter((repair) => matchesStatusFilter(repair, "pending")).length },
+    { id: "progress", label: "กำลังดำเนินการซ่อม", count: repairs.filter((repair) => matchesStatusFilter(repair, "progress")).length },
+    { id: "completed", label: "ดำเนินเสร็จสิ้น", count: repairs.filter((repair) => matchesStatusFilter(repair, "completed")).length },
     { id: "failed", label: "ซ่อมไม่ได้", count: repairs.filter((repair) => matchesStatusFilter(repair, "failed")).length },
     { id: "outsourced", label: "ส่งซ่อมภายนอก", count: repairs.filter((repair) => matchesStatusFilter(repair, "outsourced")).length },
     { id: "faculty_forward", label: "ส่งซ่อมให้คณะ", count: repairs.filter((repair) => matchesStatusFilter(repair, "faculty_forward")).length }
@@ -206,13 +207,14 @@ function MyRepairs() {
 
   const getStatusClass = (status) => {
     switch (status) {
-      case "รอซ่อม": return "status-pending";
+      case "รอซ่อม": return "status-waiting";
       case "รับงานแล้ว": return "status-pending";
       case "กำลังซ่อม": return "status-progress";
       case "เสร็จเรียบร้อย": return "status-completed";
       case "เสร็จสิ้น": return "status-completed";
       case "ซ่อมไม่ได้": return "status-failed";
       case "ส่งซ่อมภายนอก": return "status-outsourced";
+      case "ส่งซ่อมภายนอก / คณะ": return "status-outsourced";
       case "ส่งซ่อมให้คณะ": return "status-faculty";
       default: return "status-default";
     }
@@ -221,6 +223,24 @@ function MyRepairs() {
   const formatDate = (dateString) => {
     const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
     return new Date(dateString).toLocaleDateString('th-TH', options);
+  };
+
+  const getOutcomeNotes = (repair) => {
+    const notes = [];
+    if (repair.status === "ซ่อมไม่ได้") {
+      const adminRejection = repair.admin_note?.replace(/^ไม่อนุมัติการซ่อม:\s*/u, "");
+      const reason = adminRejection || repair.technician_note || repair.admin_note;
+      if (reason?.trim()) notes.push({ label: "เหตุผลที่ซ่อมไม่สำเร็จ", value: reason.trim() });
+    } else if (repair.status?.startsWith("ส่งซ่อม")) {
+      if (repair.technician_note?.trim()) {
+        notes.push({ label: "เหตุผลที่ซ่อมไม่สำเร็จ", value: repair.technician_note.trim() });
+      }
+      const handoffDetails = repair.admin_note?.replace(/^ส่งซ่อม(?:ภายนอก|ให้คณะ)(?:\s*\/\s*คณะ)?:\s*/u, "");
+      if (handoffDetails?.trim()) {
+        notes.push({ label: "รายละเอียดการส่งซ่อมต่อ", value: handoffDetails.trim() });
+      }
+    }
+    return notes;
   };
 
   const openDetailsModal = (repair) => {
@@ -295,7 +315,7 @@ function MyRepairs() {
                   <div className="card-top">
                     <span className="repair-id">{repair.ticket_number || `Ticket #${repair.id}`}</span>
                     <span className={`status-badge ${getStatusClass(repair.status)}`}>
-                      {repair.status}
+                      {getRepairStatusLabel(repair.status)}
                     </span>
                   </div>
 
@@ -319,7 +339,12 @@ function MyRepairs() {
 
                   <p className="repair-desc"><strong>รายละเอียด:</strong> {repair.description}</p>
 
-                  <RepairCardNotes repair={repair} />
+                  <RepairCardNotes
+                    repair={repair}
+                    showTechnicianNote={false}
+                    showAdminNote={getOutcomeNotes(repair).length === 0}
+                    extraNotes={getOutcomeNotes(repair)}
+                  />
 
                   {repair.technician_name && (
                     <p className="repair-tech-badge"><strong><UserRound size={15} aria-hidden="true" /> ช่าง:</strong> {repair.technician_name}</p>
@@ -409,7 +434,7 @@ function MyRepairs() {
               />
 
               <div className="info-grid">
-                <p><strong>สถานะปัจจุบัน:</strong> <span className={`status-badge ${getStatusClass(selectedRepair.status)}`}>{selectedRepair.status}</span></p>
+                <p><strong>สถานะปัจจุบัน:</strong> <span className={`status-badge ${getStatusClass(selectedRepair.status)}`}>{getRepairStatusLabel(selectedRepair.status)}</span></p>
                 <p><strong>หมวดหมู่งาน:</strong> {selectedRepair.other_problem_type || selectedRepair.problem_type}</p>
                 <p><strong>สถานที่:</strong> {selectedRepair.other_location || selectedRepair.location_name}</p>
                 <p>
@@ -438,12 +463,16 @@ function MyRepairs() {
                 <p>{selectedRepair.description}</p>
               </div>
 
+              <RepairCardNotes
+                repair={selectedRepair}
+                showTechnicianNote={false}
+                showAdminNote={false}
+                extraNotes={getOutcomeNotes(selectedRepair)}
+              />
+
               {selectedRepair.status !== "รอซ่อม" && (
                 <div className="tech-info-box">
                   <p><strong><UserRound size={17} aria-hidden="true" /> ช่างผู้รับผิดชอบ:</strong> {selectedRepair.technician_name || "อยู่ระหว่างดำเนินการ"}</p>
-                  {selectedRepair.technician_note && (
-                    <p className="tech-note"><strong><MessageSquareText size={17} aria-hidden="true" /> หมายเหตุจากช่าง:</strong> {selectedRepair.technician_note}</p>
-                  )}
                   {(selectedRepair.status === "เสร็จเรียบร้อย" || selectedRepair.status === "เสร็จสิ้น") && (
                     <div style={{ marginTop: "15px", textAlign: "center" }}>
                       <a

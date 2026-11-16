@@ -108,6 +108,25 @@ func ConnectDB() error {
 	if err != nil {
 		return fmt.Errorf("failed to create technician responsible areas: %w", err)
 	}
+	_, err = db.Exec(`
+		DELETE FROM technician_responsible_areas WHERE scope = 'faculty';
+		ALTER TABLE technician_responsible_areas
+			DROP CONSTRAINT IF EXISTS technician_responsible_areas_scope_check,
+			DROP CONSTRAINT IF EXISTS technician_responsible_areas_check,
+			DROP CONSTRAINT IF EXISTS technician_responsible_areas_valid_scope_check;
+		ALTER TABLE technician_responsible_areas
+			ADD CONSTRAINT technician_responsible_areas_scope_check
+				CHECK (scope IN ('location', 'floor', 'room')),
+			ADD CONSTRAINT technician_responsible_areas_valid_scope_check
+				CHECK (
+					(scope = 'location' AND location_id IS NOT NULL AND floor_id IS NULL AND room_id IS NULL) OR
+					(scope = 'floor' AND location_id IS NULL AND floor_id IS NOT NULL AND room_id IS NULL) OR
+					(scope = 'room' AND location_id IS NULL AND floor_id IS NULL AND room_id IS NOT NULL)
+				)
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to migrate technician responsible-area scopes: %w", err)
+	}
 
 	_, err = db.Exec(`
 		INSERT INTO problem_types (name)

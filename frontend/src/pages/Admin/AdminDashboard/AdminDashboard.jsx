@@ -64,7 +64,7 @@ function AdminDashboard() {
   const totalRepairs = filteredRepairs.length;
   const pendingCount = filteredRepairs.filter(r => r.status === "รอซ่อม" || r.status === "รับงานแล้ว").length;
   const progressCount = filteredRepairs.filter(r => r.status === "กำลังซ่อม").length;
-  const cannotRepairCount = filteredRepairs.filter(r => r.status === "ซ่อมไม่ได้" || r.status === "ส่งซ่อมภายนอก").length;
+  const cannotRepairCount = filteredRepairs.filter(r => ["ซ่อมไม่ได้", "ส่งซ่อมภายนอก", "ส่งซ่อมภายนอก / คณะ", "ส่งซ่อมให้คณะ"].includes(r.status)).length;
   const completedCount = filteredRepairs.filter(r => r.status === "เสร็จเรียบร้อย" || r.status === "เสร็จสิ้น").length;
 
   // ฟังก์ชันคำนวณหาเวลาซ่อมเฉลี่ย (MTTR)
@@ -120,10 +120,10 @@ function AdminDashboard() {
   const paginatedWarningRepairs = getPageItems(warningRepairs, warningPage, REPAIR_PAGE_SIZE);
 
   const statusChartData = [
-    { name: "รอรับงาน/เข้าหน้างาน", value: pendingCount, color: "#f39c12" },
-    { name: "กำลังซ่อม", value: progressCount, color: "#2980b9" },
+    { name: "รอรับงาน / รับงานแล้ว", value: pendingCount, color: "#f39c12" },
+    { name: "กำลังดำเนินการซ่อม", value: progressCount, color: "#2980b9" },
     { name: "ซ่อมไม่ได้/ส่งภายนอก", value: cannotRepairCount, color: "#e74c3c" },
-    { name: "เสร็จสิ้น", value: completedCount, color: "#007A53" }
+    { name: "ดำเนินเสร็จสิ้น", value: completedCount, color: "#007A53" }
   ].filter(item => item.value > 0);
 
   const problemTypeData = useMemo(() => {

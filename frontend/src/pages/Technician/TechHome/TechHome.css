@@ -145,6 +145,7 @@
   font-weight: bold;
   color: white;
 }
+.status-waiting { background-color: #e5e7eb; color: #374151; border: 1px solid #d1d5db; }
 .status-pending { background-color: #f39c12; }
 .status-progress { background-color: #2980b9; }
 .status-completed { background-color: var(--color-primary); }
@@ -366,6 +367,11 @@
   background: #e9f8ef;
 }
 
+.estimate-check-advisory {
+  color: #73520b;
+  background: #fff8e1;
+}
+
 .estimate-check-exceeded {
   color: #9f2525;
   background: #fff0f0;
@@ -374,13 +380,95 @@
 .tech-container .estimate-warning-note {
   margin: 0 auto 12px;
   padding: 10px 12px;
-  border: 1px solid #f4c7c7;
+  border: 1px solid #f4d28f;
   border-radius: 9px;
-  color: #9f2525;
-  background: #fff5f5;
+  color: #73520b;
+  background: #fff8e1;
   font-size: 0.84rem;
   font-weight: 700;
   line-height: 1.45;
+}
+
+.break-even-summary {
+  margin: 0 0 18px;
+  padding: 16px;
+  border: 1px solid #d5e0dc;
+  border-radius: 10px;
+  background: #f7faf8;
+}
+
+.break-even-summary h4 {
+  margin: 0 0 12px;
+  color: #1f3b31;
+}
+
+.break-even-thresholds {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.break-even-thresholds p {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid #d69a24;
+  background: #fff8e8;
+}
+
+.break-even-thresholds p:last-child {
+  border-left-color: #cb5555;
+  background: #fff0ef;
+}
+
+.break-even-thresholds span {
+  color: #56635d;
+  font-size: 0.82rem;
+}
+
+.break-even-thresholds strong {
+  color: #25372f;
+}
+
+.break-even-alert {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 7px;
+  color: #335b48;
+  background: #e9f5ee;
+  font-size: 0.9rem;
+}
+
+.break-even-alert.is-warning {
+  color: #73520b;
+  background: #fff5d8;
+}
+
+.break-even-alert.is-high {
+  color: #8f2828;
+  background: #ffebeb;
+}
+
+.break-even-suggestion {
+  margin: 12px 0 0;
+  color: #34443d;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.break-even-human-decision {
+  margin: 8px 0 0;
+  color: #64736c;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 520px) {
+  .break-even-thresholds {
+    grid-template-columns: 1fr;
+  }
 }
 
 .textarea-input {

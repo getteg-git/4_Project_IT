@@ -23,6 +23,7 @@ import {
   X
 } from "lucide-react";
 import useToast from "../../../hooks/useToast";
+import { getRepairStatusLabel } from "../../../utils/repairStatus.js";
 import SearchField from "../../../components/ui/SearchField";
 import Pagination from "../../../components/ui/Pagination";
 import { getPageItems, REPAIR_PAGE_SIZE } from "../../../components/ui/paginationUtils";
@@ -46,6 +47,10 @@ function TechHome() {
 
   const [selectedRepair, setSelectedRepair] = useState(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [returningRepair, setReturningRepair] = useState(null);
+  const [returnReason, setReturnReason] = useState("");
+  const [returnDetails, setReturnDetails] = useState("");
+  const [isReturningRepair, setIsReturningRepair] = useState(false);
   const [assignmentRepair, setAssignmentRepair] = useState(null);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [chosenTechId, setChosenTechId] = useState("");
@@ -69,8 +74,9 @@ function TechHome() {
   const [estimateTicketId, setEstimateTicketId] = useState(null);
   const [estimatedCost, setEstimatedCost] = useState("");
   const [isStartingRepair, setIsStartingRepair] = useState(false);
-  const [estimateBasePrice, setEstimateBasePrice] = useState(null);
-  const [priceCheckStatus, setPriceCheckStatus] = useState("idle");
+  const [breakEvenSummary, setBreakEvenSummary] = useState(null);
+  const [breakEvenLoadError, setBreakEvenLoadError] = useState("");
+  const [isBreakEvenLoading, setIsBreakEvenLoading] = useState(false);
 
   useEffect(() => () => {
     completionImageUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
@@ -184,7 +190,7 @@ function TechHome() {
   const getStatusClass = (status) => {
     switch (status) {
       case "รอซ่อม":
-        return "status-pending";
+        return "status-waiting";
 
       case "รับงานแล้ว":
         return "status-pending";
@@ -378,58 +384,64 @@ function TechHome() {
   };
 
   const handleStartRepair = async (repair) => {
-    let basePrice = repair.base_price == null
-      ? null
-      : Number(repair.base_price);
-
-    if (basePrice !== null && !Number.isFinite(basePrice)) {
-      toast.error("โหลดเพดานราคาประเมินไม่สำเร็จ", {
-        description: "ราคาทุนครุภัณฑ์ไม่ถูกต้อง กรุณาติดต่อผู้ดูแลระบบ",
-      });
-      return;
-    }
-
     setEstimateTicketId(repair.id);
-    setEstimatedCost("");
     clearCompletionImages();
-    setEstimateBasePrice(basePrice);
-    setPriceCheckStatus("idle");
+    setBreakEvenSummary(null);
+    setBreakEvenLoadError("");
+    setIsBreakEvenLoading(true);
     setIsStartingRepair(true);
     setEstimateModalOpen(true);
-  };
-
-  const handleReject = async (id) => {
-    const confirmReject = await confirm({
-      title: "ปฏิเสธงานซ่อม",
-      description:
-        "งานซ่อมนี้จะถูกส่งคืนให้ผู้ดูแลระบบพิจารณามอบหมายใหม่",
-      confirmLabel: "ปฏิเสธงาน",
-      variant: "danger",
-    });
-
-    if (!confirmReject) return;
 
     try {
+      const response = await fetch(`${API_BASE_URL}/api/repairs/${repair.id}/break-even`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "ไม่สามารถดึงยอดซ่อมสะสมได้");
+      setBreakEvenSummary(data);
+    } catch (error) {
+      setBreakEvenLoadError(error.message || "ไม่สามารถดึงยอดซ่อมสะสมได้");
+    } finally {
+      setIsBreakEvenLoading(false);
+    }
+  };
+
+  const openReturnJobModal = (repair) => {
+    setReturningRepair(repair);
+    setReturnReason("");
+    setReturnDetails("");
+  };
+
+  const handleReturnJob = async (event) => {
+    event.preventDefault();
+    if (!returningRepair || !returnReason) return;
+    setIsReturningRepair(true);
+    const formData = new FormData();
+    formData.append("tech_id", String(currentUser.id));
+    formData.append("rejection_reason", returnReason);
+    formData.append("rejection_note", returnDetails.trim());
+    try {
       const response = await fetch(
-        `${API_BASE_URL}/api/repairs/${id}/reject`,
+        `${API_BASE_URL}/api/repairs/${returningRepair.id}/reject`,
         {
           method: "PUT",
+          body: formData,
         }
       );
 
       if (response.ok) {
-        toast.success("ส่งงานกลับผู้ดูแลแล้ว", {
-          description: "ผู้ดูแลระบบจะพิจารณามอบหมายงานอีกครั้ง",
+        toast.success("ส่งคืนงานให้แอดมินแล้ว", {
+          description: "แอดมินได้รับเหตุผลและจะพิจารณามอบหมายงานใหม่",
         });
-
+        setReturningRepair(null);
         fetchMyJobs(currentUser);
       } else {
-        toast.error("ปฏิเสธงานไม่สำเร็จ", {
-          description: "กรุณาลองใหม่อีกครั้ง",
-        });
+        const data = await response.json();
+        toast.error("ส่งคืนงานไม่สำเร็จ", { description: data.error || "กรุณาลองใหม่อีกครั้ง" });
       }
     } catch (error) {
-      console.error("Reject Error:", error);
+      console.error("Return Repair Error:", error);
+      toast.error("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
+    } finally {
+      setIsReturningRepair(false);
     }
   };
 
@@ -438,32 +450,24 @@ function TechHome() {
     setEstimateTicketId(id);
     setEstimatedCost("");
     setIsStartingRepair(false);
-    setEstimateBasePrice(null);
     setEstimateModalOpen(true);
   };
 
   const submitEstimate = async () => {
     setIsSubmitting(true);
 
-    const costValue =
-      estimatedCost === "" ? 0 : Number(estimatedCost);
+    const costValue = isStartingRepair || estimatedCost === "" ? 0 : Number(estimatedCost);
     const useMultipart = isStartingRepair && completionImages.length > 0;
     const requestBody = useMultipart
       ? new FormData()
       : JSON.stringify({
           estimated_cost: costValue,
-          ...(isStartingRepair && {
-            tech_id: currentUser.id,
-            force_admin_review: priceCheckStatus === "exceeded",
-          }),
+          ...(isStartingRepair && { tech_id: currentUser.id }),
         });
 
     if (useMultipart) {
       requestBody.append("estimated_cost", String(costValue));
       requestBody.append("tech_id", String(currentUser.id));
-      if (priceCheckStatus === "exceeded") {
-        requestBody.append("force_admin_review", "true");
-      }
       completionImages.forEach(({ file }) => requestBody.append("image", file));
     }
 
@@ -482,12 +486,7 @@ function TechHome() {
       if (response.ok) {
         const data = await response.json();
 
-        if (isStartingRepair && data.status === "รอซ่อม") {
-          const ticket = repairs.find((repair) => repair.id === estimateTicketId);
-          toast.warning("ส่งงานให้ผู้ดูแลระบบพิจารณาแล้ว", {
-            description: `ราคาประเมินเกินเกณฑ์จุดคุ้มทุน (Ticket ${ticket?.ticket_number || `#${estimateTicketId}`})`,
-          });
-        } else if (isStartingRepair) {
+        if (isStartingRepair) {
           toast.success("เริ่มดำเนินการซ่อมแล้ว", {
             description: data.message || "เปลี่ยนสถานะงานเป็นกำลังซ่อมและเริ่มบันทึกเวลาแล้ว",
           });
@@ -507,7 +506,6 @@ function TechHome() {
 
         setEstimateModalOpen(false);
         setIsStartingRepair(false);
-        setEstimateBasePrice(null);
         clearCompletionImages();
         fetchMyJobs(currentUser);
       } else {
@@ -522,7 +520,7 @@ function TechHome() {
           }
         }
 
-        toast.error("ส่งราคาประเมินไม่สำเร็จ", {
+        toast.error(isStartingRepair ? "เริ่มซ่อมไม่สำเร็จ" : "บันทึกราคาประเมินไม่สำเร็จ", {
           description: errorMessage,
         });
       }
@@ -530,7 +528,7 @@ function TechHome() {
       console.error("Estimate Error:", error);
 
       toast.error("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้", {
-        description: "ส่งราคาประเมินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+        description: isStartingRepair ? "เริ่มซ่อมไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" : "บันทึกราคาประเมินไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
       });
     } finally {
       setIsSubmitting(false);
@@ -539,49 +537,7 @@ function TechHome() {
 
   const handleSubmitEstimate = async (event) => {
     event.preventDefault();
-    if (isStartingRepair && priceCheckStatus !== "approved") return;
     await submitEstimate();
-  };
-
-  const handleCheckBreakEven = async () => {
-    const cost = Number(estimatedCost);
-    if (estimatedCost === "" || !Number.isFinite(cost) || cost < 0) {
-      toast.error("กรุณากรอกราคาประเมินให้ถูกต้อง");
-      return;
-    }
-    setPriceCheckStatus("checking");
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/repairs/${estimateTicketId}/estimate`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            estimated_cost: cost,
-            tech_id: currentUser.id,
-            check_only: true,
-          }),
-        }
-      );
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || "ตรวจสอบจุดคุ้มทุนไม่สำเร็จ");
-      }
-      const exceedsSingleRepairLimit =
-        Number.isFinite(estimateBasePrice) &&
-        cost > estimateBasePrice * 0.5;
-      setPriceCheckStatus(
-        data.requires_approval || exceedsSingleRepairLimit
-          ? "exceeded"
-          : "approved"
-      );
-    } catch (error) {
-      console.error("Break-even Check Error:", error);
-      setPriceCheckStatus("idle");
-      toast.error("ตรวจสอบจุดคุ้มทุนไม่สำเร็จ", {
-        description: error.message || "กรุณาลองใหม่อีกครั้ง",
-      });
-    }
   };
 
   // ปิดงานซ่อม
@@ -642,7 +598,6 @@ function TechHome() {
         return { file, previewUrl };
       });
       setCompletionImages((current) => [...current, ...imagesToAdd]);
-      if (isStartingRepair) setPriceCheckStatus("idle");
     }
   };
 
@@ -652,7 +607,6 @@ function TechHome() {
     URL.revokeObjectURL(image.previewUrl);
     completionImageUrlsRef.current.delete(image.previewUrl);
     setCompletionImages((current) => current.filter((_, itemIndex) => itemIndex !== index));
-    if (isStartingRepair) setPriceCheckStatus("idle");
   };
 
   const handleSubmitClose = async (e) => {
@@ -688,7 +642,7 @@ function TechHome() {
 
       if (response.ok) {
         toast.success("บันทึกสถานะสำเร็จ", {
-          description: `อัปเดตงานเป็นสถานะ “${newStatus}” แล้ว`,
+          description: `อัปเดตงานเป็นสถานะ “${getRepairStatusLabel(newStatus)}” แล้ว`,
         });
 
         setModalOpen(false);
@@ -770,7 +724,7 @@ function TechHome() {
             repair.status
           )}`}
         >
-          {repair.status}
+          {getRepairStatusLabel(repair.status)}
         </span>
       </div>
 
@@ -875,15 +829,14 @@ function TechHome() {
             </button>
           )}
 
-          {repair.status === "รอซ่อม" && (
+          {["รอซ่อม", "รับงานแล้ว"].includes(repair.status) && (
             <button
               className="btn-reject"
-              onClick={() =>
-                handleReject(repair.id)
-              }
+              type="button"
+              onClick={() => openReturnJobModal(repair)}
             >
               <X size={17} aria-hidden="true" />{" "}
-              ปฏิเสธงาน
+              คืนงานให้แอดมิน
             </button>
           )}
         </div>
@@ -1185,7 +1138,7 @@ function TechHome() {
                       selectedRepair.status
                     )}`}
                   >
-                    {selectedRepair.status}
+                    {getRepairStatusLabel(selectedRepair.status)}
                   </span>
                 </p>
 
@@ -1459,7 +1412,61 @@ function TechHome() {
         </div>
       )}
 
-      {/* POPUP 2: ประเมินราคา */}
+      {returningRepair && (
+        <div className="modal-overlay">
+          <div className="modal-box return-job-modal" role="dialog" aria-modal="true" aria-labelledby="return-job-title">
+            <button
+              className="close-btn"
+              type="button"
+              disabled={isReturningRepair}
+              onClick={() => setReturningRepair(null)}
+              aria-label="ปิดหน้าต่างคืนงาน"
+            >
+              <X aria-hidden="true" />
+            </button>
+            <h3 id="return-job-title" className="modal-title-primary">คืนงานให้แอดมิน</h3>
+            <p className="modal-subtitle">
+              Ticket: {returningRepair.ticket_number || `#${returningRepair.id}`} งานจะกลับไปยังคิวแอดมินพร้อมเหตุผลที่เลือก
+            </p>
+            <form onSubmit={handleReturnJob}>
+              <div className="input-group">
+                <label htmlFor="return-job-reason">เหตุผลที่คืนงาน <span className="required">*</span></label>
+                <select
+                  id="return-job-reason"
+                  value={returnReason}
+                  onChange={(event) => setReturnReason(event.target.value)}
+                  required
+                >
+                  <option value="">เลือกเหตุผล</option>
+                  <option value="ไม่ถนัด">ไม่ถนัด / ไม่อยู่ในความเชี่ยวชาญ</option>
+                  <option value="ส่งงานผิดประเภท">ส่งงานผิดประเภท</option>
+                  <option value="ทำไม่ได้">ไม่สามารถดำเนินการได้</option>
+                </select>
+              </div>
+              <div className="input-group">
+                <label htmlFor="return-job-details">รายละเอียดเพิ่มเติม</label>
+                <textarea
+                  id="return-job-details"
+                  rows="3"
+                  value={returnDetails}
+                  onChange={(event) => setReturnDetails(event.target.value)}
+                  placeholder="ระบุข้อมูลเพิ่มเติมให้แอดมินพิจารณา (ถ้ามี)"
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn-cancel" onClick={() => setReturningRepair(null)} disabled={isReturningRepair}>
+                  ยกเลิก
+                </button>
+                <button type="submit" className="btn-reject" disabled={!returnReason || isReturningRepair}>
+                  {isReturningRepair ? "กำลังส่งคืนงาน..." : "ยืนยันคืนงาน"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP 2: แจ้งยอดซ่อมสะสมและเริ่มซ่อม */}
       {estimateModalOpen && (
         <div className="modal-overlay">
           <div className="modal-box">
@@ -1470,7 +1477,6 @@ function TechHome() {
               onClick={() => {
                 setEstimateModalOpen(false);
                 setIsStartingRepair(false);
-                setEstimateBasePrice(null);
                 clearCompletionImages();
               }}
               aria-label="ปิดหน้าต่าง"
@@ -1483,21 +1489,11 @@ function TechHome() {
                 size={23}
                 aria-hidden="true"
               />{" "}
-              {isStartingRepair ? "เริ่มซ่อมและประเมินราคา" : "ประเมินราคาก่อนดำเนินการซ่อม"}
+              {isStartingRepair ? "เริ่มดำเนินการซ่อม" : "บันทึกราคาประเมิน"}
             </h3>
 
             <p className="modal-subtitle">
-              {isStartingRepair
-                ? "ยืนยันเริ่มซ่อมเพื่อเปลี่ยนสถานะงานและเริ่มบันทึกเวลา"
-                : "รหัสใบงาน: "}
-              {!isStartingRepair && (
-                <>
-              {repairs.find(
-                (r) => r.id === estimateTicketId
-              )?.ticket_number ||
-                `#${estimateTicketId}`}
-                </>
-              )}
+              Ticket: {repairs.find((repair) => repair.id === estimateTicketId)?.ticket_number || `#${estimateTicketId}`}
             </p>
 
             <form onSubmit={handleSubmitEstimate}>
@@ -1566,133 +1562,96 @@ function TechHome() {
                 </div>
               )}
 
-              {isStartingRepair && Number.isFinite(estimateBasePrice) && (
-                <>
-                  <div className="estimate-budget-note">
-                    <div>
-                      <span>ราคาทุนครุภัณฑ์</span>
-                      <strong>{estimateBasePrice.toLocaleString()} บาท</strong>
-                    </div>
-                    <div>
-                      <label htmlFor="break-even-point">จุดคุ้มทุนต่อรายการ (50%)</label>
-                      <input
-                        id="break-even-point"
-                        type="text"
-                        value={`${(estimateBasePrice * 0.5).toLocaleString()} บาท`}
-                        readOnly
-                        aria-describedby="break-even-help"
-                      />
-                    </div>
-                  </div>
-                  <p id="break-even-help" className="estimate-warning-note">
-                    หากเกินจุดคุ้มทุน ระบบจะส่งรายการให้ผู้ดูแลระบบพิจารณา โดยตรวจสอบยอดสะสมร่วมด้วย
-                  </p>
-                </>
+              {isStartingRepair && (
+                <section className={`break-even-summary ${breakEvenSummary ? `is-${breakEvenSummary.alert_level}` : ""}`} aria-live="polite">
+                  <h4>แจ้งเตือนจุดคุ้มทุน</h4>
+                  {isBreakEvenLoading ? (
+                    <p>กำลังโหลดประวัติซ่อม...</p>
+                  ) : breakEvenLoadError ? (
+                    <p role="alert">{breakEvenLoadError}</p>
+                  ) : !breakEvenSummary?.has_equipment ? (
+                    <>
+                      <p className="break-even-alert is-no_equipment">{breakEvenSummary.risk_message}</p>
+                      <p className="break-even-suggestion">
+                        <strong>แนวทางที่อาจพิจารณา:</strong> {breakEvenSummary.suggested_action}
+                      </p>
+                      <p className="break-even-human-decision">
+                        ข้อมูลนี้เป็นการแจ้งเตือนเท่านั้น ไม่มีการปรับราคา อนุมัติ หรือหยุดงานอัตโนมัติ การตัดสินใจเป็นของผู้ดูแลและช่าง
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="estimate-budget-note">
+                        <div>
+                          <span>ต้นทุนปัจจุบัน (ราคาทุน)</span>
+                          <strong>{breakEvenSummary.alert_level === "no_base_price" ? "ยังไม่ระบุ" : `${Number(breakEvenSummary.equipment_base_price).toLocaleString("th-TH")} บาท`}</strong>
+                        </div>
+                        <div>
+                          <span>ค่าซ่อมอุปกรณ์ที่ผ่านมา</span>
+                          <strong>{Number(breakEvenSummary.accumulated_repair_cost).toLocaleString("th-TH")} บาท</strong>
+                        </div>
+                      </div>
+                      {breakEvenSummary.alert_level !== "no_base_price" && (
+                        <div className="break-even-thresholds">
+                          <p><span>จุดเตือน 30%</span><strong>{Number(breakEvenSummary.threshold_30).toLocaleString("th-TH")} บาท</strong></p>
+                          <p><span>จุดเตือน 50%</span><strong>{Number(breakEvenSummary.threshold_50).toLocaleString("th-TH")} บาท</strong></p>
+                        </div>
+                      )}
+                      <p className={`break-even-alert is-${breakEvenSummary.alert_level}`}>
+                        {breakEvenSummary.risk_message}
+                      </p>
+                      <p className="break-even-suggestion">
+                        <strong>แนวทางที่อาจพิจารณา:</strong> {breakEvenSummary.suggested_action}
+                      </p>
+                      <p className="break-even-human-decision">
+                        ข้อมูลนี้เป็นการแจ้งเตือนเท่านั้น ไม่มีการปรับราคา อนุมัติ หรือหยุดงานอัตโนมัติ การตัดสินใจเป็นของผู้ดูแลและช่าง
+                      </p>
+                    </>
+                  )}
+                </section>
               )}
-              <div className="input-group">
-                <label>
-                  <Banknote
-                    size={17}
-                    aria-hidden="true"
-                  />{" "}
-                  ราคาประเมินเบื้องต้น (บาท){" "}
-                  <span className="required">
-                    *
-                  </span>
-                </label>
 
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  className="cost-input"
-                  placeholder="ใส่ราคาประเมิน (กรอก 0 หากไม่เสียค่าใช้จ่าย)"
-                  value={estimatedCost}
-                  onChange={(e) => {
-                    setEstimatedCost(e.target.value);
-                    setPriceCheckStatus("idle");
-                  }}
-                  required
-                />
-
-                {isStartingRepair && estimatedCost !== "" && (
-                  <p
-                    className={`estimate-check-status estimate-check-${priceCheckStatus}`}
-                    role="status"
-                    aria-live="polite"
-                  >
-                    {priceCheckStatus === "checking" && "กำลังตรวจสอบราคา..."}
-                    {priceCheckStatus === "approved" && "ผ่านเกณฑ์ — ยืนยันการซ่อมได้"}
-                    {priceCheckStatus === "exceeded" &&
-                      `เนื่องจากราคาประเมิน (${Number(estimatedCost).toLocaleString("th-TH")} บาท) สูงกว่าจุดคุ้มทุน ระบบจำเป็นต้องส่งรายการนี้ให้ "แอดมิน / ผู้ดูแลระบบ" พิจารณาอนุมัติก่อนเริ่มซ่อม`}
-                  </p>
-                )}
-
-                <small className="cost-hint">
-                  * กดตรวจสอบราคาก่อน ระบบจะประเมินยอดต่อรายการและตรวจยอดสะสมอีกครั้งที่เซิร์ฟเวอร์
-                </small>
-              </div>
+              {!isStartingRepair && (
+                <div className="input-group">
+                  <label htmlFor="estimated-cost">
+                    <Banknote size={17} aria-hidden="true" /> ราคาประเมินเบื้องต้น (บาท) <span className="required">*</span>
+                  </label>
+                  <input
+                    id="estimated-cost"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="cost-input"
+                    placeholder="ใส่ราคาประเมิน (กรอก 0 หากไม่เสียค่าใช้จ่าย)"
+                    value={estimatedCost}
+                    onChange={(event) => setEstimatedCost(event.target.value)}
+                    required
+                  />
+                </div>
+              )}
 
               <div className="modal-actions">
-                {isStartingRepair && priceCheckStatus !== "exceeded" && (
-                  <button
-                    type="button"
-                    className="btn-cancel"
-                    disabled={isSubmitting}
-                    onClick={() => {
-                      setEstimateModalOpen(false);
-                      setIsStartingRepair(false);
-                      setEstimateBasePrice(null);
-                      clearCompletionImages();
-                    }}
-                  >
-                    ยกเลิก
-                  </button>
-                )}
-                {!isStartingRepair ? (
-                  <button type="submit" className="btn-accept" disabled={isSubmitting}>
-                    {isSubmitting ? "กำลังบันทึก..." : "บันทึกราคาประเมิน"}
-                  </button>
-                ) : priceCheckStatus === "approved" ? (
-                  <button type="submit" className="btn-accept" disabled={isSubmitting}>
-                    {isSubmitting ? "กำลังบันทึก..." : "ยืนยันเริ่มซ่อม"}
-                  </button>
-                ) : priceCheckStatus === "exceeded" && !isSubmitting ? (
-                  <>
-                    <button
-                      type="button"
-                      className="btn-cancel"
-                      onClick={() => setPriceCheckStatus("idle")}
-                    >
-                      ยกเลิก / แก้ไขราคา
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-accept"
-                      disabled={isSubmitting}
-                      onClick={submitEstimate}
-                    >
-                      ยืนยันส่งแอดมินพิจารณา
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn-accept"
-                    disabled={
-                      isSubmitting ||
-                      estimatedCost === "" ||
-                      priceCheckStatus === "checking"
-                    }
-                    onClick={handleCheckBreakEven}
-                  >
-                    {isSubmitting
-                      ? "กำลังบันทึก..."
-                      : priceCheckStatus === "checking"
-                        ? "กำลังตรวจสอบราคา..."
-                        : "ตรวจสอบราคา"}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  className="btn-cancel"
+                  disabled={isSubmitting}
+                  onClick={() => {
+                    setEstimateModalOpen(false);
+                    setIsStartingRepair(false);
+                    clearCompletionImages();
+                  }}
+                >
+                  ยกเลิก
+                </button>
+                <button type="submit" className="btn-accept" disabled={isSubmitting || (isStartingRepair && isBreakEvenLoading)}>
+                  {isSubmitting
+                    ? "กำลังบันทึก..."
+                    : isStartingRepair && isBreakEvenLoading
+                      ? "กำลังโหลดข้อมูล..."
+                      : isStartingRepair
+                        ? "เริ่มซ่อม"
+                        : "บันทึกราคาประเมิน"}
+                </button>
               </div>
             </form>
           </div>

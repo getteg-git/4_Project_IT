@@ -24,7 +24,7 @@ func GetDashboardOverview(c *gin.Context) {
             COUNT(*) as total_repairs,
 			COALESCE(SUM(CASE WHEN status IN ('รอซ่อม', 'รับงานแล้ว') THEN 1 ELSE 0 END), 0) as pending,
             COALESCE(SUM(CASE WHEN status = 'กำลังซ่อม' THEN 1 ELSE 0 END), 0) as in_progress,
-			COALESCE(SUM(CASE WHEN status IN ('ซ่อมไม่ได้', 'ส่งซ่อมภายนอก') THEN 1 ELSE 0 END), 0) as cannot_repair,
+			COALESCE(SUM(CASE WHEN status IN ('ซ่อมไม่ได้', 'ส่งซ่อมภายนอก', 'ส่งซ่อมภายนอก / คณะ', 'ส่งซ่อมให้คณะ') THEN 1 ELSE 0 END), 0) as cannot_repair,
             COALESCE(SUM(CASE WHEN status = 'เสร็จสิ้น' THEN 1 ELSE 0 END), 0) as completed
         FROM repairs
         WHERE 1=1 
@@ -147,7 +147,7 @@ func GetBreakEvenAnalysis(c *gin.Context) {
                 ELSE 0 
             END AS repair_ratio
         FROM equipments e
-        LEFT JOIN repairs r ON e.id = r.equipment_id AND r.status = 'เสร็จเรียบร้อย'
+		LEFT JOIN repairs r ON e.id = r.equipment_id AND r.status IN ('เสร็จเรียบร้อย', 'เสร็จสิ้น')
         WHERE e.is_active = TRUE
         GROUP BY e.id, e.asset_code, e.name, e.category, e.base_price
         ORDER BY total_repair_cost DESC
@@ -180,8 +180,10 @@ func GetBreakEvenAnalysis(c *gin.Context) {
 			return
 		}
 
-		// 🔥 [แก้ไข] ปรับเป็น 70% ตามลอจิก Accumulated Cost ของระบบ Hybrid
-		item.IsExceeded = item.RepairRatio >= 70.0
+		item.Threshold30 = item.BasePrice * 0.3
+		item.Threshold50 = item.BasePrice * 0.5
+		item.IsWarning = item.RepairRatio >= 30 && item.RepairRatio < 50
+		item.IsExceeded = item.RepairRatio >= 50
 
 		analysisList = append(analysisList, item)
 	}

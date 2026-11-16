@@ -58,6 +58,7 @@ func SetupRoutes(r *gin.Engine) {
 		api.GET("/repairs", repairHandler.GetAllRepairs)
 		// ใช้สำหรับดึงข้อมูลรายการการแจ้งซ่อมตาม id
 		api.GET("/repairs/:id", repairHandler.GetRepairByID)
+		api.GET("/repairs/:id/break-even", repairHandler.GetBreakEvenSummary)
 		// ใช้สำหรับสร้างรายการการแจ้งซ่อม
 		api.POST("/repairs", repairHandler.CreateRepair)
 		// ใช้สำหรับการมอบหมายงานให้ช่างแต่ละคน

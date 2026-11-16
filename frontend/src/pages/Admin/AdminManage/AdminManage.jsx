@@ -29,6 +29,7 @@ import { getPageItems, REPAIR_PAGE_SIZE } from "../../../components/ui/paginatio
 import RepairCardNotes from "../../../components/RepairCardNotes";
 import FilterBar from "../../../components/ui/FilterBar";
 import useToast from "../../../hooks/useToast";
+import { getRepairStatusLabel } from "../../../utils/repairStatus.js";
 import "./AdminManage.css";
 
 function AdminManage() {
@@ -303,6 +304,7 @@ function AdminManage() {
       !isCompletedRepair(repair) &&
       !isAdminCancelledRepair(repair) &&
       repair.status !== "ส่งซ่อมภายนอก" &&
+      repair.status !== "ส่งซ่อมภายนอก / คณะ" &&
       repair.status !== "ส่งซ่อมให้คณะ" &&
       repair.status !== "ซ่อมไม่ได้" &&
       repair.status !== "กำลังซ่อม" &&
@@ -315,6 +317,7 @@ function AdminManage() {
       !isCompletedRepair(repair) &&
       !isAdminCancelledRepair(repair) &&
       repair.status !== "ส่งซ่อมภายนอก" &&
+      repair.status !== "ส่งซ่อมภายนอก / คณะ" &&
       repair.status !== "ส่งซ่อมให้คณะ" &&
       repair.status !== "ซ่อมไม่ได้" &&
       repair.status !== "กำลังซ่อม" &&
@@ -332,7 +335,7 @@ function AdminManage() {
   const repairFailureRepairs = filteredRepairs.filter(needsRepairReview);
 
   const outsourcedRepairs = filteredRepairs.filter(
-    (repair) => ["ส่งซ่อมภายนอก", "ส่งซ่อมให้คณะ"].includes(repair.status)
+    (repair) => ["ส่งซ่อมภายนอก", "ส่งซ่อมภายนอก / คณะ", "ส่งซ่อมให้คณะ"].includes(repair.status)
   );
 
   const progressRepairs = filteredRepairs.filter(
@@ -372,12 +375,13 @@ function AdminManage() {
   const getStatusClass = (status) => {
     switch (status) {
       case "รอซ่อม":
-        return "status-pending";
+        return "status-waiting";
       case "รับงานแล้ว":
         return "status-pending";
       case "กำลังซ่อม":
         return "status-progress";
       case "ส่งซ่อมภายนอก":
+      case "ส่งซ่อมภายนอก / คณะ":
       case "ส่งซ่อมให้คณะ":
         return "status-outsourced";
       case "เสร็จเรียบร้อย":
@@ -435,6 +439,7 @@ function AdminManage() {
           "เสร็จเรียบร้อย",
           "เสร็จสิ้น",
           "ส่งซ่อมภายนอก",
+          "ส่งซ่อมภายนอก / คณะ",
           "ส่งซ่อมให้คณะ",
         ].includes(repair.status) &&
         !isAdminCancelledRepair(repair)
@@ -464,7 +469,8 @@ function AdminManage() {
             tech.specialty_names &&
             tech.specialty_names.includes(selectedRepair.problem_type);
 
-          const hasAreaCoverage = technicianResponsibleAreas.some((area) => {
+          const isOtherLocation = Boolean(selectedRepair.other_location?.trim());
+          const hasAreaCoverage = isOtherLocation || technicianResponsibleAreas.some((area) => {
             if (String(area.technician_id) !== String(tech.id)) return false;
             if (area.scope === "location") {
               return String(area.location_id) === String(selectedRepair.location_id);
@@ -1028,7 +1034,7 @@ function AdminManage() {
                       repair.status
                     )}`}
                   >
-                    {repair.status}
+                    {getRepairStatusLabel(repair.status)}
                   </span>
                 </div>
 
@@ -1341,7 +1347,7 @@ function AdminManage() {
                       selectedRepair.status
                     )}`}
                   >
-                    {selectedRepair.status}
+                    {getRepairStatusLabel(selectedRepair.status)}
                   </span>
                 </p>
 
@@ -1524,6 +1530,11 @@ function AdminManage() {
               {selectedRepair.ticket_number ||
                 `#${selectedRepair.id}`}{" "}
               | {selectedRepair.problem_type}
+            </p>
+            <p className="assign-modal-subtitle">
+              {selectedRepair.other_location?.trim()
+                ? `สถานที่อื่นๆ: เลือกช่างตามความถนัด (${selectedRepair.other_location})`
+                : "รายชื่อช่างคัดตามความถนัดและพื้นที่รับผิดชอบ"}
             </p>
 
             <form onSubmit={handleAssignSubmit}>

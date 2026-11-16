@@ -1,10 +1,11 @@
 import { MessageSquareText } from "lucide-react";
 import "./RepairCardNotes.css";
 
-function RepairCardNotes({ repair }) {
+function RepairCardNotes({ repair, showTechnicianNote = true, showAdminNote = true, extraNotes = [] }) {
   const notes = [
-    { label: "หมายเหตุจากช่าง", value: repair.technician_note },
-    { label: "หมายเหตุจากแอดมิน", value: repair.admin_note },
+    ...(showTechnicianNote ? [{ label: "หมายเหตุจากช่าง", value: repair.technician_note }] : []),
+    ...(showAdminNote ? [{ label: "หมายเหตุจากแอดมิน", value: repair.admin_note }] : []),
+    ...extraNotes,
   ].filter(({ value }) => typeof value === "string" && value.trim());
 
   if (notes.length === 0) return null;

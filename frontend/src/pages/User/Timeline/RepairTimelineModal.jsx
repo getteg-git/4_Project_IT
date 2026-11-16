@@ -4,6 +4,7 @@ import { X, Clock, CheckCircle2, AlertCircle, PlayCircle, Ban, Camera, Circle } 
 import RepairImageGallery from "../../../components/RepairImageGallery";
 import Pagination from "../../../components/ui/Pagination";
 import { getPageItems } from "../../../components/ui/paginationUtils";
+import { getRepairStatusLabel } from "../../../utils/repairStatus.js";
 import "./RepairTimelineModal.css"; // เดี๋ยว CSS เราค่อยทำทีหลัง
 
 function RepairTimelineModal({
@@ -62,23 +63,30 @@ function RepairTimelineModal({
       case "OUTSOURCED": return { icon: <AlertCircle size={16} />, color: "text-orange", bg: "bg-orange" };
       case "REVOKED": 
       case "REJECTED":
+      case "RETURNED_TO_ADMIN":
       case "CANCELLED": return { icon: <Ban size={16} />, color: "text-red", bg: "bg-red" };
       default: return { icon: <Clock size={16} />, color: "text-gray", bg: "bg-gray" };
     }
   };
 
   const normalizeStatus = (status) => {
+    if (!status?.trim()) return "";
     switch (status?.trim()) {
+      case "รอซ่อม":
+      case "รอรับงาน":
+        return "รอรับงาน";
       case "รับงาน":
       case "รับงานแล้ว":
-        return "รับงาน";
+        return "รับงานแล้ว";
       case "กำลังซ่อม":
-        return "กำลังซ่อม";
+        return "กำลังดำเนินการซ่อม";
       case "เสร็จเรียบร้อย":
       case "เสร็จสิ้น":
-        return "เสร็จสิ้น";
-      default:
-        return "";
+        return "ดำเนินเสร็จสิ้น";
+      default: {
+        const label = getRepairStatusLabel(status?.trim());
+        return label === "ไม่ระบุสถานะ" ? "" : label;
+      }
     }
   };
   const visibleLogs = logs
@@ -89,13 +97,15 @@ function RepairTimelineModal({
     const chronologicalLogs = [...logs].sort(
       (left, right) => new Date(left.created_at) - new Date(right.created_at)
     );
-    const acceptedLog = chronologicalLogs.find((log) => normalizeStatus(log.new_status) === "รับงาน");
-    const startedLog = chronologicalLogs.find((log) => normalizeStatus(log.new_status) === "กำลังซ่อม");
-    const completedLog = chronologicalLogs.find((log) => normalizeStatus(log.new_status) === "เสร็จสิ้น");
+    const waitingLog = chronologicalLogs.find((log) => normalizeStatus(log.new_status) === "รอรับงาน");
+    const acceptedLog = chronologicalLogs.find((log) => normalizeStatus(log.new_status) === "รับงานแล้ว");
+    const startedLog = chronologicalLogs.find((log) => normalizeStatus(log.new_status) === "กำลังดำเนินการซ่อม");
+    const completedLog = chronologicalLogs.find((log) => normalizeStatus(log.new_status) === "ดำเนินเสร็จสิ้น");
     return [
-      { label: "รับงาน", log: acceptedLog, complete: Boolean(acceptedLog) },
-      { label: "กำลังซ่อม", log: startedLog, complete: Boolean(startedLog) },
-      { label: "เสร็จสิ้น", log: completedLog, complete: Boolean(completedLog) },
+      { label: "รอรับงาน", log: waitingLog, complete: Boolean(waitingLog) },
+      { label: "รับงานแล้ว", log: acceptedLog, complete: Boolean(acceptedLog) },
+      { label: "กำลังดำเนินการซ่อม", log: startedLog, complete: Boolean(startedLog) },
+      { label: "ดำเนินเสร็จสิ้น", log: completedLog, complete: Boolean(completedLog) },
     ].map((stage, index, stages) => ({
       ...stage,
       current: stage.complete && !stages.slice(index + 1).some((next) => next.complete),

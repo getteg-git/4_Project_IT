@@ -197,6 +197,7 @@
     box-shadow: 0 8px 18px rgba(0,0,0,0.08);
   }
 
+  .status-waiting { background: #e5e7eb; color: #374151; border: 1px solid #d1d5db; }
   .status-pending { background: linear-gradient(135deg, #f59e0b, #fbbf24); }
   .status-progress { background: linear-gradient(135deg, #2563eb, #3b82f6); }
   .status-completed { background: linear-gradient(135deg, #0c8d64, #10b981); }
