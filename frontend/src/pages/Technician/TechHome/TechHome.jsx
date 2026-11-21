@@ -74,6 +74,7 @@ function TechHome() {
   const [estimateTicketId, setEstimateTicketId] = useState(null);
   const [estimatedCost, setEstimatedCost] = useState("");
   const [isStartingRepair, setIsStartingRepair] = useState(false);
+  const [priceCheckStatus, setPriceCheckStatus] = useState("idle");
   const [breakEvenSummary, setBreakEvenSummary] = useState(null);
   const [breakEvenLoadError, setBreakEvenLoadError] = useState("");
   const [isBreakEvenLoading, setIsBreakEvenLoading] = useState(false);
@@ -385,6 +386,8 @@ function TechHome() {
 
   const handleStartRepair = async (repair) => {
     setEstimateTicketId(repair.id);
+    setEstimatedCost("");
+    setPriceCheckStatus("idle");
     clearCompletionImages();
     setBreakEvenSummary(null);
     setBreakEvenLoadError("");
@@ -449,6 +452,7 @@ function TechHome() {
   const openEstimateModal = (id) => {
     setEstimateTicketId(id);
     setEstimatedCost("");
+    setPriceCheckStatus("idle");
     setIsStartingRepair(false);
     setEstimateModalOpen(true);
   };
@@ -456,18 +460,24 @@ function TechHome() {
   const submitEstimate = async () => {
     setIsSubmitting(true);
 
-    const costValue = isStartingRepair || estimatedCost === "" ? 0 : Number(estimatedCost);
+    const costValue = estimatedCost === "" ? 0 : Number(estimatedCost);
     const useMultipart = isStartingRepair && completionImages.length > 0;
     const requestBody = useMultipart
       ? new FormData()
       : JSON.stringify({
           estimated_cost: costValue,
-          ...(isStartingRepair && { tech_id: currentUser.id }),
+          ...(isStartingRepair && {
+            tech_id: currentUser.id,
+            force_admin_review: priceCheckStatus === "exceeded",
+          }),
         });
 
     if (useMultipart) {
       requestBody.append("estimated_cost", String(costValue));
       requestBody.append("tech_id", String(currentUser.id));
+      if (priceCheckStatus === "exceeded") {
+        requestBody.append("force_admin_review", "true");
+      }
       completionImages.forEach(({ file }) => requestBody.append("image", file));
     }
 
@@ -486,7 +496,11 @@ function TechHome() {
       if (response.ok) {
         const data = await response.json();
 
-        if (isStartingRepair) {
+        if (isStartingRepair && data.status === "รอซ่อม") {
+          toast.warning("ส่งงานให้ผู้ดูแลระบบพิจารณาแล้ว", {
+            description: "ราคาประเมินเกินเกณฑ์ ระบบบันทึกราคาและส่งให้แอดมินอนุมัติก่อนเริ่มซ่อม",
+          });
+        } else if (isStartingRepair) {
           toast.success("เริ่มดำเนินการซ่อมแล้ว", {
             description: data.message || "เปลี่ยนสถานะงานเป็นกำลังซ่อมและเริ่มบันทึกเวลาแล้ว",
           });
@@ -537,7 +551,48 @@ function TechHome() {
 
   const handleSubmitEstimate = async (event) => {
     event.preventDefault();
+    if (isStartingRepair && priceCheckStatus !== "approved") return;
     await submitEstimate();
+  };
+
+  const handleCheckBreakEven = async () => {
+    const cost = Number(estimatedCost);
+    if (estimatedCost === "" || !Number.isFinite(cost) || cost < 0) {
+      toast.error("กรุณากรอกราคาประเมินให้ถูกต้อง");
+      return;
+    }
+
+    setPriceCheckStatus("checking");
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/repairs/${estimateTicketId}/estimate`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            estimated_cost: cost,
+            tech_id: currentUser.id,
+            check_only: true,
+          }),
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "ตรวจสอบราคาประเมินไม่สำเร็จ");
+      }
+
+      if (data.break_even_summary) {
+        setBreakEvenSummary(data.break_even_summary);
+      }
+      setBreakEvenLoadError("");
+      setPriceCheckStatus(data.requires_approval ? "exceeded" : "approved");
+    } catch (error) {
+      console.error("Estimate Check Error:", error);
+      setPriceCheckStatus("idle");
+      toast.error("ตรวจสอบราคาประเมินไม่สำเร็จ", {
+        description: error.message || "กรุณาลองใหม่อีกครั้ง",
+      });
+    }
   };
 
   // ปิดงานซ่อม
@@ -1489,7 +1544,7 @@ function TechHome() {
                 size={23}
                 aria-hidden="true"
               />{" "}
-              {isStartingRepair ? "เริ่มดำเนินการซ่อม" : "บันทึกราคาประเมิน"}
+              {isStartingRepair ? "เริ่มซ่อมและประเมินราคา" : "บันทึกราคาประเมิน"}
             </h3>
 
             <p className="modal-subtitle">
@@ -1564,94 +1619,155 @@ function TechHome() {
 
               {isStartingRepair && (
                 <section className={`break-even-summary ${breakEvenSummary ? `is-${breakEvenSummary.alert_level}` : ""}`} aria-live="polite">
-                  <h4>แจ้งเตือนจุดคุ้มทุน</h4>
+                  <h4>เกณฑ์พิจารณาราคาซ่อม</h4>
                   {isBreakEvenLoading ? (
                     <p>กำลังโหลดประวัติซ่อม...</p>
                   ) : breakEvenLoadError ? (
                     <p role="alert">{breakEvenLoadError}</p>
                   ) : !breakEvenSummary?.has_equipment ? (
-                    <>
-                      <p className="break-even-alert is-no_equipment">{breakEvenSummary.risk_message}</p>
-                      <p className="break-even-suggestion">
-                        <strong>แนวทางที่อาจพิจารณา:</strong> {breakEvenSummary.suggested_action}
-                      </p>
-                      <p className="break-even-human-decision">
-                        ข้อมูลนี้เป็นการแจ้งเตือนเท่านั้น ไม่มีการปรับราคา อนุมัติ หรือหยุดงานอัตโนมัติ การตัดสินใจเป็นของผู้ดูแลและช่าง
-                      </p>
-                    </>
+                    <p className="break-even-alert is-no_equipment">
+                      {breakEvenSummary?.risk_message || "รายการนี้ไม่ได้ผูกกับครุภัณฑ์ จึงไม่มีราคาทุนสำหรับคำนวณเกณฑ์"}
+                    </p>
                   ) : (
                     <>
                       <div className="estimate-budget-note">
                         <div>
-                          <span>ต้นทุนปัจจุบัน (ราคาทุน)</span>
-                          <strong>{breakEvenSummary.alert_level === "no_base_price" ? "ยังไม่ระบุ" : `${Number(breakEvenSummary.equipment_base_price).toLocaleString("th-TH")} บาท`}</strong>
+                          <span>ราคาทุนครุภัณฑ์</span>
+                          <strong>
+                            {Number(breakEvenSummary.equipment_base_price) > 0
+                              ? `${Number(breakEvenSummary.equipment_base_price).toLocaleString("th-TH")} บาท`
+                              : "ยังไม่ระบุ"}
+                          </strong>
                         </div>
                         <div>
-                          <span>ค่าซ่อมอุปกรณ์ที่ผ่านมา</span>
+                          <span>ค่าซ่อมสะสมที่ปิดงานแล้ว</span>
                           <strong>{Number(breakEvenSummary.accumulated_repair_cost).toLocaleString("th-TH")} บาท</strong>
                         </div>
                       </div>
-                      {breakEvenSummary.alert_level !== "no_base_price" && (
+                      {Number(breakEvenSummary.equipment_base_price) > 0 ? (
                         <div className="break-even-thresholds">
-                          <p><span>จุดเตือน 30%</span><strong>{Number(breakEvenSummary.threshold_30).toLocaleString("th-TH")} บาท</strong></p>
-                          <p><span>จุดเตือน 50%</span><strong>{Number(breakEvenSummary.threshold_50).toLocaleString("th-TH")} บาท</strong></p>
+                          <p><span>ราคาประเมินต่อครั้ง (50%)</span><strong>{(Number(breakEvenSummary.equipment_base_price) * 0.5).toLocaleString("th-TH")} บาท</strong></p>
+                          <p><span>ค่าซ่อมสะสมรวม (70%)</span><strong>{(Number(breakEvenSummary.equipment_base_price) * 0.7).toLocaleString("th-TH")} บาท</strong></p>
                         </div>
+                      ) : (
+                        <p className="break-even-alert is-warning">
+                          ไม่มีราคาทุนสำหรับคำนวณเกณฑ์ ระบบจะส่งราคาประเมินที่มากกว่า 0 ให้แอดมินพิจารณา
+                        </p>
                       )}
-                      <p className={`break-even-alert is-${breakEvenSummary.alert_level}`}>
-                        {breakEvenSummary.risk_message}
-                      </p>
-                      <p className="break-even-suggestion">
-                        <strong>แนวทางที่อาจพิจารณา:</strong> {breakEvenSummary.suggested_action}
-                      </p>
-                      <p className="break-even-human-decision">
-                        ข้อมูลนี้เป็นการแจ้งเตือนเท่านั้น ไม่มีการปรับราคา อนุมัติ หรือหยุดงานอัตโนมัติ การตัดสินใจเป็นของผู้ดูแลและช่าง
-                      </p>
                     </>
                   )}
                 </section>
               )}
 
-              {!isStartingRepair && (
-                <div className="input-group">
-                  <label htmlFor="estimated-cost">
-                    <Banknote size={17} aria-hidden="true" /> ราคาประเมินเบื้องต้น (บาท) <span className="required">*</span>
-                  </label>
-                  <input
-                    id="estimated-cost"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    className="cost-input"
-                    placeholder="ใส่ราคาประเมิน (กรอก 0 หากไม่เสียค่าใช้จ่าย)"
-                    value={estimatedCost}
-                    onChange={(event) => setEstimatedCost(event.target.value)}
-                    required
-                  />
-                </div>
-              )}
+              <div className="input-group">
+                <label htmlFor="estimated-cost">
+                  <Banknote size={17} aria-hidden="true" /> ราคาประเมินเบื้องต้น (บาท) <span className="required">*</span>
+                </label>
+                <input
+                  id="estimated-cost"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="cost-input"
+                  placeholder="ใส่ราคาประเมิน (กรอก 0 หากไม่เสียค่าใช้จ่าย)"
+                  value={estimatedCost}
+                  disabled={isSubmitting || priceCheckStatus === "checking"}
+                  onChange={(event) => {
+                    setEstimatedCost(event.target.value);
+                    setPriceCheckStatus("idle");
+                  }}
+                  required
+                />
+                {isStartingRepair && estimatedCost !== "" && (
+                  <p
+                    className={`estimate-check-status estimate-check-${priceCheckStatus}`}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {priceCheckStatus === "checking" && "กำลังตรวจสอบราคา..."}
+                    {priceCheckStatus === "approved" && "ผ่านเกณฑ์ — ยืนยันเริ่มซ่อมได้"}
+                    {priceCheckStatus === "exceeded" &&
+                      "ราคาเกินเกณฑ์ ระบบจะบันทึกราคาและส่งให้แอดมินพิจารณาก่อนเริ่มซ่อม"}
+                  </p>
+                )}
+                {isStartingRepair && (
+                  <small className="cost-hint">
+                    * ตรวจสอบราคาแล้วระบบจะเริ่มซ่อมทันทีเมื่อผ่านเกณฑ์ หรือส่งให้แอดมินพิจารณาหากเกินเกณฑ์
+                  </small>
+                )}
+              </div>
 
               <div className="modal-actions">
-                <button
-                  type="button"
-                  className="btn-cancel"
-                  disabled={isSubmitting}
-                  onClick={() => {
-                    setEstimateModalOpen(false);
-                    setIsStartingRepair(false);
-                    clearCompletionImages();
-                  }}
-                >
-                  ยกเลิก
-                </button>
-                <button type="submit" className="btn-accept" disabled={isSubmitting || (isStartingRepair && isBreakEvenLoading)}>
-                  {isSubmitting
-                    ? "กำลังบันทึก..."
-                    : isStartingRepair && isBreakEvenLoading
-                      ? "กำลังโหลดข้อมูล..."
-                      : isStartingRepair
-                        ? "เริ่มซ่อม"
-                        : "บันทึกราคาประเมิน"}
-                </button>
+                {isStartingRepair && priceCheckStatus !== "exceeded" && (
+                  <button
+                    type="button"
+                    className="btn-cancel"
+                    disabled={isSubmitting}
+                    onClick={() => {
+                      setEstimateModalOpen(false);
+                      setIsStartingRepair(false);
+                      clearCompletionImages();
+                    }}
+                  >
+                    ยกเลิก
+                  </button>
+                )}
+                {!isStartingRepair ? (
+                  <>
+                    <button
+                      type="button"
+                      className="btn-cancel"
+                      disabled={isSubmitting}
+                      onClick={() => setEstimateModalOpen(false)}
+                    >
+                      ยกเลิก
+                    </button>
+                    <button type="submit" className="btn-accept" disabled={isSubmitting}>
+                      {isSubmitting ? "กำลังบันทึก..." : "บันทึกราคาประเมิน"}
+                    </button>
+                  </>
+                ) : priceCheckStatus === "approved" ? (
+                  <button type="submit" className="btn-accept" disabled={isSubmitting}>
+                    {isSubmitting ? "กำลังบันทึก..." : "ยืนยันเริ่มซ่อม"}
+                  </button>
+                ) : priceCheckStatus === "exceeded" && !isSubmitting ? (
+                  <>
+                    <button
+                      type="button"
+                      className="btn-cancel"
+                      onClick={() => setPriceCheckStatus("idle")}
+                    >
+                      แก้ไขราคา
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-accept"
+                      onClick={submitEstimate}
+                    >
+                      ยืนยันส่งแอดมินพิจารณา
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn-accept"
+                    disabled={
+                      isSubmitting ||
+                      isBreakEvenLoading ||
+                      estimatedCost === "" ||
+                      priceCheckStatus === "checking"
+                    }
+                    onClick={handleCheckBreakEven}
+                  >
+                    {isSubmitting
+                      ? "กำลังบันทึก..."
+                      : isBreakEvenLoading
+                        ? "กำลังโหลดข้อมูล..."
+                        : priceCheckStatus === "checking"
+                          ? "กำลังตรวจสอบราคา..."
+                          : "ตรวจสอบราคา"}
+                  </button>
+                )}
               </div>
             </form>
           </div>

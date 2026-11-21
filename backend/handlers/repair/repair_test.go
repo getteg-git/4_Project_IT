@@ -39,6 +39,42 @@ func TestBuildBreakEvenSummary(t *testing.T) {
 	}
 }
 
+func TestEstimateNeedsAdminApproval(t *testing.T) {
+	tests := []struct {
+		name            string
+		hasEquipment    bool
+		basePrice       float64
+		accumulatedCost float64
+		estimatedCost   float64
+		forceReview     bool
+		want            bool
+	}{
+		{name: "below both thresholds", hasEquipment: true, basePrice: 1000, accumulatedCost: 200, estimatedCost: 300},
+		{name: "equal to single repair threshold", hasEquipment: true, basePrice: 1000, estimatedCost: 500},
+		{name: "over single repair threshold", hasEquipment: true, basePrice: 1000, estimatedCost: 500.01, want: true},
+		{name: "equal to accumulated threshold", hasEquipment: true, basePrice: 1000, accumulatedCost: 500, estimatedCost: 200},
+		{name: "over accumulated threshold", hasEquipment: true, basePrice: 1000, accumulatedCost: 500, estimatedCost: 200.01, want: true},
+		{name: "missing equipment price baseline", hasEquipment: true, estimatedCost: 1, want: true},
+		{name: "no linked equipment", estimatedCost: 1000},
+		{name: "force review", hasEquipment: true, basePrice: 1000, estimatedCost: 100, forceReview: true, want: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := estimateNeedsAdminApproval(
+				test.hasEquipment,
+				test.basePrice,
+				test.accumulatedCost,
+				test.estimatedCost,
+				test.forceReview,
+			)
+			if got != test.want {
+				t.Errorf("estimateNeedsAdminApproval() = %v, want %v", got, test.want)
+			}
+		})
+	}
+}
+
 func TestBreakEvenSummaryIncludesNumbersAndHumanOnlyAdvice(t *testing.T) {
 	encoded, err := json.Marshal(buildBreakEvenSummary(true, 1000, 400))
 	if err != nil {

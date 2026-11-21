@@ -1318,6 +1318,16 @@ type breakEvenSummary struct {
 	SuggestedAction       string  `json:"suggested_action"`
 }
 
+func estimateNeedsAdminApproval(hasEquipment bool, basePrice, accumulatedCost, estimatedCost float64, forceReview bool) bool {
+	if forceReview {
+		return true
+	}
+	if !hasEquipment {
+		return false
+	}
+	return estimatedCost > basePrice*0.5 || accumulatedCost+estimatedCost > basePrice*0.7
+}
+
 func buildBreakEvenSummary(hasEquipment bool, basePrice, accumulatedCost float64) breakEvenSummary {
 	summary := breakEvenSummary{
 		HasEquipment:          hasEquipment,
@@ -1394,9 +1404,10 @@ func GetBreakEvenSummary(c *gin.Context) {
 func EstimateRepair(c *gin.Context) {
 	repairID := c.Param("id")
 	type EstimateRequest struct {
-		EstimatedCost float64 `json:"estimated_cost"`
-		TechID        int     `json:"tech_id"`
-		CheckOnly     bool    `json:"check_only"`
+		EstimatedCost    float64 `json:"estimated_cost"`
+		TechID           int     `json:"tech_id"`
+		CheckOnly        bool    `json:"check_only"`
+		ForceAdminReview bool    `json:"force_admin_review"`
 	}
 
 	var req EstimateRequest
@@ -1412,6 +1423,7 @@ func EstimateRepair(c *gin.Context) {
 			req.TechID, err = strconv.Atoi(c.PostForm("tech_id"))
 		}
 		req.CheckOnly = c.PostForm("check_only") == "true"
+		req.ForceAdminReview = c.PostForm("force_admin_review") == "true"
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาระบุราคาประเมินให้ถูกต้อง"})
 			return
@@ -1438,7 +1450,11 @@ func EstimateRepair(c *gin.Context) {
 
 	var eqID *int
 	var basePrice float64
-	err := database.DB.QueryRow(`SELECT r.equipment_id, e.base_price FROM repairs r JOIN equipments e ON r.equipment_id = e.id WHERE r.id = $1`, repairID).Scan(&eqID, &basePrice)
+	err := database.DB.QueryRow(`
+		SELECT r.equipment_id, COALESCE(e.base_price, 0)
+		FROM repairs r JOIN equipments e ON r.equipment_id = e.id
+		WHERE r.id = $1
+	`, repairID).Scan(&eqID, &basePrice)
 
 	if err != nil && err != sql.ErrNoRows {
 		log.Printf("failed to load equipment for repair estimate %s: %v", repairID, err)
@@ -1458,14 +1474,27 @@ func EstimateRepair(c *gin.Context) {
 	newStatus := "กำลังซ่อม"
 	adminSystemNote := ""
 
+	requiresApproval := currentStatus == "รับงานแล้ว" &&
+		estimateNeedsAdminApproval(eqID != nil, basePrice, accumulatedCost, req.EstimatedCost, req.ForceAdminReview)
+	if requiresApproval {
+		newStatus = "รอซ่อม"
+		adminSystemNote = fmt.Sprintf(
+			"แจ้งเตือน: ราคาประเมินหรือยอดซ่อมสะสมเกินเกณฑ์ (ราคาทุน %.2f บาท)",
+			basePrice,
+		)
+	}
+
 	if req.CheckOnly {
 		breakEven := buildBreakEvenSummary(eqID != nil, basePrice, accumulatedCost)
 		c.JSON(http.StatusOK, gin.H{
-			"status":            newStatus,
-			"estimated_cost":    req.EstimatedCost,
-			"accumulated_cost":  accumulatedCost,
-			"requires_approval": false,
-			"break_even_summary": breakEven,
+			"status":                     newStatus,
+			"estimated_cost":             req.EstimatedCost,
+			"accumulated_cost":           accumulatedCost,
+			"estimated_accumulated_cost": accumulatedCost + req.EstimatedCost,
+			"single_repair_limit":        basePrice * 0.5,
+			"accumulated_repair_limit":   basePrice * 0.7,
+			"requires_approval":          requiresApproval,
+			"break_even_summary":         breakEven,
 		})
 		return
 	}
@@ -1607,8 +1636,8 @@ func sendEstimateEmail(repairID string, newStatus string, adminSystemNote string
 				<p><strong>หมายเลขใบแจ้ง:</strong> %s</p>
 				<p><strong>รายการ:</strong> %s</p>
 			`, html.EscapeString(ticketNumber), html.EscapeString(description))
-				subject := fmt.Sprintf("ช่างเริ่มดำเนินการซ่อมแล้ว (Ticket %s)", ticketNumber)
-				body := wrapEmail(colorInfo, "ช่างได้เริ่มดำเนินการซ่อมแล้ว", bodyContent)
+			subject := fmt.Sprintf("ช่างเริ่มดำเนินการซ่อมแล้ว (Ticket %s)", ticketNumber)
+			body := wrapEmail(colorInfo, "ช่างได้เริ่มดำเนินการซ่อมแล้ว", bodyContent)
 
 			if err := utils.SendEmailNotification([]string{reporterEmail}, subject, body); err != nil {
 				log.Printf("failed to email estimate update to reporter for repair %s: %v", repairID, err)
