@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "../../../../../api/baseUrl.js";
+import { API_BASE_URL, apiFetch as fetch } from "../../../../../api/baseUrl.js";
 import React, { useState, useEffect } from "react";
 import { CircleX, Eye, Pencil, Plus, Save, ShieldCheck, Trash2, UserPlus, UsersRound, Wrench, X, Zap, Mail, Building2, MapPin, UserRound } from "lucide-react";
 import SearchField from "../../../../../components/ui/SearchField";

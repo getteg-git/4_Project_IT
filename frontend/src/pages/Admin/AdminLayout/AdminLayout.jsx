@@ -1,11 +1,12 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { ClipboardList, LayoutDashboard, LogOut, Settings } from "lucide-react";
 import useToast from "../../../hooks/useToast";
+import { API_BASE_URL, apiFetch as fetch } from "../../../api/baseUrl.js";
 import "./AdminLayout.css";
 
 function AdminLayout() {
   const navigate = useNavigate();
-  const { confirm } = useToast();
+  const { confirm, toast } = useToast();
 
   const handleLogout = async () => {
     const approved = await confirm({
@@ -17,8 +18,14 @@ function AdminLayout() {
     });
 
     if (approved) {
-      localStorage.removeItem("user");
-      navigate("/", { replace: true });
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/logout`, { method: "POST" });
+        if (!response.ok) throw new Error("ไม่สามารถออกจากระบบได้ กรุณาลองอีกครั้ง");
+        localStorage.removeItem("user");
+        navigate("/", { replace: true });
+      } catch (error) {
+        toast.error("ออกจากระบบไม่สำเร็จ", { description: error.message });
+      }
     }
   };
 

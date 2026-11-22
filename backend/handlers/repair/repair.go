@@ -1,7 +1,10 @@
 package repair
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"html"
 	"log"
@@ -15,7 +18,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lib/pq"
 
+	"backend/auth"
 	"backend/database"
 	"backend/utils" // ใช้ utils.SendEmailNotification
 )
@@ -30,6 +35,18 @@ func nullIfEmpty(value string) interface{} {
 		return nil
 	}
 	return value
+}
+
+func parseNullableID(value string) (interface{}, error) {
+	value = strings.TrimSpace(value)
+	if value == "" || value == "null" || value == "undefined" {
+		return nil, nil
+	}
+	id, err := strconv.Atoi(value)
+	if err != nil || id <= 0 {
+		return nil, fmt.Errorf("invalid ID")
+	}
+	return id, nil
 }
 
 func validateRepairImageFiles(files []*multipart.FileHeader) string {
@@ -54,14 +71,49 @@ func validateRepairImageFiles(files []*multipart.FileHeader) string {
 	return ""
 }
 
-// generateTicketNumber สร้างรหัสตั๋วอัตโนมัติ (เช่น REQ-260901-001)
-func generateTicketNumber() string {
+// generateTicketNumber creates a collision-resistant ticket while preserving the existing display format.
+func generateTicketNumber() (string, error) {
 	now := time.Now()
-	prefix := fmt.Sprintf("REQ-%s", now.Format("060102")) // รูปแบบ: REQ-YYMMDD
-	var count int
-	// นับจำนวนงานซ่อมของวันนี้เพื่อรันเลขต่อ
-	database.DB.QueryRow("SELECT COUNT(*) FROM repairs WHERE DATE(created_at) = CURRENT_DATE").Scan(&count)
-	return fmt.Sprintf("%s-%03d", prefix, count+1)
+	prefix := fmt.Sprintf("REQ-%s", now.Format("060102"))
+	randomBytes := make([]byte, 4)
+	if _, err := rand.Read(randomBytes); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s-%s", prefix, strings.ToUpper(hex.EncodeToString(randomBytes))), nil
+}
+
+func insertRepairWithUniqueTicket(values ...interface{}) (int, string, error) {
+	for attempt := 0; attempt < 5; attempt++ {
+		ticketNumber, err := generateTicketNumber()
+		if err != nil {
+			return 0, "", err
+		}
+
+		tx, err := database.DB.Begin()
+		if err != nil {
+			return 0, "", err
+		}
+
+		var repairID int
+		err = tx.QueryRow(
+			`INSERT INTO repairs (ticket_number, reporter_email, reporter_type, reporter_degree_level, reporter_department, department_id, location_id, other_location, floor_id, room_id, other_room, equipment_id, problem_type_id, other_problem_type, description, status)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'รอซ่อม') RETURNING id`,
+			append([]interface{}{ticketNumber}, values...)...,
+		).Scan(&repairID)
+		if err != nil {
+			tx.Rollback()
+			var pgErr *pq.Error
+			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+				continue
+			}
+			return 0, "", err
+		}
+		if err := tx.Commit(); err != nil {
+			return 0, "", err
+		}
+		return repairID, ticketNumber, nil
+	}
+	return 0, "", fmt.Errorf("unable to allocate a unique repair ticket")
 }
 
 // insertRepairLog บันทึกประวัติการทำรายการทุกฝีก้าวลงตาราง repair_logs
@@ -220,21 +272,59 @@ func wrapEmail(headerColor string, headerText string, bodyContent string) string
 // 1. CreateRepair: สร้างใบแจ้งซ่อมใหม่ (อัปเกรดรองรับ other_room)
 // ---------------------------------------------------------
 func CreateRepair(c *gin.Context) {
-	ticketNumber := generateTicketNumber() // 🔥 Gen รหัสอัตโนมัติ
 	reporterEmail := c.PostForm("reporter_email")
 	reporterType := strings.TrimSpace(c.PostForm("reporter_type"))
 	reporterDepartment := strings.TrimSpace(c.PostForm("reporter_department"))
 	reporterDegreeLevel := strings.TrimSpace(c.PostForm("reporter_degree_level"))
-	departmentID := nullIfEmpty(c.PostForm("department_id")) // 🔥 รับสาขาของคนแจ้ง
-	locationID := nullIfEmpty(c.PostForm("location_id"))
+	departmentID, err := parseNullableID(c.PostForm("department_id")) // 🔥 รับสาขาของคนแจ้ง
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "รหัสภาควิชาสังกัดไม่ถูกต้อง"})
+		return
+	}
+	locationID, err := parseNullableID(c.PostForm("location_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "รหัสอาคารหรือสถานที่ไม่ถูกต้อง"})
+		return
+	}
 	otherLocation := nullIfEmpty(c.PostForm("other_location"))
-	floorID := nullIfEmpty(c.PostForm("floor_id"))
-	roomID := nullIfEmpty(c.PostForm("room_id"))
+	floorID, err := parseNullableID(c.PostForm("floor_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "รหัสชั้นไม่ถูกต้อง"})
+		return
+	}
+	roomID, err := parseNullableID(c.PostForm("room_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "รหัสห้องไม่ถูกต้อง"})
+		return
+	}
 	otherRoom := nullIfEmpty(c.PostForm("other_room")) // 🔥 [เพิ่มใหม่] รับชื่อห้องที่กรอกเองกรณีเลือก "อื่นๆ"
-	equipmentID := nullIfEmpty(c.PostForm("equipment_id"))
-	problemTypeID := nullIfEmpty(c.PostForm("problem_type_id"))
+	equipmentID, err := parseNullableID(c.PostForm("equipment_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "รหัสอุปกรณ์ไม่ถูกต้อง"})
+		return
+	}
+	problemTypeID, err := parseNullableID(c.PostForm("problem_type_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "รหัสหมวดหมู่งานไม่ถูกต้อง"})
+		return
+	}
 	otherProblemType := nullIfEmpty(c.PostForm("other_problem_type"))
 	description := c.PostForm("description")
+	reporterEmail = strings.TrimSpace(reporterEmail)
+	description = strings.TrimSpace(description)
+
+	if reporterEmail == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณากรอกอีเมลผู้แจ้ง"})
+		return
+	}
+	if len(reporterEmail) > 254 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "อีเมลผู้แจ้งยาวเกินไป"})
+		return
+	}
+	if description == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาอธิบายรายละเอียดของปัญหา"})
+		return
+	}
 
 	switch reporterType {
 	case "บุคลากร":
@@ -287,19 +377,42 @@ func CreateRepair(c *gin.Context) {
 		}
 	}
 
-	var repairID int
-	err := database.DB.QueryRow(
-		`INSERT INTO repairs (ticket_number, reporter_email, reporter_type, reporter_degree_level, reporter_department, department_id, location_id, other_location, floor_id, room_id, other_room, equipment_id, problem_type_id, other_problem_type, description, status)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'รอซ่อม') RETURNING id`,
-		ticketNumber, reporterEmail, reporterType, nullIfEmpty(reporterDegreeLevel), reporterDepartment,
-		departmentID, locationID, otherLocation, floorID, roomID, otherRoom, equipmentID, problemTypeID, otherProblemType, description,
-	).Scan(&repairID)
+	repairID, ticketNumber, err := insertRepairWithUniqueTicket(
+		reporterEmail,
+		reporterType,
+		nullIfEmpty(reporterDegreeLevel),
+		reporterDepartment,
+		departmentID,
+		locationID,
+		otherLocation,
+		floorID,
+		roomID,
+		otherRoom,
+		equipmentID,
+		problemTypeID,
+		otherProblemType,
+		description,
+	)
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกข้อมูลได้: " + err.Error()})
+		log.Printf("failed to insert repair: %v", err)
+		var pgErr *pq.Error
+		switch {
+		case errors.As(err, &pgErr) && pgErr.Code == "23505":
+			c.JSON(http.StatusConflict, gin.H{"error": "หมายเลข Ticket ซ้ำ กรุณากดส่งอีกครั้ง ระบบจะสร้างหมายเลขใหม่"})
+		case errors.As(err, &pgErr) && pgErr.Code == "23503":
+			c.JSON(http.StatusBadRequest, gin.H{"error": "พบข้อมูลอาคาร ห้อง อุปกรณ์ หรือหมวดหมู่ที่ไม่มีอยู่ในระบบ กรุณาเลือกใหม่"})
+		case errors.As(err, &pgErr) && pgErr.Code == "23502":
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ข้อมูลที่จำเป็นยังไม่ครบ กรุณาตรวจสอบฟอร์มอีกครั้ง"})
+		case errors.As(err, &pgErr) && pgErr.Code == "22P02":
+			c.JSON(http.StatusBadRequest, gin.H{"error": "รหัสข้อมูลในฟอร์มไม่ถูกต้อง กรุณารีเฟรชหน้าและเลือกใหม่"})
+		case errors.As(err, &pgErr) && pgErr.Code == "22001":
+			c.JSON(http.StatusBadRequest, gin.H{"error": "ข้อมูลในฟอร์มยาวเกินที่ระบบรองรับ"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกข้อมูลได้ กรุณาลองส่งรายการอีกครั้ง"})
+		}
 		return
 	}
-
 	// 🔥 บันทึก Log แรกเริ่ม
 	insertRepairLog(repairID, nil, "CREATED", "", "รอซ่อม", "สร้างใบแจ้งซ่อมใหม่โดยผู้ใช้งาน")
 
@@ -399,10 +512,6 @@ func CreateRepair(c *gin.Context) {
 // 2. GetAllRepairs: ดึงรายการซ่อมทั้งหมด (อัปเกรดดึง other_room)
 // ---------------------------------------------------------
 func GetAllRepairs(c *gin.Context) {
-	role := c.Query("role")
-	techID := c.Query("tech_id")
-	deptID := c.Query("department_id")
-
 	query := `
 		SELECT r.id, r.ticket_number, r.description, r.status, r.created_at, r.technician_id, r.problem_type_id, r.technician_note, r.admin_note, r.reporter_email,
 			   r.reporter_type, r.reporter_degree_level, r.reporter_department,
@@ -422,19 +531,26 @@ func GetAllRepairs(c *gin.Context) {
 		WHERE 1=1
 	`
 
-	// 🔥 กฎ Smart Routing: ถ้าคนล็อกอินเป็นช่าง ให้กรองงาน
-	if role == "technician" && techID != "" {
-		// กรองให้เห็นเฉพาะงานที่ "ตรงกับความถนัด" ของช่างคนนั้น
-		query += fmt.Sprintf(` AND (r.problem_type_id IN (SELECT problem_type_id FROM technician_specialties WHERE user_id = %s) OR r.problem_type_id IS NULL)`, techID)
-
-		if deptID != "" {
-			query += fmt.Sprintf(` AND (r.department_id = %s OR r.department_id IS NULL)`, deptID)
-		}
+	args := make([]interface{}, 0, 1)
+	if auth.Role(c) == "technician" {
+		args = append(args, auth.UserID(c))
+		query += ` AND (
+			r.technician_id = $1
+			OR EXISTS (
+				SELECT 1
+				FROM users head
+				JOIN users member ON member.id = r.technician_id
+				WHERE head.id = $1
+				  AND head.is_head_technician = TRUE
+				  AND head.department_id IS NOT NULL
+				  AND member.department_id = head.department_id
+			)
+		)`
 	}
 
 	query += ` ORDER BY r.created_at DESC`
 
-	rows, err := database.DB.Query(query)
+	rows, err := database.DB.Query(query, args...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -459,15 +575,29 @@ func GetAllRepairs(c *gin.Context) {
 			&estimatedCost, &actualCost, &acceptedAt, &completedAt, &otherLoc, &otherRoom, &otherProb,
 			&dID, &deptName, &locName, &floorName, &roomNumber, &eqName, &assetCode, &basePrice, &probName, &techName)
 		if err != nil {
-			continue
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถอ่านรายการแจ้งซ่อมได้"})
+			return
 		}
 
-		imgRows, _ := database.DB.Query("SELECT image_url, image_type FROM repair_images WHERE repair_id = $1", id)
+		imgRows, err := database.DB.Query("SELECT image_url, image_type FROM repair_images WHERE repair_id = $1", id)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถอ่านรูปภาพของรายการแจ้งซ่อมได้"})
+			return
+		}
 		images := make([]map[string]string, 0)
 		for imgRows.Next() {
 			var url, imgType string
-			imgRows.Scan(&url, &imgType)
+			if err := imgRows.Scan(&url, &imgType); err != nil {
+				imgRows.Close()
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถอ่านรูปภาพของรายการแจ้งซ่อมได้"})
+				return
+			}
 			images = append(images, map[string]string{"url": url, "type": imgType})
+		}
+		if err := imgRows.Err(); err != nil {
+			imgRows.Close()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถอ่านรูปภาพของรายการแจ้งซ่อมได้"})
+			return
 		}
 		imgRows.Close()
 
@@ -515,7 +645,53 @@ func GetAllRepairs(c *gin.Context) {
 			"images":                images,
 		})
 	}
+	if err := rows.Err(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถอ่านรายการแจ้งซ่อมได้"})
+		return
+	}
 	c.JSON(http.StatusOK, repairs)
+}
+
+func requireRepairAccess(c *gin.Context, repairID string, allowTeamHead bool) bool {
+	if auth.Role(c) == "admin" {
+		return true
+	}
+	if auth.Role(c) != "technician" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "คุณไม่มีสิทธิ์ดูรายการแจ้งซ่อมนี้"})
+		return false
+	}
+
+	teamCondition := ""
+	if allowTeamHead {
+		teamCondition = `
+			OR EXISTS (
+				SELECT 1
+				FROM users head
+				JOIN users member ON member.id = r.technician_id
+				WHERE head.id = $2
+				  AND head.is_head_technician = TRUE
+				  AND head.department_id IS NOT NULL
+				  AND member.department_id = head.department_id
+			)
+		`
+	}
+	query := `
+		SELECT EXISTS (
+			SELECT 1 FROM repairs r
+			WHERE r.id = $1 AND (r.technician_id = $2
+	`
+	query += teamCondition + `))`
+
+	var allowed bool
+	if err := database.DB.QueryRow(query, repairID, auth.UserID(c)).Scan(&allowed); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถตรวจสอบสิทธิ์เข้าถึงรายการแจ้งซ่อมได้"})
+		return false
+	}
+	if !allowed {
+		c.JSON(http.StatusForbidden, gin.H{"error": "คุณไม่มีสิทธิ์ดูรายการแจ้งซ่อมนี้"})
+		return false
+	}
+	return true
 }
 
 // ---------------------------------------------------------
@@ -523,6 +699,9 @@ func GetAllRepairs(c *gin.Context) {
 // ---------------------------------------------------------
 func GetRepairByID(c *gin.Context) {
 	repairID := c.Param("id")
+	if !requireRepairAccess(c, repairID, true) {
+		return
+	}
 
 	var id int
 	var desc, status, reporterEmail string
@@ -560,14 +739,25 @@ func GetRepairByID(c *gin.Context) {
 		return
 	}
 
-	rows, _ := database.DB.Query("SELECT image_url, image_type FROM repair_images WHERE repair_id = $1", id)
+	rows, err := database.DB.Query("SELECT image_url, image_type FROM repair_images WHERE repair_id = $1", id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถอ่านรูปภาพของรายการแจ้งซ่อมได้"})
+		return
+	}
 	defer rows.Close()
 
 	images := make([]map[string]string, 0)
 	for rows.Next() {
 		var url, imgType string
-		rows.Scan(&url, &imgType)
+		if err := rows.Scan(&url, &imgType); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถอ่านรูปภาพของรายการแจ้งซ่อมได้"})
+			return
+		}
 		images = append(images, map[string]string{"url": url, "type": imgType})
+	}
+	if err := rows.Err(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถอ่านรูปภาพของรายการแจ้งซ่อมได้"})
+		return
 	}
 
 	getString := func(s *string) string {
@@ -617,7 +807,6 @@ func AssignRepair(c *gin.Context) {
 	repairID := c.Param("id")
 	type AssignRequest struct {
 		TechnicianID     int `json:"technician_id" binding:"required"`
-		AdminID          int `json:"admin_id"`
 		HeadTechnicianID int `json:"head_technician_id"`
 	}
 
@@ -625,6 +814,11 @@ func AssignRepair(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "ข้อมูลไม่ถูกต้อง"})
 		return
+	}
+	if auth.Role(c) == "technician" {
+		req.HeadTechnicianID = auth.UserID(c)
+	} else {
+		req.HeadTechnicianID = 0
 	}
 
 	tx, err := database.DB.Begin()
@@ -650,7 +844,12 @@ func AssignRepair(c *gin.Context) {
 		return
 	}
 
-	actorID := req.AdminID
+	if currentStatus != "รอซ่อม" {
+		c.JSON(http.StatusConflict, gin.H{"error": "มอบหมายได้เฉพาะงานที่อยู่ในคิวรอซ่อม"})
+		return
+	}
+
+	actorID := auth.UserID(c)
 	assignmentNote := fmt.Sprintf("Admin มอบหมายงานให้ช่าง ID: %d", req.TechnicianID)
 	if repairProblemTypeID == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "ไม่สามารถตรวจสอบความถนัดของช่างสำหรับงานนี้ได้"})
@@ -665,10 +864,16 @@ func AssignRepair(c *gin.Context) {
 			WHERE u.id = $1
 			  AND u.role = 'technician'
 			  AND u.is_active = TRUE
-			  AND ($3::boolean = FALSE OR u.is_head_technician = FALSE)
+			  AND ($3::boolean = FALSE OR (
+				u.is_head_technician = FALSE
+				AND u.department_id = (
+					SELECT department_id FROM users
+					WHERE id = $4 AND role = 'technician' AND is_head_technician = TRUE
+				)
+			  ))
 			  AND ts.problem_type_id = $2
 		)
-	`, req.TechnicianID, *repairProblemTypeID, req.HeadTechnicianID > 0).Scan(&eligible)
+	`, req.TechnicianID, *repairProblemTypeID, req.HeadTechnicianID > 0, req.HeadTechnicianID).Scan(&eligible)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -702,7 +907,6 @@ func AssignRepair(c *gin.Context) {
 			return
 		}
 
-		actorID = req.HeadTechnicianID
 		assignmentNote = fmt.Sprintf("หัวหน้าช่าง ID: %d มอบหมายงานให้ช่าง ID: %d", req.HeadTechnicianID, req.TechnicianID)
 	}
 
@@ -802,7 +1006,7 @@ func AssignRepair(c *gin.Context) {
 func RevokeRepair(c *gin.Context) {
 	repairID := c.Param("id")
 	revokeReason := strings.TrimSpace(c.PostForm("rejection_reason"))
-	adminID := nullIfEmpty(c.PostForm("admin_id"))
+	adminID := auth.UserID(c)
 
 	if revokeReason == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาระบุเหตุผลในการดึงงานกลับ"})
@@ -884,11 +1088,28 @@ func technicianReturnReason(category, details string) (string, bool) {
 	}
 }
 
-// RejectRepair returns a misassigned job to the administrator with a reason.
+func repairReturnAction(currentStatus, adminNote string, isAssignedTechnician bool) (string, bool) {
+	switch currentStatus {
+	case "รอซ่อม":
+		if strings.TrimSpace(adminNote) != "" {
+			return "", false
+		}
+		if !isAssignedTechnician {
+			return "RETURNED_TO_ADMIN", true
+		}
+		return "REJECTED_BEFORE_ACCEPT", true
+	case "รับงานแล้ว", "กำลังซ่อม":
+		return "RETURNED_TO_ADMIN", true
+	default:
+		return "", false
+	}
+}
+
+// RejectRepair returns an unaccepted or unworkable job to the administrator with a reason.
 func RejectRepair(c *gin.Context) {
 	repairID := c.Param("id")
-	technicianID, err := strconv.Atoi(c.PostForm("tech_id"))
-	if err != nil || technicianID <= 0 {
+	technicianID := auth.UserID(c)
+	if technicianID <= 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "ไม่พบข้อมูลช่างผู้ส่งคืนงาน"})
 		return
 	}
@@ -898,10 +1119,19 @@ func RejectRepair(c *gin.Context) {
 		return
 	}
 
-	var currentStatus string
+	tx, err := database.DB.Begin()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถเริ่มบันทึกการคืนงานได้"})
+		return
+	}
+	defer tx.Rollback()
+
+	var currentStatus, adminNote string
 	var assignedTechnicianID sql.NullInt64
-	err = database.DB.QueryRow(`SELECT status, technician_id FROM repairs WHERE id = $1`, repairID).
-		Scan(&currentStatus, &assignedTechnicianID)
+	err = tx.QueryRow(`
+		SELECT status, technician_id, COALESCE(admin_note, '')
+		FROM repairs WHERE id = $1 FOR UPDATE
+	`, repairID).Scan(&currentStatus, &assignedTechnicianID, &adminNote)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบรายการแจ้งซ่อม"})
 		return
@@ -910,19 +1140,67 @@ func RejectRepair(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถตรวจสอบงานที่ต้องการคืนได้"})
 		return
 	}
-	if !assignedTechnicianID.Valid || assignedTechnicianID.Int64 != int64(technicianID) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "คุณไม่ได้เป็นช่างที่ได้รับมอบหมายงานนี้"})
+	if !assignedTechnicianID.Valid {
+		c.JSON(http.StatusConflict, gin.H{"error": "งานนี้ยังไม่มีช่างรับผิดชอบ กรุณารีเฟรชรายการ"})
 		return
 	}
-	if currentStatus != "รอซ่อม" && currentStatus != "รับงานแล้ว" {
-		c.JSON(http.StatusConflict, gin.H{"error": "คืนงานได้เฉพาะงานที่ยังไม่ได้เริ่มดำเนินการซ่อม"})
+	action, canReturn := repairReturnAction(
+		currentStatus,
+		adminNote,
+		assignedTechnicianID.Int64 == int64(technicianID),
+	)
+	if !canReturn {
+		c.JSON(http.StatusConflict, gin.H{"error": "ไม่สามารถส่งคืนงานในสถานะปัจจุบันได้"})
 		return
 	}
 
-	result, err := database.DB.Exec(`
+	var authorized bool
+	if assignedTechnicianID.Int64 == int64(technicianID) {
+		err = tx.QueryRow(`
+			SELECT EXISTS (
+				SELECT 1 FROM users
+				WHERE id = $1 AND role = 'technician' AND is_active = TRUE
+			)
+		`, technicianID).Scan(&authorized)
+	} else {
+		err = tx.QueryRow(`
+			SELECT EXISTS (
+				SELECT 1
+				FROM users owner
+				JOIN users head ON head.id = $2
+				WHERE owner.id = $1
+				  AND owner.role = 'technician'
+				  AND head.role = 'technician'
+				  AND head.is_active = TRUE
+				  AND head.is_head_technician = TRUE
+				  AND owner.department_id IS NOT NULL
+				  AND owner.department_id = head.department_id
+			)
+		`, assignedTechnicianID.Int64, technicianID).Scan(&authorized)
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถตรวจสอบสิทธิ์ในการคืนงานได้"})
+		return
+	}
+	if !authorized {
+		c.JSON(http.StatusForbidden, gin.H{"error": "เฉพาะผู้รับผิดชอบงานหรือหัวหน้าช่างในทีมเดียวกันเท่านั้นที่ส่งคืนงานได้"})
+		return
+	}
+	var assignedTechnicianName, assignedTechnicianEmail string
+	err = tx.QueryRow(`
+		SELECT full_name, COALESCE(email, '')
+		FROM users WHERE id = $1
+	`, assignedTechnicianID.Int64).Scan(&assignedTechnicianName, &assignedTechnicianEmail)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถอ่านข้อมูลช่างผู้รับผิดชอบได้"})
+		return
+	}
+
+	result, err := tx.Exec(`
 		UPDATE repairs
 		SET status = 'รอซ่อม', technician_id = NULL, accepted_at = NULL, completed_at = NULL
-		WHERE id = $1 AND technician_id = $2 AND status IN ('รอซ่อม', 'รับงานแล้ว')`, repairID, technicianID)
+		WHERE id = $1 AND technician_id = $2 AND status = $3
+	`, repairID, assignedTechnicianID.Int64, currentStatus)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถส่งงานคืนให้แอดมินได้"})
 		return
@@ -933,7 +1211,22 @@ func RejectRepair(c *gin.Context) {
 		return
 	}
 
-	insertRepairLog(repairID, technicianID, "RETURNED_TO_ADMIN", currentStatus, "รอซ่อม", "ช่างส่งคืนงานให้แอดมิน เหตุผล: "+rejectionReason)
+	actionNote := "ช่างส่งคืนงานให้แอดมิน"
+	if action == "REJECTED_BEFORE_ACCEPT" {
+		actionNote = "ช่างปฏิเสธรับงานก่อนเริ่มดำเนินการ"
+	}
+	if _, err := tx.Exec(`
+		INSERT INTO repair_logs (repair_id, user_id, action, old_status, new_status, note)
+		VALUES ($1, $2, $3, $4, 'รอซ่อม', $5)
+	`, repairID, technicianID, action, currentStatus, actionNote+": "+rejectionReason); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกประวัติการคืนงานได้"})
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกการคืนงานได้"})
+		return
+	}
+
 	go func() {
 		var reporterEmail, description, ticketNumber string
 		if err := database.DB.QueryRow(`SELECT reporter_email, description, ticket_number FROM repairs WHERE id = $1`, repairID).
@@ -945,18 +1238,26 @@ func RejectRepair(c *gin.Context) {
 		bodyContent := fmt.Sprintf(`
 			<p><strong>รหัสตั๋ว:</strong> %s</p>
 			<p><strong>รายการ:</strong> %s</p>
+			<p><strong>ผู้รับผิดชอบเดิม:</strong> %s</p>
 			<div class="box-warning"><strong>เหตุผลที่ช่างส่งงานคืน:</strong><br>%s</div>
-		`, html.EscapeString(ticketNumber), html.EscapeString(description), html.EscapeString(rejectionReason))
+		`, html.EscapeString(ticketNumber), html.EscapeString(description), html.EscapeString(assignedTechnicianName), html.EscapeString(rejectionReason))
 		recipients := adminEmailRecipients()
 		if reporterEmail != "" {
 			recipients = append(recipients, reporterEmail)
+		}
+		if assignedTechnicianEmail != "" {
+			recipients = append(recipients, assignedTechnicianEmail)
 		}
 		if err := utils.SendEmailNotification(recipients, fmt.Sprintf("ช่างส่งงานคืนให้แอดมิน (%s)", ticketNumber), wrapEmail(colorWarning, "งานซ่อมถูกส่งคืนให้ผู้ดูแลพิจารณา", bodyContent)); err != nil {
 			log.Printf("failed to email returned repair notification for %s: %v", repairID, err)
 		}
 	}()
 
-	c.JSON(http.StatusOK, gin.H{"message": "ส่งคืนงานให้แอดมินแล้ว"})
+	message := "ส่งคืนงานให้แอดมินแล้ว"
+	if action == "REJECTED_BEFORE_ACCEPT" {
+		message = "ปฏิเสธรับงานและส่งกลับให้แอดมินแล้ว"
+	}
+	c.JSON(http.StatusOK, gin.H{"message": message})
 }
 
 // ---------------------------------------------------------
@@ -965,14 +1266,32 @@ func RejectRepair(c *gin.Context) {
 func UpdateRepairStatus(c *gin.Context) {
 	repairID := c.Param("id")
 	status := c.PostForm("status")
-	actionByUserID := nullIfEmpty(c.PostForm("action_by"))
+	actionByUserID := auth.UserID(c)
 	actualCostStr := c.PostForm("actual_cost")
 	tNote := nullIfEmpty(c.PostForm("technician_note"))
-	aNote := nullIfEmpty(c.PostForm("admin_note"))
 	techNoteStr := c.PostForm("technician_note")
+
+	if !requireRepairAccess(c, repairID, false) {
+		return
+	}
 
 	if status == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาระบุสถานะ"})
+		return
+	}
+	if status != "รับงานแล้ว" && status != "เสร็จเรียบร้อย" && status != "ซ่อมไม่ได้" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ไม่อนุญาตให้เปลี่ยนเป็นสถานะนี้ผ่านรายการช่าง"})
+		return
+	}
+
+	var currentStatus string
+	if err := database.DB.QueryRow("SELECT status FROM repairs WHERE id = $1", repairID).Scan(&currentStatus); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบรายการแจ้งซ่อม"})
+		return
+	}
+	if (status == "รับงานแล้ว" && currentStatus != "รอซ่อม") ||
+		((status == "เสร็จเรียบร้อย" || status == "ซ่อมไม่ได้") && currentStatus != "กำลังซ่อม") {
+		c.JSON(http.StatusConflict, gin.H{"error": "ไม่สามารถเปลี่ยนสถานะจากสถานะปัจจุบันได้"})
 		return
 	}
 
@@ -996,24 +1315,26 @@ func UpdateRepairStatus(c *gin.Context) {
 		return
 	}
 
-	var currentStatus string
-	database.DB.QueryRow("SELECT status FROM repairs WHERE id = $1", repairID).Scan(&currentStatus)
-	shouldNotifyStart := status == "กำลังซ่อม" && currentStatus != "กำลังซ่อม"
 	shouldNotifyCompletion := status == "เสร็จเรียบร้อย" && currentStatus != "เสร็จเรียบร้อย"
+	shouldUpdateActualCost := status == "เสร็จเรียบร้อย" || status == "ซ่อมไม่ได้"
 
 	var actualCost float64
 	if actualCostStr != "" && actualCostStr != "null" {
-		actualCost, _ = strconv.ParseFloat(actualCostStr, 64)
+		parsedCost, err := strconv.ParseFloat(actualCostStr, 64)
+		if err != nil || math.IsNaN(parsedCost) || math.IsInf(parsedCost, 0) || parsedCost < 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาระบุค่าใช้จ่ายจริงให้ถูกต้อง"})
+			return
+		}
+		actualCost = parsedCost
 	}
 
-	var query string
-	if status == "กำลังซ่อม" {
-		query = `UPDATE repairs SET status = $1, technician_note = COALESCE($2, technician_note), admin_note = COALESCE($3, admin_note), actual_cost = $4, accepted_at = CURRENT_TIMESTAMP WHERE id = $5`
-	} else if status == "เสร็จเรียบร้อย" || status == "ซ่อมไม่ได้" {
-		query = `UPDATE repairs SET status = $1, technician_note = COALESCE($2, technician_note), admin_note = COALESCE($3, admin_note), actual_cost = $4, completed_at = CURRENT_TIMESTAMP WHERE id = $5`
-	} else {
-		query = `UPDATE repairs SET status = $1, technician_note = COALESCE($2, technician_note), admin_note = COALESCE($3, admin_note), actual_cost = $4 WHERE id = $5`
-	}
+	query := `UPDATE repairs
+		SET status = $1,
+		    technician_note = COALESCE($2, technician_note),
+		    actual_cost = CASE WHEN $7 THEN $3 ELSE actual_cost END,
+		    accepted_at = CASE WHEN $1 = 'รับงานแล้ว' THEN CURRENT_TIMESTAMP ELSE accepted_at END,
+		    completed_at = CASE WHEN $7 THEN CURRENT_TIMESTAMP ELSE completed_at END
+		WHERE id = $4 AND status = $5 AND technician_id = $6`
 
 	uploadedImagePaths := make([]string, 0, len(completionFiles))
 	uploadedImageURLs := make([]string, 0, len(completionFiles))
@@ -1043,10 +1364,24 @@ func UpdateRepairStatus(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	if _, err = tx.Exec(query, status, tNote, aNote, actualCost, repairID); err != nil {
+	result, err := tx.Exec(query, status, tNote, actualCost, repairID, currentStatus, auth.UserID(c), shouldUpdateActualCost)
+	if err != nil {
 		tx.Rollback()
 		cleanupUploadedImages()
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		tx.Rollback()
+		cleanupUploadedImages()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถตรวจสอบผลการอัปเดตสถานะได้"})
+		return
+	}
+	if rowsAffected == 0 {
+		tx.Rollback()
+		cleanupUploadedImages()
+		c.JSON(http.StatusConflict, gin.H{"error": "งานเปลี่ยนสถานะหรือผู้รับผิดชอบแล้ว กรุณารีเฟรชรายการ"})
 		return
 	}
 	for _, imageURL := range uploadedImageURLs {
@@ -1075,29 +1410,6 @@ func UpdateRepairStatus(c *gin.Context) {
 			Scan(&reporterEmail, &description, &tNumber, &techEmail); err != nil {
 			log.Printf("failed to load repair notification details for repair %s: %v", repairID, err)
 			return
-		}
-
-		if shouldNotifyStart {
-			bodyContent := fmt.Sprintf(`
-				<p>ช่างเทคนิคเริ่มดำเนินการซ่อมแล้ว</p>
-				<p><strong>หมายเลขใบงาน:</strong> %s</p>
-				<p><strong>รายละเอียดงาน:</strong> %s</p>
-				<div class="box-info">สถานะปัจจุบัน: <strong>กำลังซ่อม</strong></div>
-			`, html.EscapeString(tNumber), html.EscapeString(description))
-			recipients := adminEmailRecipients()
-			if reporterEmail != "" {
-				recipients = append(recipients, reporterEmail)
-			}
-			if techEmail != "" {
-				recipients = append(recipients, techEmail)
-			}
-			if len(recipients) > 0 {
-				if err := utils.SendEmailNotification(recipients, fmt.Sprintf("🔧 ช่างเริ่มดำเนินการซ่อมแล้ว (%s)", tNumber), wrapEmail(colorInfo, "ช่างเริ่มดำเนินการซ่อมแล้ว", bodyContent)); err != nil {
-					log.Printf("failed to email repair start notification for repair %s: %v", repairID, err)
-				}
-			} else {
-				log.Printf("cannot email repair start notification for repair %s: no recipients have email addresses", repairID)
-			}
 		}
 
 		if shouldNotifyCompletion {
@@ -1163,7 +1475,6 @@ func CancelRepairByAdmin(c *gin.Context) {
 	repairID := c.Param("id")
 	type CancelRequest struct {
 		AdminNote string `json:"admin_note" binding:"required"`
-		AdminID   int    `json:"admin_id"`
 	}
 
 	var req CancelRequest
@@ -1173,7 +1484,10 @@ func CancelRepairByAdmin(c *gin.Context) {
 	}
 
 	var currentStatus string
-	database.DB.QueryRow("SELECT status FROM repairs WHERE id = $1", repairID).Scan(&currentStatus)
+	if err := database.DB.QueryRow("SELECT status FROM repairs WHERE id = $1", repairID).Scan(&currentStatus); err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบรายการแจ้งซ่อม"})
+		return
+	}
 
 	_, err := database.DB.Exec(
 		`UPDATE repairs SET status = 'ซ่อมไม่ได้', admin_note = $1, completed_at = CURRENT_TIMESTAMP WHERE id = $2`,
@@ -1185,7 +1499,7 @@ func CancelRepairByAdmin(c *gin.Context) {
 	}
 
 	// 🔥 บันทึก Log งานถูกแอดมินยกเลิก
-	insertRepairLog(repairID, req.AdminID, "CANCELLED", currentStatus, "ซ่อมไม่ได้", "Admin ยกเลิกงาน: "+req.AdminNote)
+	insertRepairLog(repairID, auth.UserID(c), "CANCELLED", currentStatus, "ซ่อมไม่ได้", "Admin ยกเลิกงาน: "+req.AdminNote)
 
 	go func() {
 		var reporterEmail, description, ticketNumber, technicianEmail string
@@ -1232,7 +1546,6 @@ func OutsourceRepair(c *gin.Context) {
 	type OutsourceRequest struct {
 		Details     string `json:"details" binding:"required"`
 		Destination string `json:"destination"`
-		AdminID     int    `json:"admin_id"`
 	}
 
 	var req OutsourceRequest
@@ -1271,7 +1584,7 @@ func OutsourceRepair(c *gin.Context) {
 		return
 	}
 
-	insertRepairLog(repairID, req.AdminID, "OUTSOURCED", "ซ่อมไม่ได้", statusLabel, req.Details)
+	insertRepairLog(repairID, auth.UserID(c), "OUTSOURCED", "ซ่อมไม่ได้", statusLabel, req.Details)
 	go func() {
 		var reporterEmail, ticketNumber, description string
 		if err := database.DB.QueryRow(`
@@ -1368,6 +1681,9 @@ func buildBreakEvenSummary(hasEquipment bool, basePrice, accumulatedCost float64
 
 func GetBreakEvenSummary(c *gin.Context) {
 	repairID := c.Param("id")
+	if !requireRepairAccess(c, repairID, false) {
+		return
+	}
 	var equipmentID sql.NullInt64
 	var basePrice sql.NullFloat64
 	if err := database.DB.QueryRow(`
@@ -1403,14 +1719,18 @@ func GetBreakEvenSummary(c *gin.Context) {
 
 func EstimateRepair(c *gin.Context) {
 	repairID := c.Param("id")
+	if !requireRepairAccess(c, repairID, false) {
+		return
+	}
 	type EstimateRequest struct {
 		EstimatedCost    float64 `json:"estimated_cost"`
-		TechID           int     `json:"tech_id"`
+		TechID           int     `json:"-"`
 		CheckOnly        bool    `json:"check_only"`
 		ForceAdminReview bool    `json:"force_admin_review"`
 	}
 
 	var req EstimateRequest
+	req.TechID = auth.UserID(c)
 	var estimateFiles []*multipart.FileHeader
 	if strings.HasPrefix(c.ContentType(), "multipart/form-data") {
 		if err := c.Request.ParseMultipartForm(32 << 20); err != nil {
@@ -1419,9 +1739,6 @@ func EstimateRepair(c *gin.Context) {
 		}
 		var err error
 		req.EstimatedCost, err = strconv.ParseFloat(c.PostForm("estimated_cost"), 64)
-		if err == nil && c.PostForm("tech_id") != "" {
-			req.TechID, err = strconv.Atoi(c.PostForm("tech_id"))
-		}
 		req.CheckOnly = c.PostForm("check_only") == "true"
 		req.ForceAdminReview = c.PostForm("force_admin_review") == "true"
 		if err != nil {
@@ -1445,6 +1762,10 @@ func EstimateRepair(c *gin.Context) {
 	var currentStatus string
 	if err := database.DB.QueryRow("SELECT status FROM repairs WHERE id = $1", repairID).Scan(&currentStatus); err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบรายการแจ้งซ่อม"})
+		return
+	}
+	if !req.CheckOnly && currentStatus != "รับงานแล้ว" && currentStatus != "กำลังซ่อม" {
+		c.JSON(http.StatusConflict, gin.H{"error": "ประเมินหรือเริ่มซ่อมได้เฉพาะงานที่รับไว้แล้ว"})
 		return
 	}
 
@@ -1529,7 +1850,9 @@ func EstimateRepair(c *gin.Context) {
 	result, err := tx.Exec(`UPDATE repairs SET estimated_cost = $1, status = $2,
 		admin_note = CASE WHEN $3 = '' THEN admin_note ELSE $3 END,
 		accepted_at = CASE WHEN $4 THEN NULL ELSE CURRENT_TIMESTAMP END
-		WHERE id = $5`, req.EstimatedCost, newStatus, adminSystemNote, newStatus == "รอซ่อม", repairID)
+		WHERE id = $5 AND status = $6 AND technician_id = $7`,
+		req.EstimatedCost, newStatus, adminSystemNote, newStatus == "รอซ่อม",
+		repairID, currentStatus, req.TechID)
 	if err != nil {
 		tx.Rollback()
 		cleanupUploadedImages()
@@ -1670,12 +1993,6 @@ func sendEstimateEmail(repairID string, newStatus string, adminSystemNote string
 // ---------------------------------------------------------
 func ApproveRepairThreshold(c *gin.Context) {
 	repairID := c.Param("id")
-	type ApproveReq struct {
-		AdminID int `json:"admin_id"`
-	}
-
-	var req ApproveReq
-	c.ShouldBindJSON(&req) // ดึง admin_id ถ้าหน้าเว็บส่งมา
 
 	var currentStatus string
 	if err := database.DB.QueryRow("SELECT status FROM repairs WHERE id = $1", repairID).Scan(&currentStatus); err != nil {
@@ -1683,19 +2000,28 @@ func ApproveRepairThreshold(c *gin.Context) {
 		return
 	}
 
-	_, err := database.DB.Exec(`
+	result, err := database.DB.Exec(`
 		UPDATE repairs 
 		SET status = 'กำลังซ่อม', accepted_at = CURRENT_TIMESTAMP, admin_note = CONCAT(admin_note, ' -> (Admin อนุมัติให้ดำเนินการต่อ)')
-		WHERE id = $1
+		WHERE id = $1 AND status = 'รอซ่อม' AND technician_id IS NOT NULL
 	`, repairID)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถอนุมัติงานได้: " + err.Error()})
 		return
 	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถตรวจสอบผลการอนุมัติงานได้"})
+		return
+	}
+	if rowsAffected == 0 {
+		c.JSON(http.StatusConflict, gin.H{"error": "อนุมัติได้เฉพาะงานที่รอพิจารณาและมีช่างรับผิดชอบ"})
+		return
+	}
 
 	// 🔥 บันทึก Log การอนุมัติ
-	insertRepairLog(repairID, req.AdminID, "APPROVED", currentStatus, "กำลังซ่อม", "Admin อนุมัติให้ซ่อมงานที่เกินจุดคุ้มทุนได้")
+	insertRepairLog(repairID, auth.UserID(c), "APPROVED", currentStatus, "กำลังซ่อม", "Admin อนุมัติให้ซ่อมงานที่เกินจุดคุ้มทุนได้")
 
 	go func() {
 		var description, ticketNumber, techEmail, reporterEmail string

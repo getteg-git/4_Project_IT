@@ -1,0 +1,123 @@
+.public-board-page {
+  min-height: 100vh;
+  padding: 36px 20px 72px;
+  background: linear-gradient(135deg, #f8fafc, #ecfdf5);
+}
+
+.public-board-wrapper {
+  width: min(100%, 980px);
+  margin: 0 auto;
+}
+
+.public-board-header {
+  display: grid;
+  gap: 12px;
+  margin: 20px 0 24px;
+  padding: 24px;
+  border: 1px solid #dcebe4;
+  border-radius: 20px;
+  background: #fff;
+}
+
+.public-board-header h1,
+.public-board-header p {
+  margin: 0;
+}
+
+.public-board-header h1 {
+  color: #17362e;
+}
+
+.public-board-header p {
+  color: #59746d;
+}
+
+.public-board-list {
+  display: grid;
+  gap: 14px;
+}
+
+.public-repair-card {
+  padding: 20px;
+  border: 1px solid #dcebe4;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(14, 52, 39, 0.06);
+}
+
+.public-repair-card-top,
+.public-repair-location,
+.public-repair-equipment,
+.public-repair-card footer span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.public-repair-card-top {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.public-repair-card-top strong {
+  color: #0f6a52;
+}
+
+.public-repair-card-top span {
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #e8f5ee;
+  color: #17684e;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.public-repair-card h2 {
+  margin: 14px 0 8px;
+  color: #17362e;
+  font-size: 1.15rem;
+}
+
+.public-repair-location,
+.public-repair-equipment,
+.public-repair-card footer {
+  color: #536b63;
+  font-size: 0.92rem;
+}
+
+.public-repair-description {
+  margin: 14px 0;
+  color: #263c35;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.public-repair-card footer {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid #edf2ef;
+  padding-top: 12px;
+}
+
+.public-board-state {
+  padding: 32px 20px;
+  border-radius: 16px;
+  background: #fff;
+  color: #536b63;
+  text-align: center;
+}
+
+.public-board-state.is-error {
+  color: #b42318;
+}
+
+@media (max-width: 600px) {
+  .public-board-page {
+    padding: 24px 12px 48px;
+  }
+
+  .public-board-header,
+  .public-repair-card {
+    padding: 16px;
+  }
+}

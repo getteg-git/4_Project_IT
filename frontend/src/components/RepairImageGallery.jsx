@@ -3,9 +3,50 @@ import { Camera, ZoomIn, X } from "lucide-react";
 import { API_BASE_URL } from "../api/baseUrl";
 import "./RepairImageGallery.css";
 
-function RepairImageGallery({ images = [], ticketLabel = "งานซ่อม" }) {
+const EMPTY_IMAGES = [];
+
+function RepairImageGallery({ images = EMPTY_IMAGES, ticketLabel = "งานซ่อม", requestHeaders }) {
   const [activeImage, setActiveImage] = useState(null);
-  const repairImages = Array.isArray(images) ? images : [];
+  const [loadedImages, setLoadedImages] = useState({});
+  const [failedImages, setFailedImages] = useState({});
+  const repairImages = Array.isArray(images) ? images : EMPTY_IMAGES;
+  const headersKey = JSON.stringify(requestHeaders || {});
+
+  useEffect(() => {
+    let active = true;
+    const objectUrls = [];
+    const headers = JSON.parse(headersKey);
+    setLoadedImages({});
+    setFailedImages({});
+
+    repairImages.forEach(async (image, index) => {
+      const key = String(image.id || image.url || index);
+      const imageUrl = image.url.startsWith("http")
+        ? image.url
+        : `${API_BASE_URL}${image.url}`;
+      try {
+        const response = await fetch(imageUrl, {
+          credentials: "include",
+          headers,
+        });
+        if (!response.ok) throw new Error(`Image request failed: ${response.status}`);
+        const objectUrl = URL.createObjectURL(await response.blob());
+        objectUrls.push(objectUrl);
+        if (active) {
+          setLoadedImages((current) => ({ ...current, [key]: objectUrl }));
+        } else {
+          URL.revokeObjectURL(objectUrl);
+        }
+      } catch {
+        if (active) setFailedImages((current) => ({ ...current, [key]: true }));
+      }
+    });
+
+    return () => {
+      active = false;
+      objectUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [headersKey, repairImages]);
 
   useEffect(() => {
     if (!activeImage) return undefined;
@@ -25,26 +66,28 @@ function RepairImageGallery({ images = [], ticketLabel = "งานซ่อม"
           repairImages.map((image, index) => {
             const imageType = image.type === "after" ? "หลังดำเนินการ" : "ก่อนซ่อม";
             const alt = `รูป${imageType}ของ ${ticketLabel}`;
+            const key = String(image.id || image.url || index);
+            const imageSrc = loadedImages[key];
 
             return (
-              <figure className="repair-image-card" key={image.id || image.url || index}>
+              <figure className="repair-image-card" key={key}>
                 <button
                   className="repair-image-trigger"
                   type="button"
-                  onClick={() => setActiveImage({
-                    src: `${API_BASE_URL}${image.url}`,
-                    alt,
-                  })}
+                  onClick={() => imageSrc && setActiveImage({ src: imageSrc, alt })}
+                  disabled={!imageSrc}
                   aria-label={`ขยายรูป${imageType}ของ ${ticketLabel}`}
                 >
-                  <img
-                    src={`${API_BASE_URL}${image.url}`}
-                    alt={alt}
-                    className="repair-image-thumbnail"
-                  />
-                  <span className="repair-image-zoom-hint">
-                    <ZoomIn size={15} aria-hidden="true" /> ขยายรูป
-                  </span>
+                  {imageSrc ? (
+                    <>
+                      <img src={imageSrc} alt={alt} className="repair-image-thumbnail" />
+                      <span className="repair-image-zoom-hint">
+                        <ZoomIn size={15} aria-hidden="true" /> ขยายรูป
+                      </span>
+                    </>
+                  ) : (
+                    <span>{failedImages[key] ? "ไม่สามารถโหลดรูปภาพได้" : "กำลังโหลดรูปภาพ..."}</span>
+                  )}
                 </button>
                 <figcaption className="repair-image-caption">
                   <Camera size={14} aria-hidden="true" />

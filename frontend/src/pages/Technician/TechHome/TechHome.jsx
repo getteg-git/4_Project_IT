@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "../../../api/baseUrl.js";
+import { API_BASE_URL, apiFetch as fetch } from "../../../api/baseUrl.js";
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import AppBreadcrumb from "../../../components/AppBreadcrumb";
@@ -96,15 +96,29 @@ function TechHome() {
       if (response.ok) {
         const allRepairsData = await response.json();
         setAllRepairs(allRepairsData);
+        const users = usersResponse.ok ? await usersResponse.json() : [];
+        const technicianUsers = users.filter((item) => item.role === "technician");
+        setTechnicians(technicianUsers);
 
-        // ช่างจะเห็นแค่งานที่ถูก Assign มาให้ตัวเองเท่านั้น
-        const myJobs = allRepairsData.filter(
-          (r) => r.technician_id === user.id
+        const teamMemberIds = new Set(
+          user.is_head_technician && user.department_id != null
+            ? technicianUsers
+              .filter((technician) =>
+                String(technician.id) !== String(user.id) &&
+                String(technician.department_id) === String(user.department_id)
+              )
+              .map((technician) => String(technician.id))
+            : []
         );
-
-        setRepairs(myJobs);
-      }
-      if (usersResponse.ok) {
+        const visibleJobs = allRepairsData.filter((repair) =>
+          String(repair.technician_id) === String(user.id) ||
+          (
+            teamMemberIds.has(String(repair.technician_id)) &&
+            ["รอซ่อม", "รับงานแล้ว", "กำลังซ่อม"].includes(repair.status)
+          )
+        );
+        setRepairs(visibleJobs);
+      } else if (usersResponse.ok) {
         const users = await usersResponse.json();
         setTechnicians(users.filter((item) => item.role === "technician"));
       }
@@ -210,6 +224,23 @@ function TechHome() {
     }
   };
 
+  const getTechnicianViewStatusLabel = (repair, isTeamJob) => {
+    if (isTeamJob) {
+      switch (repair.status) {
+        case "รอซ่อม":
+          return "รอลูกทีมกดรับงาน";
+        case "รับงานแล้ว":
+          return "ลูกทีมรับงานแล้ว";
+        case "กำลังซ่อม":
+          return "ลูกทีมกำลังซ่อม";
+        default:
+          break;
+      }
+    }
+
+    return getRepairStatusLabel(repair.status);
+  };
+
   const formatDate = (dateString) => {
     const options = {
       year: "numeric",
@@ -248,6 +279,28 @@ function TechHome() {
         (specialtyId) => String(specialtyId) === String(repair.problem_type_id)
       )
     );
+
+  const isAssignedToCurrentUser = (repair) =>
+    String(repair.technician_id) === String(currentUser?.id);
+
+  const isAssignedToHeadTeam = (repair) => {
+    if (!currentUser?.is_head_technician || isAssignedToCurrentUser(repair)) {
+      return false;
+    }
+
+    const assignedTechnician = technicians.find(
+      (technician) => String(technician.id) === String(repair.technician_id)
+    );
+    return currentUser.department_id != null &&
+      assignedTechnician?.department_id != null &&
+      String(assignedTechnician.department_id) === String(currentUser.department_id);
+  };
+
+  const canReturnRepair = (repair) =>
+    isAssignedToCurrentUser(repair) || isAssignedToHeadTeam(repair);
+
+  const isPreAcceptanceRejection = (repair) =>
+    repair.status === "รอซ่อม" && !isAssignedToHeadTeam(repair);
 
   const isAdminCancelledRepair = (repair) =>
     repair.status === "ซ่อมไม่ได้" &&
@@ -411,6 +464,7 @@ function TechHome() {
     setReturningRepair(repair);
     setReturnReason("");
     setReturnDetails("");
+    setIsDetailsOpen(false);
   };
 
   const handleReturnJob = async (event) => {
@@ -423,7 +477,7 @@ function TechHome() {
     formData.append("rejection_note", returnDetails.trim());
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/repairs/${returningRepair.id}/reject`,
+        `${API_BASE_URL}/api/repairs/${returningRepair.id}/return`,
         {
           method: "PUT",
           body: formData,
@@ -431,10 +485,16 @@ function TechHome() {
       );
 
       if (response.ok) {
-        toast.success("ส่งคืนงานให้แอดมินแล้ว", {
-          description: "แอดมินได้รับเหตุผลและจะพิจารณามอบหมายงานใหม่",
-        });
+        toast.success(
+          isPreAcceptanceRejection(returningRepair)
+            ? "ปฏิเสธรับงานและส่งกลับให้แอดมินแล้ว"
+            : "ส่งคืนงานให้แอดมินแล้ว",
+          {
+            description: "งานถูกนำออกจากรายการผู้รับผิดชอบและกลับเข้าคิวแอดมินพร้อมเหตุผล",
+          }
+        );
         setReturningRepair(null);
+        setSelectedRepair(null);
         fetchMyJobs(currentUser);
       } else {
         const data = await response.json();
@@ -731,8 +791,14 @@ function TechHome() {
     });
 
     if (approved) {
-      localStorage.removeItem("user");
-      navigate("/");
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/logout`, { method: "POST" });
+        if (!response.ok) throw new Error("ไม่สามารถออกจากระบบได้ กรุณาลองอีกครั้ง");
+        localStorage.removeItem("user");
+        navigate("/", { replace: true });
+      } catch (error) {
+        toast.error("ออกจากระบบไม่สำเร็จ", { description: error.message });
+      }
     }
   };
 
@@ -766,7 +832,11 @@ function TechHome() {
     REPAIR_PAGE_SIZE
   );
 
-  const renderRepairCard = (repair) => (
+  const renderRepairCard = (repair) => {
+    const isOwner = isAssignedToCurrentUser(repair);
+    const isTeamJob = isAssignedToHeadTeam(repair);
+
+    return (
     <div className="repair-item-card" key={repair.id}>
       <div className="card-top">
         <span className="repair-ticket-id">
@@ -775,11 +845,11 @@ function TechHome() {
         </span>
 
         <span
-          className={`status-badge ${getStatusClass(
-            repair.status
-          )}`}
+          className={`status-badge ${getStatusClass(repair.status)} ${
+            isTeamJob ? "team-job-status" : ""
+          }`}
         >
-          {getRepairStatusLabel(repair.status)}
+          {getTechnicianViewStatusLabel(repair, isTeamJob)}
         </span>
       </div>
 
@@ -809,6 +879,18 @@ function TechHome() {
           {repair.description}
         </p>
 
+        {isTeamJob && (
+          <div className="repair-info team-job-owner">
+            <p>
+              <strong>มอบหมายให้:</strong>{" "}
+              {repair.technician_name || "ช่างในทีม"}
+            </p>
+            {repair.status === "รอซ่อม" && (
+              <small>ลูกทีมต้องกดรับงานจากบัญชีของตนเองก่อนเริ่มดำเนินการ</small>
+            )}
+          </div>
+        )}
+
         <RepairCardNotes repair={repair} />
       </div>
 
@@ -833,7 +915,7 @@ function TechHome() {
             รายละเอียด
           </button>
 
-          {currentUser?.is_head_technician && repair.status === "รอซ่อม" && (
+          {isOwner && currentUser?.is_head_technician && repair.status === "รอซ่อม" && (
             <button
               className="btn-assign"
               type="button"
@@ -845,7 +927,7 @@ function TechHome() {
         </div>
       </div>
 
-      {(repair.status === "รอซ่อม" ||
+      {isOwner && (repair.status === "รอซ่อม" ||
         repair.status === "รับงานแล้ว") && (
         <div className="job-decision-row">
           {repair.status === "รับงานแล้ว" ? (
@@ -884,20 +966,10 @@ function TechHome() {
             </button>
           )}
 
-          {["รอซ่อม", "รับงานแล้ว"].includes(repair.status) && (
-            <button
-              className="btn-reject"
-              type="button"
-              onClick={() => openReturnJobModal(repair)}
-            >
-              <X size={17} aria-hidden="true" />{" "}
-              คืนงานให้แอดมิน
-            </button>
-          )}
         </div>
       )}
 
-      {repair.status === "กำลังซ่อม" && (
+      {isOwner && repair.status === "กำลังซ่อม" && (
         <div
           className="job-completion-row"
           style={{ flexWrap: "wrap" }}
@@ -964,7 +1036,8 @@ function TechHome() {
         </div>
       )}
     </div>
-  );
+    );
+  };
 
   return (
     <div className={`tech-container ${!isLoading && displayedRepairs.length === 0 ? "has-empty-jobs" : ""}`}>
@@ -1068,7 +1141,9 @@ function TechHome() {
                   setCurrentPage(1);
                 }}
               >
-                รอรับงาน / ไปหน้างาน{" "}
+                {currentUser?.is_head_technician
+                  ? "งานที่รอดำเนินการ"
+                  : "รอรับงาน / ไปหน้างาน"}{" "}
                 <span>{activeRepairs.length}</span>
               </button>
 
@@ -1134,7 +1209,9 @@ function TechHome() {
               <div className="tech-empty-state">
                 <p>
                   {jobView === "active"
-                    ? "ไม่มีงานที่รอรับหรือรอเข้าหน้างาน"
+                    ? currentUser?.is_head_technician
+                      ? "ไม่มีงานที่รอดำเนินการ"
+                      : "ไม่มีงานที่รอรับหรือรอเข้าหน้างาน"
                     : jobView === "progress"
                       ? "ไม่มีงานที่กำลังซ่อม"
                       : "ยังไม่มีประวัติงานที่เสร็จแล้ว"}
@@ -1189,13 +1266,29 @@ function TechHome() {
                     สถานะปัจจุบัน:
                   </strong>{" "}
                   <span
-                    className={`status-badge ${getStatusClass(
-                      selectedRepair.status
-                    )}`}
+                    className={`status-badge ${getStatusClass(selectedRepair.status)} ${
+                      isAssignedToHeadTeam(selectedRepair) ? "team-job-status" : ""
+                    }`}
                   >
-                    {getRepairStatusLabel(selectedRepair.status)}
+                    {getTechnicianViewStatusLabel(
+                      selectedRepair,
+                      isAssignedToHeadTeam(selectedRepair)
+                    )}
                   </span>
                 </p>
+
+                {isAssignedToHeadTeam(selectedRepair) && (
+                  <p className="repair-info-item">
+                    <strong>มอบหมายให้ลูกทีม:</strong>{" "}
+                    {selectedRepair.technician_name || "ช่างในทีม"}
+                  </p>
+                )}
+
+                {isAssignedToHeadTeam(selectedRepair) && selectedRepair.status === "รอซ่อม" && (
+                  <p className="team-job-detail-note">
+                    งานนี้รอให้ลูกทีมกดรับจากบัญชีของตนเอง หัวหน้าช่างไม่ต้องกดรับแทน
+                  </p>
+                )}
 
                 <p className="repair-info-item">
                   <strong>หมวดหมู่งาน:</strong>{" "}
@@ -1252,6 +1345,34 @@ function TechHome() {
                 </p>
               </div>
             </div>
+
+            {canReturnRepair(selectedRepair) &&
+              ["รอซ่อม", "รับงานแล้ว", "กำลังซ่อม"].includes(selectedRepair.status) &&
+              !(selectedRepair.status === "รอซ่อม" && selectedRepair.admin_note?.trim()) && (
+                <div className="details-return-action">
+                  <div>
+                    <strong>
+                      {isPreAcceptanceRejection(selectedRepair)
+                        ? "ยังไม่ได้รับงานนี้"
+                        : "ไม่สามารถดำเนินงานต่อได้"}
+                    </strong>
+                    <p>
+                      {isPreAcceptanceRejection(selectedRepair)
+                        ? "หากงานไม่ตรงความถนัด สามารถปฏิเสธเพื่อส่งกลับเข้าคิวแอดมิน"
+                        : "ส่งงานกลับเข้าคิวแอดมินได้ พร้อมระบุเหตุผลให้มอบหมายใหม่"}
+                    </p>
+                  </div>
+                  <button
+                    className="btn-reject"
+                    type="button"
+                    onClick={() => openReturnJobModal(selectedRepair)}
+                  >
+                    {isPreAcceptanceRejection(selectedRepair)
+                      ? "ปฏิเสธรับงาน"
+                      : "ส่งคืนให้แอดมิน"}
+                  </button>
+                </div>
+              )}
           </div>
         </div>
       )}
@@ -1479,13 +1600,21 @@ function TechHome() {
             >
               <X aria-hidden="true" />
             </button>
-            <h3 id="return-job-title" className="modal-title-primary">คืนงานให้แอดมิน</h3>
+            <h3 id="return-job-title" className="modal-title-primary">
+              {isPreAcceptanceRejection(returningRepair)
+                ? "ปฏิเสธรับงาน"
+                : "ส่งคืนงานให้แอดมิน"}
+            </h3>
             <p className="modal-subtitle">
-              Ticket: {returningRepair.ticket_number || `#${returningRepair.id}`} งานจะกลับไปยังคิวแอดมินพร้อมเหตุผลที่เลือก
+              Ticket: {returningRepair.ticket_number || `#${returningRepair.id}`}{" "}
+              งานจะกลับไปยังคิวแอดมินและนำออกจากรายการผู้รับผิดชอบทันที
             </p>
             <form onSubmit={handleReturnJob}>
               <div className="input-group">
-                <label htmlFor="return-job-reason">เหตุผลที่คืนงาน <span className="required">*</span></label>
+                <label htmlFor="return-job-reason">
+                  {isPreAcceptanceRejection(returningRepair) ? "เหตุผลที่ปฏิเสธรับงาน" : "เหตุผลที่ส่งคืนงาน"}{" "}
+                  <span className="required">*</span>
+                </label>
                 <select
                   id="return-job-reason"
                   value={returnReason}
@@ -1513,7 +1642,11 @@ function TechHome() {
                   ยกเลิก
                 </button>
                 <button type="submit" className="btn-reject" disabled={!returnReason || isReturningRepair}>
-                  {isReturningRepair ? "กำลังส่งคืนงาน..." : "ยืนยันคืนงาน"}
+                  {isReturningRepair
+                    ? "กำลังดำเนินการ..."
+                    : isPreAcceptanceRejection(returningRepair)
+                      ? "ยืนยันปฏิเสธรับงาน"
+                      : "ยืนยันส่งคืนงาน"}
                 </button>
               </div>
             </form>

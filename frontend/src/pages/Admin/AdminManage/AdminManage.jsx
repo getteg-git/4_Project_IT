@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "../../../api/baseUrl.js";
+import { API_BASE_URL, apiFetch as fetch } from "../../../api/baseUrl.js";
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import RepairImageGallery from "../../../components/RepairImageGallery";

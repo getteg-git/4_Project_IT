@@ -178,6 +178,17 @@ form {
   line-height: 1.6;
 }
 
+.repair-header .public-repair-notice {
+  max-width: 720px;
+  margin: 14px auto 0;
+  padding: 11px 14px;
+  border: 1px solid #f3d996;
+  border-radius: 12px;
+  background: #fff9e8;
+  color: #775514;
+  font-size: 0.9rem;
+}
+
 
 /* =========================
    Form

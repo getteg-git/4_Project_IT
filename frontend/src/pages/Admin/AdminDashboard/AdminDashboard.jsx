@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "../../../api/baseUrl.js";
+import { API_BASE_URL, apiFetch as fetch } from "../../../api/baseUrl.js";
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import Pagination from "../../../components/ui/Pagination";

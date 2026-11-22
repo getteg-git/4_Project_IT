@@ -1,210 +1,64 @@
-import { API_BASE_URL } from "../../../api/baseUrl.js";
-import React, { useState, useEffect } from "react";
-import { BarChart3, CalendarDays, CircleX, Eye, FileText, Mail, UserRound, Wrench, X, ClipboardCheck, Clock, ZoomIn } from "lucide-react";
+import { API_BASE_URL, apiFetch as fetch } from "../../../api/baseUrl.js";
+import React, { useState } from "react";
+import { CalendarDays, CircleX, Eye, FileText, Mail, UserRound, Wrench, X, ClipboardCheck, Clock } from "lucide-react";
 import AppBreadcrumb from "../../../components/AppBreadcrumb";
 import RepairImageGallery from "../../../components/RepairImageGallery";
 import BackButton from "../../../components/ui/BackButton";
-import SearchField from "../../../components/ui/SearchField";
-import Pagination from "../../../components/ui/Pagination";
-import { getPageItems, REPAIR_PAGE_SIZE } from "../../../components/ui/paginationUtils";
 import RepairCardNotes from "../../../components/RepairCardNotes";
-import FilterBar from "../../../components/ui/FilterBar";
-import RepairTimelineModal from "../Timeline/RepairTimelineModal"; // 🔥 แก้ไข Path ให้ถูกต้องตามโครงสร้างโฟลเดอร์
+import RepairTimelineModal from "../Timeline/RepairTimelineModal";
 import { getRepairStatusLabel } from "../../../utils/repairStatus.js";
 import "./MyRepairs.css";
 
 function MyRepairs() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [locationFilter, setLocationFilter] = useState("");
-  const [floorFilter, setFloorFilter] = useState("");
-  const [roomFilter, setRoomFilter] = useState("");
-  const [problemFilter, setProblemFilter] = useState("");
+  const [reporterEmail, setReporterEmail] = useState("");
+  const [trackingCredentials, setTrackingCredentials] = useState(null);
+  const [searchError, setSearchError] = useState("");
   const [repairs, setRepairs] = useState([]);
-  const [locations, setLocations] = useState([]);
-  const [floors, setFloors] = useState([]);
-  const [rooms, setRooms] = useState([]);
-  const [problemTypes, setProblemTypes] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // States สำหรับ Popup
   const [selectedRepair, setSelectedRepair] = useState(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
-  const [isDashboardOpen, setIsDashboardOpen] = useState(false);
-
-  useEffect(() => {
-    if (!isDashboardOpen) return undefined;
-
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape") setIsDashboardOpen(false);
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isDashboardOpen]);
-
-  // ดึงข้อมูลทั้งหมดจาก Backend
-  useEffect(() => {
-    const fetchRepairs = async () => {
-      try {
-        const response = await fetch(API_BASE_URL + "/api/repairs");
-        if (response.ok) {
-          const data = await response.json();
-          setRepairs(data || []);
-        } else {
-          console.error("ดึงข้อมูลไม่สำเร็จ");
-        }
-      } catch (error) {
-        console.error("Error fetching repairs:", error);
-      } finally {
-        setIsLoading(false);
+  const trackingHeaders = trackingCredentials
+    ? {
+        "X-Reporter-Email": trackingCredentials.email,
       }
-    };
+    : undefined;
 
-    fetchRepairs();
-  }, []);
-
-  useEffect(() => {
-    const fetchMasterData = async () => {
-      try {
-        const [locationResponse, problemResponse] = await Promise.all([
-          fetch(API_BASE_URL + "/api/locations"),
-          fetch(API_BASE_URL + "/api/problem-types"),
-        ]);
-        if (locationResponse.ok) setLocations(await locationResponse.json() || []);
-        if (problemResponse.ok) setProblemTypes(await problemResponse.json() || []);
-      } catch (error) {
-        console.error("Error fetching filter master data:", error);
-      }
-    };
-    fetchMasterData();
-  }, []);
-
-  useEffect(() => {
-    const selectedLocation = locations.find((location) => location.name === locationFilter);
-    if (!selectedLocation) {
-      setFloors([]);
+  const handleTrackRepair = async (event) => {
+    event.preventDefault();
+    const email = reporterEmail.trim();
+    if (!email) {
+      setSearchError("กรุณากรอกอีเมลที่ใช้แจ้งซ่อม");
       return;
     }
-    const fetchFloors = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/locations/${selectedLocation.id}/floors`);
-        if (response.ok) setFloors(await response.json() || []);
-      } catch (error) {
-        console.error("Error fetching filter floors:", error);
-      }
-    };
-    fetchFloors();
-  }, [locationFilter, locations]);
 
-  useEffect(() => {
-    const selectedFloor = floors.find((floor) => floor.floor_name === floorFilter);
-    if (!selectedFloor) {
-      setRooms([]);
-      return;
+    setIsLoading(true);
+    setSearchError("");
+    setRepairs([]);
+    setTrackingCredentials(null);
+    setSelectedRepair(null);
+    setIsDetailsOpen(false);
+    setIsTimelineOpen(false);
+    try {
+      const query = new URLSearchParams({ email });
+      const response = await fetch(`${API_BASE_URL}/api/repairs/track?${query}`);
+      const data = await response.json();
+      if (!response.ok) {
+        setSearchError(data.error || "ไม่พบรายการแจ้งซ่อมที่ใช้อีเมลนี้");
+        return;
+      }
+      setRepairs(Array.isArray(data) ? data : []);
+      setTrackingCredentials({ email });
+    } catch (error) {
+      setSearchError(error.message || "ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
+    } finally {
+      setIsLoading(false);
     }
-    const fetchRooms = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/floors/${selectedFloor.id}/rooms`);
-        if (response.ok) setRooms(await response.json() || []);
-      } catch (error) {
-        console.error("Error fetching filter rooms:", error);
-      }
-    };
-    fetchRooms();
-  }, [floorFilter, floors]);
-
-  // ฟังก์ชัน Smart Search 
-  const normalizedSearch = searchTerm.replace(/\s+/g, '').replace(/วิทย์/g, 'วิทยาศาสตร์').toLowerCase();
-
-  const uniqueOptions = (values) => [...new Set(values.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), "th"));
-  const locationOptions = uniqueOptions([
-    ...locations.map((location) => location.name),
-    ...repairs.map((repair) => repair.other_location || repair.location_name),
-  ]);
-  const floorOptions = uniqueOptions(floors.map((floor) => floor.floor_name));
-  const roomOptions = uniqueOptions(rooms.map((room) => room.room_number));
-  const problemOptions = uniqueOptions([
-    ...problemTypes.map((problemType) => problemType.name),
-    ...repairs.map((repair) => repair.other_problem_type || repair.problem_type),
-  ]);
-
-  const matchesStatusFilter = (repair, filter) => {
-    if (filter === "all") return true;
-    if (filter === "completed") return repair.status === "เสร็จเรียบร้อย" || repair.status === "เสร็จสิ้น";
-    if (filter === "pending") return repair.status === "รอซ่อม" || repair.status === "รับงานแล้ว";
-    if (filter === "progress") return repair.status === "กำลังซ่อม";
-    if (filter === "failed") return repair.status === "ซ่อมไม่ได้";
-    if (filter === "outsourced") return ["ส่งซ่อมภายนอก", "ส่งซ่อมภายนอก / คณะ"].includes(repair.status);
-    if (filter === "faculty_forward") return repair.status === "ส่งซ่อมให้คณะ" || repair.assigned_department === "CENTRAL";
-    return true;
   };
 
-  const filteredRepairs = repairs.filter((repair) => {
-    if (!matchesStatusFilter(repair, statusFilter)) return false;
-    if (locationFilter && (repair.other_location || repair.location_name) !== locationFilter) return false;
-    if (floorFilter && repair.floor_name !== floorFilter) return false;
-    if (roomFilter && repair.room_number !== roomFilter) return false;
-    if (problemFilter && (repair.other_problem_type || repair.problem_type) !== problemFilter) return false;
-    if (!normalizedSearch) return true;
-
-    const loc = (repair.location_name || "").replace(/\s+/g, '').toLowerCase();
-    const otherLoc = (repair.other_location || "").replace(/\s+/g, '').toLowerCase();
-    const floor = (repair.floor_name || "").replace(/\s+/g, '').toLowerCase();
-    const room = (repair.room_number || "").replace(/\s+/g, '').toLowerCase();
-    const equip = (repair.equipment_name || "").replace(/\s+/g, '').toLowerCase();
-    const type = (repair.problem_type || "").replace(/\s+/g, '').toLowerCase();
-    const otherType = (repair.other_problem_type || "").replace(/\s+/g, '').toLowerCase();
-    const desc = (repair.description || "").replace(/\s+/g, '').toLowerCase();
-    const status = (repair.status || "").replace(/\s+/g, '').toLowerCase();
-    const ticketId = (repair.ticket_number || String(repair.id)).toLowerCase();
-    const techName = (repair.technician_name || "").replace(/\s+/g, '').toLowerCase();
-    const reporterEmail = (repair.reporter_email || "").replace(/\s+/g, '').toLowerCase();
-
-    return (
-      loc.includes(normalizedSearch) ||
-      otherLoc.includes(normalizedSearch) ||
-      floor.includes(normalizedSearch) ||
-      room.includes(normalizedSearch) ||
-      equip.includes(normalizedSearch) ||
-      type.includes(normalizedSearch) ||
-      otherType.includes(normalizedSearch) ||
-      desc.includes(normalizedSearch) ||
-      status.includes(normalizedSearch) ||
-      ticketId.includes(normalizedSearch) ||
-      techName.includes(normalizedSearch) ||
-      reporterEmail.includes(normalizedSearch)
-    );
-  });
-
-  const getRepairPriority = (repair) => {
-    if (repair.status === "รอซ่อม" && repair.admin_note?.trim()) return 0;
-    if (repair.status === "รอซ่อม") return 1;
-    if (["รับงานแล้ว", "กำลังซ่อม"].includes(repair.status)) return 2;
-    return 3;
-  };
-  const sortedRepairs = [...filteredRepairs].sort((left, right) => {
-    const priorityDifference = getRepairPriority(left) - getRepairPriority(right);
-    if (priorityDifference !== 0) return priorityDifference;
-
-    const leftCreatedAt = Date.parse(left.created_at) || 0;
-    const rightCreatedAt = Date.parse(right.created_at) || 0;
-    return rightCreatedAt - leftCreatedAt || Number(right.id) - Number(left.id);
-  });
-
-  const statusFilters = [
-    { id: "all", label: "ทั้งหมด", count: repairs.length },
-    { id: "pending", label: "รอรับงาน / รับงานแล้ว", count: repairs.filter((repair) => matchesStatusFilter(repair, "pending")).length },
-    { id: "progress", label: "กำลังดำเนินการซ่อม", count: repairs.filter((repair) => matchesStatusFilter(repair, "progress")).length },
-    { id: "completed", label: "ดำเนินเสร็จสิ้น", count: repairs.filter((repair) => matchesStatusFilter(repair, "completed")).length },
-    { id: "failed", label: "ซ่อมไม่ได้", count: repairs.filter((repair) => matchesStatusFilter(repair, "failed")).length },
-    { id: "outsourced", label: "ส่งซ่อมภายนอก", count: repairs.filter((repair) => matchesStatusFilter(repair, "outsourced")).length },
-    { id: "faculty_forward", label: "ส่งซ่อมให้คณะ", count: repairs.filter((repair) => matchesStatusFilter(repair, "faculty_forward")).length }
-  ];
-  const paginatedRepairs = getPageItems(sortedRepairs, currentPage, REPAIR_PAGE_SIZE);
-
+  const filteredRepairs = repairs;
+  const paginatedRepairs = repairs;
   const getStatusClass = (status) => {
     switch (status) {
       case "รอซ่อม": return "status-waiting";
@@ -271,39 +125,31 @@ function MyRepairs() {
             <p>ค้นหาและตรวจสอบความคืบหน้าของรายการแจ้งซ่อมภายในคณะวิทยาศาสตร์</p>
           </div>
 
-          <div className="search-section">
-            <SearchField
-              id="repair-search"
-              label="ค้นหารายการ"
-              placeholder="ห้อง หมวดหมู่งาน สถานะ หรือหมายเลข Ticket"
-              value={searchTerm}
-              onChange={(value) => { setSearchTerm(value); setCurrentPage(1); }}
-            />
-            <FilterBar filters={[
-              { id: "location", label: "อาคาร / สถานที่", value: locationFilter, options: locationOptions, onChange: (value) => { setLocationFilter(value); setFloorFilter(""); setRoomFilter(""); setCurrentPage(1); } },
-              { id: "floor", label: "ชั้น", value: floorFilter, options: floorOptions, onChange: (value) => { setFloorFilter(value); setRoomFilter(""); setCurrentPage(1); } },
-              { id: "room", label: "ห้อง", value: roomFilter, options: roomOptions, onChange: (value) => { setRoomFilter(value); setCurrentPage(1); } },
-              { id: "problem", label: "ประเภทงาน", value: problemFilter, options: problemOptions, onChange: (value) => { setProblemFilter(value); setCurrentPage(1); } },
-            ]} />
-            <div className="status-filters" role="group" aria-label="กรองตามสถานะ">
-              {statusFilters.map((filter) => (
-                <button
-                  type="button"
-                  key={filter.id}
-                  className={statusFilter === filter.id ? "is-active" : ""}
-                  aria-pressed={statusFilter === filter.id}
-                  onClick={() => { setStatusFilter(filter.id); setCurrentPage(1); }}
-                >
-                  {filter.label} <span>{filter.count}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+          <form className="track-lookup-form" onSubmit={handleTrackRepair}>
+            <label>
+              อีเมลที่ใช้แจ้งซ่อม
+              <input
+                type="email"
+                value={reporterEmail}
+                onChange={(event) => setReporterEmail(event.target.value)}
+                placeholder="name@example.com"
+                maxLength={254}
+                required
+              />
+            </label>
+            <button type="submit" disabled={isLoading}>
+              {isLoading ? "กำลังค้นหา..." : "ค้นหางานของฉัน"}
+            </button>
+            {searchError && <p className="track-lookup-error" role="alert">{searchError}</p>}
+            <p className="track-lookup-hint">
+              ระบบจะแสดงรายการแจ้งซ่อมทั้งหมดที่ผูกกับอีเมลนี้ โดย Ticket จะแสดงบนแต่ละรายการ
+            </p>
+          </form>
         </section>
 
         <div className="repair-list">
           {isLoading ? (
-            <div className="loading-state">กำลังโหลดข้อมูล...</div>
+            <div className="loading-state">กำลังค้นหารายการแจ้งซ่อม...</div>
           ) : filteredRepairs.length > 0 ? (
             paginatedRepairs.map((repair) => {
               const displayLocation = repair.other_location || repair.location_name;
@@ -368,16 +214,12 @@ function MyRepairs() {
                   <div className="card-bottom">
                     <span className="repair-date"><CalendarDays size={15} aria-hidden="true" /> {formatDate(repair.created_at)}</span>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button
-                        className="btn-details"
-                        onClick={() => openDetailsModal(repair)}
-                      >
+                      <button className="btn-details" onClick={() => openDetailsModal(repair)}>
                         <Eye size={17} aria-hidden="true" /> ดูรายละเอียด
                       </button>
-                      <button 
-                        className="btn-timeline" 
-                        onClick={() => { setSelectedRepair(repair); setIsTimelineOpen(true); }} 
-                        style={{ backgroundColor: '#f1f5f9', color: '#334155', border: 'none', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                      <button
+                        className="btn-timeline"
+                        onClick={() => { setSelectedRepair(repair); setIsTimelineOpen(true); }}
                       >
                         <Clock size={17} aria-hidden="true" /> ไทม์ไลน์
                       </button>
@@ -388,32 +230,11 @@ function MyRepairs() {
             })
           ) : (
             <div className="no-results">
-              <p><CircleX size={18} aria-hidden="true" /> ไม่พบรายการแจ้งซ่อมที่ตรงกับคำค้นหาของคุณ</p>
+              <p><CircleX size={18} aria-hidden="true" /> กรอกอีเมลที่ใช้แจ้งซ่อมเพื่อค้นหารายการของคุณ</p>
             </div>
           )}
         </div>
 
-        <Pagination
-          currentPage={currentPage}
-          totalItems={filteredRepairs.length}
-          onPageChange={setCurrentPage}
-          pageSize={REPAIR_PAGE_SIZE}
-        />
-
-        <button
-          className="mini-dashboard"
-          type="button"
-          onClick={() => setIsDashboardOpen(true)}
-          aria-haspopup="dialog"
-          aria-label={`เปิด Dashboard รายการแจ้งซ่อมทั้งหมด ${repairs.length} รายการ`}
-        >
-          <span className="mini-dashboard-title"><BarChart3 size={17} /> ภาพรวมงานซ่อม <ZoomIn size={15} /></span>
-          <span className="mini-dashboard-count">{repairs.length}<small>รายการทั้งหมด</small></span>
-          <span className="mini-dashboard-summary">
-            <span>กำลังซ่อม <strong>{statusFilters.find((filter) => filter.id === "progress")?.count ?? 0}</strong></span>
-            <span>เสร็จแล้ว <strong>{statusFilters.find((filter) => filter.id === "completed")?.count ?? 0}</strong></span>
-          </span>
-        </button>
       </div>
 
       {/* ==========================================
@@ -431,6 +252,7 @@ function MyRepairs() {
               <RepairImageGallery
                 images={selectedRepair.images}
                 ticketLabel={selectedRepair.ticket_number || `#${selectedRepair.id}`}
+                requestHeaders={trackingHeaders}
               />
 
               <div className="info-grid">
@@ -493,63 +315,6 @@ function MyRepairs() {
         </div>
       )}
 
-      {isDashboardOpen && (
-        <div
-          className="dashboard-overlay"
-          onClick={() => setIsDashboardOpen(false)}
-        >
-          <section
-            className="dashboard-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="dashboard-modal-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <button
-              className="dashboard-close"
-              type="button"
-              onClick={() => setIsDashboardOpen(false)}
-              aria-label="ปิด Dashboard"
-            >
-              <X size={20} />
-            </button>
-            <p className="dashboard-eyebrow"><BarChart3 size={17} /> สรุปสถานะงาน</p>
-            <h2 id="dashboard-modal-title">ภาพรวมการแจ้งซ่อม</h2>
-            <p className="dashboard-description">สรุปจากรายการแจ้งซ่อมทั้งหมดในระบบ</p>
-            <div className="dashboard-metrics">
-              {statusFilters.slice(0, 4).map((filter) => (
-                <article className={`dashboard-metric metric-${filter.id}`} key={filter.id}>
-                  <span>{filter.label}</span>
-                  <strong>{filter.count}</strong>
-                  <small>
-                    {repairs.length > 0
-                      ? `${Math.round((filter.count / repairs.length) * 100)}% ของทั้งหมด`
-                      : "ยังไม่มีรายการ"}
-                  </small>
-                </article>
-              ))}
-            </div>
-            <div className="dashboard-breakdown">
-              <h3>สถานะรายการ</h3>
-              {statusFilters.slice(1).map((filter) => {
-                const percent = repairs.length > 0
-                  ? Math.round((filter.count / repairs.length) * 100)
-                  : 0;
-                return (
-                  <div className="dashboard-bar-row" key={filter.id}>
-                    <span>{filter.label}</span>
-                    <div className="dashboard-bar-track" aria-label={`${filter.label} ${percent}%`}>
-                      <span className={`dashboard-bar-fill bar-${filter.id}`} style={{ width: `${percent}%` }} />
-                    </div>
-                    <strong>{filter.count}</strong>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        </div>
-      )}
-
       {/* ==========================================
           POPUP: ไทม์ไลน์ (Timeline Modal)
           ========================================== */}
@@ -557,6 +322,7 @@ function MyRepairs() {
         repairId={selectedRepair?.id} 
         images={selectedRepair?.images}
         ticketLabel={selectedRepair?.ticket_number || `#${selectedRepair?.id}`}
+        trackingCredentials={trackingCredentials}
         assignedTechnician={selectedRepair?.technician_name}
         view="summary"
         isOpen={isTimelineOpen} 

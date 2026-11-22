@@ -12,6 +12,9 @@ import (
 // GetRepairLogs: ดึงประวัติการทำรายการ (Timeline) ของใบแจ้งซ่อมนั้นๆ
 func GetRepairLogs(c *gin.Context) {
 	repairID := c.Param("id")
+	if !requireRepairAccess(c, repairID, true) {
+		return
+	}
 
 	// ดึงข้อมูล Log พร้อม JOIN ไปหาตาราง users เพื่อเอาชื่อคนที่ทำรายการมาแสดงด้วย
 	query := `

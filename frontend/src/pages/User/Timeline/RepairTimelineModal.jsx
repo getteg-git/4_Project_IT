@@ -1,10 +1,9 @@
-import { API_BASE_URL } from "../../../api/baseUrl.js";
+import { API_BASE_URL, apiFetch as fetch } from "../../../api/baseUrl.js";
 import React, { useState, useEffect } from "react";
 import { X, Clock, CheckCircle2, AlertCircle, PlayCircle, Ban, Camera, Circle } from "lucide-react";
 import RepairImageGallery from "../../../components/RepairImageGallery";
 import Pagination from "../../../components/ui/Pagination";
 import { getPageItems } from "../../../components/ui/paginationUtils";
-import { getRepairStatusLabel } from "../../../utils/repairStatus.js";
 import "./RepairTimelineModal.css"; // เดี๋ยว CSS เราค่อยทำทีหลัง
 
 function RepairTimelineModal({
@@ -14,6 +13,7 @@ function RepairTimelineModal({
   images = [],
   ticketLabel,
   view = "details",
+  trackingCredentials,
 }) {
   const [logs, setLogs] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -28,7 +28,15 @@ function RepairTimelineModal({
       setError(null);
       setCurrentPage(1);
       try {
-        const response = await fetch(`${API_BASE_URL}/api/repairs/${repairId}/logs`);
+        const headers = trackingCredentials
+          ? {
+              "X-Reporter-Email": trackingCredentials.email,
+            }
+          : undefined;
+        const endpoint = trackingCredentials
+          ? `${API_BASE_URL}/api/repairs/track/${repairId}/logs`
+          : `${API_BASE_URL}/api/repairs/${repairId}/logs`;
+        const response = await fetch(endpoint, { headers });
         if (response.ok) {
           const data = await response.json();
           setLogs(data || []);
@@ -43,7 +51,7 @@ function RepairTimelineModal({
     };
 
     fetchLogs();
-  }, [isOpen, repairId]);
+  }, [isOpen, repairId, trackingCredentials]);
 
   if (!isOpen) return null;
 
@@ -72,21 +80,16 @@ function RepairTimelineModal({
   const normalizeStatus = (status) => {
     if (!status?.trim()) return "";
     switch (status?.trim()) {
-      case "รอซ่อม":
-      case "รอรับงาน":
-        return "รอรับงาน";
       case "รับงาน":
       case "รับงานแล้ว":
-        return "รับงานแล้ว";
+        return "รับงาน";
       case "กำลังซ่อม":
-        return "กำลังดำเนินการซ่อม";
+        return "กำลังซ่อม";
       case "เสร็จเรียบร้อย":
       case "เสร็จสิ้น":
-        return "ดำเนินเสร็จสิ้น";
-      default: {
-        const label = getRepairStatusLabel(status?.trim());
-        return label === "ไม่ระบุสถานะ" ? "" : label;
-      }
+        return "เสร็จสิ้น";
+      default:
+        return "";
     }
   };
   const visibleLogs = logs
@@ -97,15 +100,13 @@ function RepairTimelineModal({
     const chronologicalLogs = [...logs].sort(
       (left, right) => new Date(left.created_at) - new Date(right.created_at)
     );
-    const waitingLog = chronologicalLogs.find((log) => normalizeStatus(log.new_status) === "รอรับงาน");
-    const acceptedLog = chronologicalLogs.find((log) => normalizeStatus(log.new_status) === "รับงานแล้ว");
-    const startedLog = chronologicalLogs.find((log) => normalizeStatus(log.new_status) === "กำลังดำเนินการซ่อม");
-    const completedLog = chronologicalLogs.find((log) => normalizeStatus(log.new_status) === "ดำเนินเสร็จสิ้น");
+    const acceptedLog = chronologicalLogs.find((log) => normalizeStatus(log.new_status) === "รับงาน");
+    const startedLog = chronologicalLogs.find((log) => normalizeStatus(log.new_status) === "กำลังซ่อม");
+    const completedLog = chronologicalLogs.find((log) => normalizeStatus(log.new_status) === "เสร็จสิ้น");
     return [
-      { label: "รอรับงาน", log: waitingLog, complete: Boolean(waitingLog) },
-      { label: "รับงานแล้ว", log: acceptedLog, complete: Boolean(acceptedLog) },
-      { label: "กำลังดำเนินการซ่อม", log: startedLog, complete: Boolean(startedLog) },
-      { label: "ดำเนินเสร็จสิ้น", log: completedLog, complete: Boolean(completedLog) },
+      { label: "รับงาน", log: acceptedLog, complete: Boolean(acceptedLog) },
+      { label: "กำลังซ่อม", log: startedLog, complete: Boolean(startedLog) },
+      { label: "เสร็จสิ้น", log: completedLog, complete: Boolean(completedLog) },
     ].map((stage, index, stages) => ({
       ...stage,
       current: stage.complete && !stages.slice(index + 1).some((next) => next.complete),
@@ -140,6 +141,10 @@ function RepairTimelineModal({
               <RepairImageGallery
                 images={images}
                 ticketLabel={ticketLabel || `#${repairId}`}
+                requestHeaders={trackingCredentials ? {
+                  "X-Repair-Ticket": trackingCredentials.ticket,
+                  "X-Reporter-Email": trackingCredentials.email,
+                } : undefined}
               />
             </section>
           )}

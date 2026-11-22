@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 
+	"backend/auth"
 	"backend/database"
 	"backend/models"
 )
@@ -43,7 +44,7 @@ type UpdateUserRequest struct {
 type LoginRequest struct {
 	Username     string `json:"username" binding:"required"`
 	Password     string `json:"password" binding:"required"`
-	ExpectedRole string `json:"expected_role" binding:"required"`
+	ExpectedRole string `json:"expected_role"`
 }
 
 var userUsernamePattern = regexp.MustCompile(`^[A-Za-z0-9._-]{3,30}$`)
@@ -102,20 +103,32 @@ func validateUserPayload(username, password, fullName, email, role string, depar
 }
 
 // ---------------------------------------------------------
-// 1. GetUsers: ดึงรายชื่อผู้ใช้งานทั้งหมด (ที่ยัง Active)
+// 1. GetUsers: ดึงรายชื่อผู้ใช้งานที่จำเป็นต่อหน้าที่
 // ---------------------------------------------------------
 func GetUsers(c *gin.Context) {
-	// 🔥 [ปรับปรุง] ใช้ LEFT JOIN เพื่อดึงชื่อสาขามาด้วย และกรองเฉพาะคนที่ is_active = true
 	query := `
-		SELECT u.id, u.username, u.full_name, u.email, u.role, 
+		SELECT u.id,
+		       CASE WHEN $1 = 'admin' THEN u.username ELSE '' END,
+		       u.full_name,
+		       CASE WHEN $1 = 'admin' THEN u.email ELSE '' END,
+		       u.role,
 		       u.department_id, d.name as department_name, 
 		       u.is_head_technician, u.is_active, u.created_at
 		FROM users u
 		LEFT JOIN departments d ON u.department_id = d.id
-		WHERE u.is_active = true
+		WHERE u.is_active = TRUE
+		  AND (
+			$1 = 'admin'
+			OR (
+				u.role = 'technician'
+				AND u.department_id = (
+					SELECT department_id FROM users WHERE id = $2
+				)
+			)
+		  )
 		ORDER BY u.id ASC
 	`
-	rows, err := database.DB.Query(query)
+	rows, err := database.DB.Query(query, auth.Role(c), auth.UserID(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถดึงข้อมูลผู้ใช้ได้: " + err.Error()})
 		return
@@ -454,7 +467,7 @@ func Login(c *gin.Context) {
 		dbUser.DepartmentID = &idVal
 	}
 
-	if dbUser.Role != req.ExpectedRole {
+	if req.ExpectedRole != "" && dbUser.Role != req.ExpectedRole {
 		c.JSON(http.StatusForbidden, gin.H{"error": "คุณไม่มีสิทธิ์เข้าสู่ระบบผ่านช่องทางนี้"})
 		return
 	}
@@ -462,6 +475,11 @@ func Login(c *gin.Context) {
 	err = bcrypt.CompareHashAndPassword([]byte(dbHashedPassword), []byte(req.Password))
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง"})
+		return
+	}
+
+	if err := auth.CreateSessionCookie(c, dbUser.ID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถสร้างเซสชันเข้าสู่ระบบได้"})
 		return
 	}
 
@@ -477,6 +495,48 @@ func Login(c *gin.Context) {
 			"is_head_technician": dbUser.IsHeadTechnician,
 		},
 	})
+}
+
+func CurrentUser(c *gin.Context) {
+	userID := auth.UserID(c)
+	var user struct {
+		ID               int    `json:"id"`
+		Username         string `json:"username"`
+		FullName         string `json:"full_name"`
+		Email            string `json:"email"`
+		Role             string `json:"role"`
+		DepartmentID     *int   `json:"department_id"`
+		IsHeadTechnician bool   `json:"is_head_technician"`
+	}
+
+	err := database.DB.QueryRow(`
+		SELECT id, username, full_name, email, role, department_id, is_head_technician
+		FROM users
+		WHERE id = $1 AND is_active = TRUE
+	`, userID).Scan(
+		&user.ID,
+		&user.Username,
+		&user.FullName,
+		&user.Email,
+		&user.Role,
+		&user.DepartmentID,
+		&user.IsHeadTechnician,
+	)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "บัญชีนี้ไม่สามารถใช้งานได้"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถดึงข้อมูลผู้ใช้ปัจจุบันได้"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"user": user})
+}
+
+func Logout(c *gin.Context) {
+	auth.ClearSessionCookie(c)
+	c.JSON(http.StatusOK, gin.H{"message": "ออกจากระบบสำเร็จ"})
 }
 
 // ---------------------------------------------------------

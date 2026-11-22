@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 
+	"backend/auth"
 	"backend/database"
 	"backend/routes"
 	"backend/utils"
@@ -21,6 +22,10 @@ func main() {
 	err := godotenv.Load()
 	if err != nil {
 		fmt.Println("No .env file found (using system env)")
+	}
+
+	if err := auth.InitializeSessionKey(); err != nil {
+		log.Fatal(err)
 	}
 
 	if err := utils.ValidateSMTPConfiguration(); err != nil {
@@ -39,8 +44,6 @@ func main() {
 
 	r := gin.Default()
 
-	r.Static("/uploads", "./uploads")
-
 	allowedOrigins := []string{
 		"http://localhost:5173",
 		"http://192.168.0.11:5173",
@@ -57,10 +60,11 @@ func main() {
 		// 🛠️ แก้ไข: เพิ่ม URL ของ Vercel เข้าไปเพื่อให้เว็บดึงข้อมูลจาก API ได้
 		AllowOrigins:     allowedOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Reporter-Email"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 	}))
+	r.Use(auth.ProtectMutations(allowedOrigins))
 
 	routes.SetupRoutes(r)
 

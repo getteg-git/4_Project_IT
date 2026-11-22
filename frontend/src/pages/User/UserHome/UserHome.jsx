@@ -1,7 +1,7 @@
-import { API_BASE_URL } from "../../../api/baseUrl.js";
+import { API_BASE_URL, apiFetch as fetch } from "../../../api/baseUrl.js";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle2, ClipboardPenLine, Cog, Hammer, Info, LoaderCircle, LogIn, Search, ShieldCheck, Wrench, X } from "lucide-react";
+import { CheckCircle2, ClipboardPenLine, Cog, Hammer, Info, LoaderCircle, LogIn, Search, ShieldCheck, Wrench, X, ListChecks } from "lucide-react";
 import useToast from "../../../hooks/useToast";
 import "./UserHome.css";
 
@@ -129,7 +129,13 @@ function UserHome() {
         <button type="button" className="menu-card card-user" onClick={() => navigate("/repair/history")}>
           <div className="card-icon"><Search aria-hidden="true" /></div>
           <h2>ติดตามสถานะงานแจ้งซ่อม</h2>
-          <span className="card-desc">คลิกเพื่อดูความคืบหน้าของงานที่คุณแจ้งไว้</span>
+          <span className="card-desc">ค้นหางานของคุณด้วยหมายเลข Ticket และอีเมลผู้แจ้ง</span>
+        </button>
+
+        <button type="button" className="menu-card card-user" onClick={() => navigate("/repair/board")}>
+          <div className="card-icon"><ListChecks aria-hidden="true" /></div>
+          <h2>รายการแจ้งซ่อมล่าสุด</h2>
+          <span className="card-desc">ดูรายการแจ้งซ่อมในช่วง 90 วัน โดยไม่แสดงข้อมูลส่วนบุคคล</span>
         </button>
       </div>
 
@@ -165,7 +171,11 @@ function UserHome() {
               </li>
               <li>
                 <strong>ติดตามงาน</strong>
-                <span>เลือก “ติดตามสถานะงานแจ้งซ่อม” เพื่อดูความคืบหน้าของรายการที่แจ้งไว้</span>
+                <span>ใช้หมายเลข Ticket และอีเมลที่ระบุไว้ตอนแจ้งซ่อม เพื่อดูข้อมูลของคุณเท่านั้น</span>
+              </li>
+              <li>
+                <strong>ดูรายการล่าสุด</strong>
+                <span>รายการแจ้งซ่อม 90 วันล่าสุดจะแสดงในหน้าสาธารณะ โดยซ่อนข้อมูลส่วนบุคคลและบันทึกภายใน</span>
               </li>
               <li>
                 <strong>รอรับการซ่อม</strong>

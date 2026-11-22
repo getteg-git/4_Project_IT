@@ -8,6 +8,8 @@ import AdminDashboard from "./pages/Admin/AdminDashboard/AdminDashboard";
 import AdminManage from "./pages/Admin/AdminManage/AdminManage";
 import AdminSettings from "./pages/Admin/AdminSettings/AdminSettings";
 import AdminLayout from "./pages/Admin/AdminLayout/AdminLayout";
+import ProtectedRoute from "./components/ProtectedRoute";
+import PublicRepairBoard from "./pages/User/PublicRepairBoard/PublicRepairBoard";
 
 function App() {
   return (
@@ -18,9 +20,10 @@ function App() {
         {/* ฝั่งผู้ใช้งานทั่วไป */}
         <Route path="/repair/create" element={<CreateRepair />} />
         <Route path="/repair/history" element={<MyRepairs />} />
+        <Route path="/repair/board" element={<PublicRepairBoard />} />
 
         {/* ฝั่งแอดมิน */}
-        <Route path="/admin" element={<AdminLayout />}>
+        <Route path="/admin" element={<ProtectedRoute role="admin"><AdminLayout /></ProtectedRoute>}>
           <Route index element={<Navigate to="/admin/manage" replace />} />
           <Route path="home" element={<AdminDashboard />} />
           <Route path="manage" element={<AdminManage />} />
@@ -28,7 +31,7 @@ function App() {
         </Route>
         
         {/* ฝั่งช่าง */}
-        <Route path="/tech/home" element={<TechHome />} />
+        <Route path="/tech/home" element={<ProtectedRoute role="technician"><TechHome /></ProtectedRoute>} />
 
 
         {/* หากผู้ใช้เข้า URL ที่ไม่มีอยู่จริง (เช่น /user/home, /login) ให้เด้งกลับมาหน้า "/" ทันที */}

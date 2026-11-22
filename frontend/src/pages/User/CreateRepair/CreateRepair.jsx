@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "../../../api/baseUrl.js";
+import { API_BASE_URL, apiFetch as fetch } from "../../../api/baseUrl.js";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Camera, CheckCircle2, Image as ImageIcon, LoaderCircle, Send } from 'lucide-react';
@@ -48,6 +48,7 @@ function CreateRepair() {
   // Ref สำหรับอ้างอิง Input File ที่ซ่อนไว้
   const fileInputRef = useRef(null);
   const cameraInputRef = useRef(null);
+  const submitInProgressRef = useRef(false);
 
   const isOtherLocation = useCallback(() => {
     const selectedLoc = locations.find(loc => String(loc.id) === String(location));
@@ -201,6 +202,7 @@ function CreateRepair() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitInProgressRef.current) return;
 
     const reporterEmail = email.trim();
     const nextErrors = {};
@@ -231,6 +233,7 @@ function CreateRepair() {
       return;
     }
 
+    submitInProgressRef.current = true;
     setIsSubmitting(true);
     setIsSubmitSuccess(false);
 
@@ -299,6 +302,7 @@ function CreateRepair() {
       console.error("Error:", error);
       toast.error("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์", { description: "กรุณาลองใหม่อีกครั้ง" });
     } finally {
+      submitInProgressRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -325,6 +329,10 @@ function CreateRepair() {
             <span className="form-eyebrow">บริการแจ้งซ่อมออนไลน์</span>
             <h2>ฟอร์มแจ้งปัญหา / งานซ่อมบำรุง</h2>
             <p>กรอกข้อมูลให้ครบเพื่อช่วยให้เจ้าหน้าที่ตรวจสอบและดำเนินการได้รวดเร็วขึ้น</p>
+            <p className="public-repair-notice">
+              ข้อมูลรายการแจ้งซ่อม เช่น สถานที่ อุปกรณ์ และรายละเอียดปัญหา อาจแสดงบนหน้ารายการสาธารณะ
+              กรุณาอย่าระบุข้อมูลส่วนบุคคลหรือข้อมูลลับในรายละเอียด
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} noValidate>
