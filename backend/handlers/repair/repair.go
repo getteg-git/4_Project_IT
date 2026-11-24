@@ -29,6 +29,14 @@ import (
 // Helper Functions (ฟังก์ชันผู้ช่วย)
 // =========================================================
 
+const (
+	statusWaitingAdmin       = "รอแอดมินจัดสรร"
+	statusWaitingTechnician  = "รอช่างรับงาน"
+	statusReturnedToAdmin    = "ส่งคืนแอดมิน"
+	statusWaitingForApproval = "รออนุมัติ"
+	statusClosedEarly        = "ปิดงานก่อนครบขั้นตอน"
+)
+
 // nullIfEmpty สำหรับจัดการค่าว่างให้เป็น NULL ใน Database
 func nullIfEmpty(value string) interface{} {
 	if value == "" || value == "null" || value == "undefined" {
@@ -95,10 +103,12 @@ func insertRepairWithUniqueTicket(values ...interface{}) (int, string, error) {
 		}
 
 		var repairID int
+		args := append([]interface{}{ticketNumber}, values...)
+		args = append(args, statusWaitingAdmin)
 		err = tx.QueryRow(
-			`INSERT INTO repairs (ticket_number, reporter_email, reporter_type, reporter_degree_level, reporter_department, department_id, location_id, other_location, floor_id, room_id, other_room, equipment_id, problem_type_id, other_problem_type, description, status)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'รอซ่อม') RETURNING id`,
-			append([]interface{}{ticketNumber}, values...)...,
+			`INSERT INTO repairs (ticket_number, reporter_email, reporter_type, reporter_degree_level, reporter_department, department_id, location_id, other_location, floor_id, room_id, other_room, equipment_id, other_equipment, problem_type_id, other_problem_type, description, status)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17) RETURNING id`,
+			args...,
 		).Scan(&repairID)
 		if err != nil {
 			tx.Rollback()
@@ -205,14 +215,14 @@ func assignComputerRepairToHead(repairID int, problemTypeID, departmentID, locat
 	}
 	defer tx.Rollback()
 
-	if _, err := tx.Exec("UPDATE repairs SET technician_id = $1 WHERE id = $2", lead.ID, repairID); err != nil {
+	if _, err := tx.Exec("UPDATE repairs SET technician_id = $1, status = $2 WHERE id = $3", lead.ID, statusWaitingTechnician, repairID); err != nil {
 		return nil, fmt.Errorf("failed to assign repair to head technician: %w", err)
 	}
 
 	if _, err := tx.Exec(`
         INSERT INTO repair_logs (repair_id, user_id, action, old_status, new_status, note)
-        VALUES ($1, $2, 'ASSIGNED', 'รอซ่อม', 'รอซ่อม', $3)
-    `, repairID, lead.ID, "ระบบส่งงานให้หัวหน้าช่างประจำหมวด: "+lead.Name); err != nil {
+        VALUES ($1, $2, 'ASSIGNED', $3, $4, $5)
+    `, repairID, lead.ID, statusWaitingAdmin, statusWaitingTechnician, "ระบบส่งงานให้หัวหน้าช่างประจำหมวด: "+lead.Name); err != nil {
 		return nil, fmt.Errorf("failed to log repair assignment: %w", err)
 	}
 
@@ -303,6 +313,11 @@ func CreateRepair(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "รหัสอุปกรณ์ไม่ถูกต้อง"})
 		return
 	}
+	otherEquipment := strings.TrimSpace(c.PostForm("other_equipment"))
+	if len(otherEquipment) > 255 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ชื่ออุปกรณ์ยาวเกินไป"})
+		return
+	}
 	problemTypeID, err := parseNullableID(c.PostForm("problem_type_id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "รหัสหมวดหมู่งานไม่ถูกต้อง"})
@@ -389,6 +404,7 @@ func CreateRepair(c *gin.Context) {
 		roomID,
 		otherRoom,
 		equipmentID,
+		nullIfEmpty(otherEquipment),
 		problemTypeID,
 		otherProblemType,
 		description,
@@ -414,7 +430,7 @@ func CreateRepair(c *gin.Context) {
 		return
 	}
 	// 🔥 บันทึก Log แรกเริ่ม
-	insertRepairLog(repairID, nil, "CREATED", "", "รอซ่อม", "สร้างใบแจ้งซ่อมใหม่โดยผู้ใช้งาน")
+	insertRepairLog(repairID, nil, "CREATED", "", statusWaitingAdmin, "สร้างใบแจ้งซ่อมใหม่โดยผู้ใช้งาน")
 
 	var computerLead *computerHeadTechnician
 	if problemTypeID != nil {
@@ -423,6 +439,10 @@ func CreateRepair(c *gin.Context) {
 		if routingErr != nil {
 			log.Printf("failed to route computer repair %d to a head technician: %v", repairID, routingErr)
 		}
+	}
+	reporterStatus := statusWaitingAdmin
+	if computerLead != nil {
+		reporterStatus = statusWaitingTechnician
 	}
 
 	form, _ := c.MultipartForm()
@@ -445,10 +465,10 @@ func CreateRepair(c *gin.Context) {
 		userBodyContent := fmt.Sprintf(`
 			<p><strong>หมายเลขอ้างอิง:</strong> %s</p>
 			<p><strong>รายละเอียด:</strong> %s</p>
-			<div class="box-warning">ขณะนี้อยู่ในสถานะ: <strong>รอซ่อม</strong></div>
+			<div class="box-warning">ขณะนี้อยู่ในสถานะ: <strong>%s</strong></div>
 			<p>ทางเราจะแจ้งเตือนอีกครั้งเมื่อช่างเริ่มเข้าดำเนินการครับ</p>
 			<a href="%s" class="btn">ตรวจสอบรายการแจ้งซ่อมได้ที่นี่</a>
-		`, html.EscapeString(ticketNumber), html.EscapeString(description), formURL)
+		`, html.EscapeString(ticketNumber), html.EscapeString(description), html.EscapeString(reporterStatus), formURL)
 		userSubject := fmt.Sprintf("✅ รับเรื่องแจ้งซ่อมเรียบร้อยแล้ว (%s)", ticketNumber)
 		userBody := wrapEmail(colorSuccess, "ระบบได้รับเรื่องแจ้งซ่อมของคุณเรียบร้อยแล้ว", userBodyContent)
 
@@ -490,9 +510,9 @@ func CreateRepair(c *gin.Context) {
 			<p><strong>หมายเลขอ้างอิง:</strong> %s</p>
 			<p><strong>ผู้แจ้ง:</strong> %s</p>
 			<p><strong>รายละเอียด:</strong> %s</p>
-			<div class="box-warning">ขณะนี้อยู่ในสถานะ: <strong>รอซ่อม</strong></div>
+			<div class="box-warning">ขณะนี้อยู่ในสถานะ: <strong>%s</strong></div>
 			<a href="%s" class="btn">ตรวจสอบรายการได้ที่นี่</a>
-		`, adminInstruction, html.EscapeString(ticketNumber), html.EscapeString(reporterEmail), html.EscapeString(description), adminLink)
+		`, adminInstruction, html.EscapeString(ticketNumber), html.EscapeString(reporterEmail), html.EscapeString(description), html.EscapeString(reporterStatus), adminLink)
 		adminSubject := fmt.Sprintf("🔔 มีงานแจ้งซ่อมใหม่เข้ามา (%s)", ticketNumber)
 		adminBody := wrapEmail(colorInfo, "มีรายการแจ้งซ่อมใหม่เข้ามาในระบบ", adminBodyContent)
 
@@ -501,7 +521,7 @@ func CreateRepair(c *gin.Context) {
 		}
 	}()
 
-	response := gin.H{"message": "สร้างรายการแจ้งซ่อมสำเร็จ", "ticket_number": ticketNumber}
+	response := gin.H{"message": "สร้างรายการแจ้งซ่อมสำเร็จ", "ticket_number": ticketNumber, "status": reporterStatus}
 	if computerLead != nil {
 		response["assigned_technician"] = computerLead.Name
 	}
@@ -517,6 +537,7 @@ func GetAllRepairs(c *gin.Context) {
 			   r.reporter_type, r.reporter_degree_level, r.reporter_department,
 			   r.location_id, r.floor_id, r.room_id,
 			   r.estimated_cost, r.actual_cost, r.accepted_at, r.completed_at, r.other_location, r.other_room, r.other_problem_type,
+			   r.other_equipment, r.return_note, r.closure_note,
 			   r.department_id, d.name as department_name,
 			   l.name as location_name, f.floor_name, ro.room_number,
 			   eq.name as equipment_name, eq.asset_code, eq.base_price, p.name as problem_type_name, u.full_name as technician_name
@@ -562,7 +583,7 @@ func GetAllRepairs(c *gin.Context) {
 		var id int
 		var desc, status, reporterEmail string
 		var reporterType, reporterDegreeLevel, reporterDepartment *string
-		var ticketNumber, locName, otherLoc, otherRoom, floorName, roomNumber, eqName, assetCode, probName, otherProb, techName, techNote, adminNote, deptName *string
+		var ticketNumber, locName, otherLoc, otherRoom, floorName, roomNumber, eqName, assetCode, probName, otherProb, otherEquipment, returnNote, closureNote, techName, techNote, adminNote, deptName *string
 		var basePrice *float64
 		var estimatedCost, actualCost float64
 		var createdAt time.Time
@@ -573,6 +594,7 @@ func GetAllRepairs(c *gin.Context) {
 			&reporterType, &reporterDegreeLevel, &reporterDepartment,
 			&locationID, &floorID, &roomID,
 			&estimatedCost, &actualCost, &acceptedAt, &completedAt, &otherLoc, &otherRoom, &otherProb,
+			&otherEquipment, &returnNote, &closureNote,
 			&dID, &deptName, &locName, &floorName, &roomNumber, &eqName, &assetCode, &basePrice, &probName, &techName)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถอ่านรายการแจ้งซ่อมได้"})
@@ -607,6 +629,10 @@ func GetAllRepairs(c *gin.Context) {
 			}
 			return *s
 		}
+		equipmentName := getString(eqName)
+		if customName := getString(otherEquipment); customName != "" {
+			equipmentName = customName
+		}
 
 		repairs = append(repairs, map[string]interface{}{
 			"id":                    id,
@@ -622,7 +648,8 @@ func GetAllRepairs(c *gin.Context) {
 			"floor_name":            getString(floorName),
 			"room_number":           getString(roomNumber),
 			"other_room":            getString(otherRoom), // 🔥 [เพิ่มใหม่] คืนค่าชื่อห้องที่พิมพ์เอง
-			"equipment_name":        getString(eqName),
+			"equipment_name":        equipmentName,
+			"other_equipment":       getString(otherEquipment),
 			"asset_code":            getString(assetCode),
 			"base_price":            basePrice,
 			"problem_type":          getString(probName),
@@ -637,6 +664,8 @@ func GetAllRepairs(c *gin.Context) {
 			"technician_id":         techID,
 			"technician_note":       getString(techNote),
 			"admin_note":            getString(adminNote),
+			"return_note":           getString(returnNote),
+			"closure_note":          getString(closureNote),
 			"technician_name":       getString(techName),
 			"estimated_cost":        estimatedCost,
 			"actual_cost":           actualCost,
@@ -706,7 +735,7 @@ func GetRepairByID(c *gin.Context) {
 	var id int
 	var desc, status, reporterEmail string
 	var reporterType, reporterDegreeLevel, reporterDepartment *string
-	var ticketNumber, locName, otherLoc, otherRoom, floorName, roomNumber, eqName, assetCode, probName, otherProb, techName, techNote, adminNote, deptName *string
+	var ticketNumber, locName, otherLoc, otherRoom, floorName, roomNumber, eqName, assetCode, probName, otherProb, otherEquipment, returnNote, closureNote, techName, techNote, adminNote, deptName *string
 	var estimatedCost, actualCost float64
 	var createdAt time.Time
 	var acceptedAt, completedAt *time.Time
@@ -717,6 +746,7 @@ func GetRepairByID(c *gin.Context) {
 			   r.reporter_type, r.reporter_degree_level, r.reporter_department,
 			   r.technician_note, r.admin_note, r.created_at,
 			   r.estimated_cost, r.actual_cost, r.accepted_at, r.completed_at, r.other_location, r.other_room, r.other_problem_type,
+			   r.other_equipment, r.return_note, r.closure_note,
 			   r.department_id, d.name as department_name,
 			   l.name, f.floor_name, ro.room_number, eq.name, eq.asset_code, p.name, u.full_name
 		FROM repairs r
@@ -732,6 +762,7 @@ func GetRepairByID(c *gin.Context) {
 		&reporterType, &reporterDegreeLevel, &reporterDepartment,
 		&techNote, &adminNote, &createdAt,
 		&estimatedCost, &actualCost, &acceptedAt, &completedAt, &otherLoc, &otherRoom, &otherProb,
+		&otherEquipment, &returnNote, &closureNote,
 		&dID, &deptName, &locName, &floorName, &roomNumber, &eqName, &assetCode, &probName, &techName)
 
 	if err != nil {
@@ -767,6 +798,11 @@ func GetRepairByID(c *gin.Context) {
 		return *s
 	}
 
+	equipmentName := getString(eqName)
+	if customName := getString(otherEquipment); customName != "" {
+		equipmentName = customName
+	}
+
 	repair := map[string]interface{}{
 		"id":                    id,
 		"ticket_number":         getString(ticketNumber),
@@ -780,13 +816,16 @@ func GetRepairByID(c *gin.Context) {
 		"department_name":       getString(deptName),
 		"technician_note":       getString(techNote),
 		"admin_note":            getString(adminNote),
+		"return_note":           getString(returnNote),
+		"closure_note":          getString(closureNote),
 		"technician_name":       getString(techName),
 		"location_name":         getString(locName),
 		"other_location":        getString(otherLoc),
 		"floor_name":            getString(floorName),
 		"room_number":           getString(roomNumber),
 		"other_room":            getString(otherRoom), // 🔥 [เพิ่มใหม่] คืนค่าชื่อห้องที่พิมพ์เอง
-		"equipment_name":        getString(eqName),
+		"equipment_name":        equipmentName,
+		"other_equipment":       getString(otherEquipment),
 		"asset_code":            getString(assetCode),
 		"problem_type":          getString(probName),
 		"other_problem_type":    getString(otherProb),
@@ -844,8 +883,14 @@ func AssignRepair(c *gin.Context) {
 		return
 	}
 
-	if currentStatus != "รอซ่อม" {
-		c.JSON(http.StatusConflict, gin.H{"error": "มอบหมายได้เฉพาะงานที่อยู่ในคิวรอซ่อม"})
+	if auth.Role(c) == "technician" && currentStatus != statusWaitingTechnician {
+		c.JSON(http.StatusConflict, gin.H{"error": "หัวหน้าช่างมอบหมายต่อได้เฉพาะงานที่รอช่างรับงาน"})
+		return
+	}
+	if auth.Role(c) == "admin" &&
+		currentStatus != statusWaitingAdmin &&
+		currentStatus != statusReturnedToAdmin {
+		c.JSON(http.StatusConflict, gin.H{"error": "มอบหมายได้เฉพาะงานที่รอจัดสรรหรือถูกส่งคืนจากช่าง"})
 		return
 	}
 
@@ -902,7 +947,7 @@ func AssignRepair(c *gin.Context) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "เฉพาะหัวหน้าช่างที่ใช้งานอยู่เท่านั้นที่มอบหมายงานได้"})
 			return
 		}
-		if currentStatus != "รอซ่อม" || currentTechnicianID == nil || *currentTechnicianID != req.HeadTechnicianID {
+		if currentStatus != statusWaitingTechnician || currentTechnicianID == nil || *currentTechnicianID != req.HeadTechnicianID {
 			c.JSON(http.StatusForbidden, gin.H{"error": "หัวหน้าช่างมอบหมายได้เฉพาะงานที่ได้รับมอบหมายและยังไม่เริ่มดำเนินการ"})
 			return
 		}
@@ -935,8 +980,8 @@ func AssignRepair(c *gin.Context) {
 	}
 
 	_, err = tx.Exec(
-		`UPDATE repairs SET status = 'รอซ่อม', technician_id = $1, admin_note = NULL, accepted_at = NULL, completed_at = NULL WHERE id = $2`,
-		req.TechnicianID, repairID,
+		`UPDATE repairs SET status = $1, technician_id = $2, admin_note = NULL, return_note = NULL, closure_note = NULL, accepted_at = NULL, completed_at = NULL WHERE id = $3`,
+		statusWaitingTechnician, req.TechnicianID, repairID,
 	)
 
 	if err != nil {
@@ -946,8 +991,8 @@ func AssignRepair(c *gin.Context) {
 
 	_, err = tx.Exec(`
 		INSERT INTO repair_logs (repair_id, user_id, action, old_status, new_status, note)
-		VALUES ($1, $2, 'ASSIGNED', $3, 'รอซ่อม', $4)`,
-		repairID, actorID, currentStatus, assignmentNote)
+		VALUES ($1, $2, 'ASSIGNED', $3, $4, $5)`,
+		repairID, actorID, currentStatus, statusWaitingTechnician, assignmentNote)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกประวัติการมอบหมายงานได้"})
 		return
@@ -997,7 +1042,7 @@ func AssignRepair(c *gin.Context) {
 		}
 	}()
 
-	c.JSON(http.StatusOK, gin.H{"message": "มอบหมายงานให้ช่างสำเร็จ"})
+	c.JSON(http.StatusOK, gin.H{"message": "มอบหมายงานให้ช่างสำเร็จ", "status": statusWaitingTechnician})
 }
 
 // ---------------------------------------------------------
@@ -1036,7 +1081,7 @@ func RevokeRepair(c *gin.Context) {
 		return
 	}
 
-	_, err = tx.Exec(`UPDATE repairs SET status = 'รอซ่อม', technician_id = NULL, admin_note = NULL, accepted_at = NULL, completed_at = NULL WHERE id = $1`, repairID)
+	_, err = tx.Exec(`UPDATE repairs SET status = $1, technician_id = NULL, admin_note = NULL, return_note = NULL, accepted_at = NULL, completed_at = NULL WHERE id = $2`, statusWaitingAdmin, repairID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -1044,8 +1089,8 @@ func RevokeRepair(c *gin.Context) {
 
 	_, err = tx.Exec(`
 		INSERT INTO repair_logs (repair_id, user_id, action, old_status, new_status, note)
-		VALUES ($1, $2, 'REVOKED', $3, 'รอซ่อม', $4)`,
-		repairID, adminID, currentStatus, "Admin ดึงงานกลับจากช่าง. เหตุผล: "+revokeReason)
+		VALUES ($1, $2, 'REVOKED', $3, $4, $5)`,
+		repairID, adminID, currentStatus, statusWaitingAdmin, "Admin ดึงงานกลับจากช่าง. เหตุผล: "+revokeReason)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกประวัติการดึงงานกลับได้"})
 		return
@@ -1078,7 +1123,7 @@ func RevokeRepair(c *gin.Context) {
 
 func technicianReturnReason(category, details string) (string, bool) {
 	switch strings.TrimSpace(category) {
-	case "ไม่ถนัด", "ส่งงานผิดประเภท", "ทำไม่ได้":
+	case "ไม่ถนัด", "ส่งงานผิดประเภท", "ทำไม่ได้", "งานซ้ำ":
 		if details = strings.TrimSpace(details); details != "" {
 			return strings.TrimSpace(category) + ": " + details, true
 		}
@@ -1088,12 +1133,9 @@ func technicianReturnReason(category, details string) (string, bool) {
 	}
 }
 
-func repairReturnAction(currentStatus, adminNote string, isAssignedTechnician bool) (string, bool) {
+func repairReturnAction(currentStatus string, isAssignedTechnician bool) (string, bool) {
 	switch currentStatus {
-	case "รอซ่อม":
-		if strings.TrimSpace(adminNote) != "" {
-			return "", false
-		}
+	case statusWaitingTechnician:
 		if !isAssignedTechnician {
 			return "RETURNED_TO_ADMIN", true
 		}
@@ -1126,12 +1168,12 @@ func RejectRepair(c *gin.Context) {
 	}
 	defer tx.Rollback()
 
-	var currentStatus, adminNote string
+	var currentStatus string
 	var assignedTechnicianID sql.NullInt64
 	err = tx.QueryRow(`
-		SELECT status, technician_id, COALESCE(admin_note, '')
+		SELECT status, technician_id
 		FROM repairs WHERE id = $1 FOR UPDATE
-	`, repairID).Scan(&currentStatus, &assignedTechnicianID, &adminNote)
+	`, repairID).Scan(&currentStatus, &assignedTechnicianID)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบรายการแจ้งซ่อม"})
 		return
@@ -1144,11 +1186,7 @@ func RejectRepair(c *gin.Context) {
 		c.JSON(http.StatusConflict, gin.H{"error": "งานนี้ยังไม่มีช่างรับผิดชอบ กรุณารีเฟรชรายการ"})
 		return
 	}
-	action, canReturn := repairReturnAction(
-		currentStatus,
-		adminNote,
-		assignedTechnicianID.Int64 == int64(technicianID),
-	)
+	action, canReturn := repairReturnAction(currentStatus, assignedTechnicianID.Int64 == int64(technicianID))
 	if !canReturn {
 		c.JSON(http.StatusConflict, gin.H{"error": "ไม่สามารถส่งคืนงานในสถานะปัจจุบันได้"})
 		return
@@ -1198,9 +1236,9 @@ func RejectRepair(c *gin.Context) {
 
 	result, err := tx.Exec(`
 		UPDATE repairs
-		SET status = 'รอซ่อม', technician_id = NULL, accepted_at = NULL, completed_at = NULL
-		WHERE id = $1 AND technician_id = $2 AND status = $3
-	`, repairID, assignedTechnicianID.Int64, currentStatus)
+		SET status = $1, technician_id = NULL, accepted_at = NULL, completed_at = NULL, return_note = $5
+		WHERE id = $2 AND technician_id = $3 AND status = $4
+	`, statusReturnedToAdmin, repairID, assignedTechnicianID.Int64, currentStatus, rejectionReason)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถส่งงานคืนให้แอดมินได้"})
 		return
@@ -1217,8 +1255,8 @@ func RejectRepair(c *gin.Context) {
 	}
 	if _, err := tx.Exec(`
 		INSERT INTO repair_logs (repair_id, user_id, action, old_status, new_status, note)
-		VALUES ($1, $2, $3, $4, 'รอซ่อม', $5)
-	`, repairID, technicianID, action, currentStatus, actionNote+": "+rejectionReason); err != nil {
+		VALUES ($1, $2, $3, $4, $5, $6)
+	`, repairID, technicianID, action, currentStatus, statusReturnedToAdmin, actionNote+": "+rejectionReason); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกประวัติการคืนงานได้"})
 		return
 	}
@@ -1257,7 +1295,7 @@ func RejectRepair(c *gin.Context) {
 	if action == "REJECTED_BEFORE_ACCEPT" {
 		message = "ปฏิเสธรับงานและส่งกลับให้แอดมินแล้ว"
 	}
-	c.JSON(http.StatusOK, gin.H{"message": message})
+	c.JSON(http.StatusOK, gin.H{"message": message, "status": statusReturnedToAdmin})
 }
 
 // ---------------------------------------------------------
@@ -1289,7 +1327,7 @@ func UpdateRepairStatus(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบรายการแจ้งซ่อม"})
 		return
 	}
-	if (status == "รับงานแล้ว" && currentStatus != "รอซ่อม") ||
+	if (status == "รับงานแล้ว" && currentStatus != statusWaitingTechnician) ||
 		((status == "เสร็จเรียบร้อย" || status == "ซ่อมไม่ได้") && currentStatus != "กำลังซ่อม") {
 		c.JSON(http.StatusConflict, gin.H{"error": "ไม่สามารถเปลี่ยนสถานะจากสถานะปัจจุบันได้"})
 		return
@@ -1317,6 +1355,7 @@ func UpdateRepairStatus(c *gin.Context) {
 
 	shouldNotifyCompletion := status == "เสร็จเรียบร้อย" && currentStatus != "เสร็จเรียบร้อย"
 	shouldUpdateActualCost := status == "เสร็จเรียบร้อย" || status == "ซ่อมไม่ได้"
+	shouldSetAcceptedAt := status == "รับงานแล้ว"
 
 	var actualCost float64
 	if actualCostStr != "" && actualCostStr != "null" {
@@ -1332,7 +1371,7 @@ func UpdateRepairStatus(c *gin.Context) {
 		SET status = $1,
 		    technician_note = COALESCE($2, technician_note),
 		    actual_cost = CASE WHEN $7 THEN $3 ELSE actual_cost END,
-		    accepted_at = CASE WHEN $1 = 'รับงานแล้ว' THEN CURRENT_TIMESTAMP ELSE accepted_at END,
+		    accepted_at = CASE WHEN $8 THEN CURRENT_TIMESTAMP ELSE accepted_at END,
 		    completed_at = CASE WHEN $7 THEN CURRENT_TIMESTAMP ELSE completed_at END
 		WHERE id = $4 AND status = $5 AND technician_id = $6`
 
@@ -1364,7 +1403,7 @@ func UpdateRepairStatus(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	result, err := tx.Exec(query, status, tNote, actualCost, repairID, currentStatus, auth.UserID(c), shouldUpdateActualCost)
+	result, err := tx.Exec(query, status, tNote, actualCost, repairID, currentStatus, auth.UserID(c), shouldUpdateActualCost, shouldSetAcceptedAt)
 	if err != nil {
 		tx.Rollback()
 		cleanupUploadedImages()
@@ -1538,6 +1577,71 @@ func CancelRepairByAdmin(c *gin.Context) {
 	}()
 
 	c.JSON(http.StatusOK, gin.H{"message": "ยกเลิกงานสำเร็จ (สถานะ: ซ่อมไม่ได้)"})
+}
+
+func CloseRepairEarly(c *gin.Context) {
+	repairID := c.Param("id")
+	var req struct {
+		Note string `json:"note" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "กรุณาระบุหมายเหตุการปิดงาน"})
+		return
+	}
+	req.Note = strings.TrimSpace(req.Note)
+	if req.Note == "" || len(req.Note) > 2000 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "หมายเหตุต้องมี 1-2000 ตัวอักษร"})
+		return
+	}
+
+	tx, err := database.DB.Begin()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถเริ่มปิดงานได้"})
+		return
+	}
+	defer tx.Rollback()
+
+	var currentStatus string
+	if err := tx.QueryRow("SELECT status FROM repairs WHERE id = $1 FOR UPDATE", repairID).Scan(&currentStatus); err != nil {
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ไม่พบรายการแจ้งซ่อม"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถตรวจสอบสถานะงานได้"})
+		return
+	}
+	if !canCloseRepairEarly(currentStatus) {
+		c.JSON(http.StatusConflict, gin.H{"error": "ปิดงานก่อนครบขั้นตอนได้เฉพาะงานรอมอบหมาย งานที่ส่งคืน หรือรายการซ่อมไม่ได้"})
+		return
+	}
+
+	if _, err := tx.Exec(`
+		UPDATE repairs
+		SET status = $1, closure_note = $2, completed_at = CURRENT_TIMESTAMP
+		WHERE id = $3 AND status = $4
+	`, statusClosedEarly, req.Note, repairID, currentStatus); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกสถานะปิดงานได้"})
+		return
+	}
+	if _, err := tx.Exec(`
+		INSERT INTO repair_logs (repair_id, user_id, action, old_status, new_status, note)
+		VALUES ($1, $2, 'CLOSED_EARLY', $3, $4, $5)
+	`, repairID, auth.UserID(c), currentStatus, statusClosedEarly, req.Note); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกประวัติการปิดงานได้"})
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถบันทึกการปิดงานได้"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "ปิดงานก่อนครบขั้นตอนสำเร็จ", "status": statusClosedEarly})
+}
+
+func canCloseRepairEarly(status string) bool {
+	return status == statusWaitingAdmin ||
+		status == statusReturnedToAdmin ||
+		status == "ซ่อมไม่ได้"
 }
 
 // OutsourceRepair บันทึกการส่งงานที่ช่างซ่อมไม่ได้ให้คณะหรือผู้รับจ้างภายนอก
@@ -1798,7 +1902,7 @@ func EstimateRepair(c *gin.Context) {
 	requiresApproval := currentStatus == "รับงานแล้ว" &&
 		estimateNeedsAdminApproval(eqID != nil, basePrice, accumulatedCost, req.EstimatedCost, req.ForceAdminReview)
 	if requiresApproval {
-		newStatus = "รอซ่อม"
+		newStatus = statusWaitingForApproval
 		adminSystemNote = fmt.Sprintf(
 			"แจ้งเตือน: ราคาประเมินหรือยอดซ่อมสะสมเกินเกณฑ์ (ราคาทุน %.2f บาท)",
 			basePrice,
@@ -1851,7 +1955,7 @@ func EstimateRepair(c *gin.Context) {
 		admin_note = CASE WHEN $3 = '' THEN admin_note ELSE $3 END,
 		accepted_at = CASE WHEN $4 THEN NULL ELSE CURRENT_TIMESTAMP END
 		WHERE id = $5 AND status = $6 AND technician_id = $7`,
-		req.EstimatedCost, newStatus, adminSystemNote, newStatus == "รอซ่อม",
+		req.EstimatedCost, newStatus, adminSystemNote, newStatus == statusWaitingForApproval,
 		repairID, currentStatus, req.TechID)
 	if err != nil {
 		tx.Rollback()
@@ -1919,7 +2023,7 @@ func sendEstimateEmail(repairID string, newStatus string, adminSystemNote string
 		return
 	}
 
-	if newStatus == "รอซ่อม" {
+	if newStatus == statusWaitingForApproval {
 		// 🔴 เกินจุดคุ้มทุน -> แจ้ง Admin ให้เข้ามาพิจารณาอนุมัติ
 		bodyContent := fmt.Sprintf(`
 			<p><strong>หมายเลขใบแจ้ง:</strong> %s</p>
@@ -2003,8 +2107,8 @@ func ApproveRepairThreshold(c *gin.Context) {
 	result, err := database.DB.Exec(`
 		UPDATE repairs 
 		SET status = 'กำลังซ่อม', accepted_at = CURRENT_TIMESTAMP, admin_note = CONCAT(admin_note, ' -> (Admin อนุมัติให้ดำเนินการต่อ)')
-		WHERE id = $1 AND status = 'รอซ่อม' AND technician_id IS NOT NULL
-	`, repairID)
+		WHERE id = $1 AND status = $2 AND technician_id IS NOT NULL
+	`, repairID, statusWaitingForApproval)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "ไม่สามารถอนุมัติงานได้: " + err.Error()})

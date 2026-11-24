@@ -7,6 +7,79 @@
       linear-gradient(135deg, #fffef2 0%, #ecfdf5 32%, #edf6ff 100%);
   }
 
+.tracking-container .repair-card-badges {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.tracking-container .repair-image-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  padding: 4px 8px;
+  border: 1px solid #d9e3df;
+  border-radius: 999px;
+  color: #52635c;
+  background: #f6f8f7;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tracking-container .repair-image-indicator.has-images {
+  border-color: #9bd5bb;
+  color: #17684e;
+  background: #eaf8f0;
+}
+
+.tracking-container .repair-image-indicator.no-images {
+  border-color: #d7dce0;
+  color: #59636b;
+  background: #f4f6f7;
+}
+
+.tracking-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  margin: 0 0 18px;
+  padding: 16px;
+  border: 1px solid rgba(31, 120, 88, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.tracking-controls .system-search {
+  min-width: 0;
+}
+
+.tracking-filter-reset {
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid #cbded4;
+  border-radius: 9px;
+  color: #35574e;
+  background: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tracking-wrapper > .system-pagination {
+  margin-top: 16px;
+}
+
+@media (max-width: 650px) {
+  .tracking-controls {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+}
+
   .tracking-wrapper {
     width: min(100%, 980px);
     margin: 0 auto;
@@ -263,6 +336,11 @@
   .status-completed { background: linear-gradient(135deg, #0c8d64, #10b981); }
   .status-failed { background: linear-gradient(135deg, #dc2626, #ef4444); }
   .status-outsourced { background: linear-gradient(135deg, #1d4ed8, #3b82f6); }
+  .status-closed-early { background: linear-gradient(135deg, #6d28d9, #8b5cf6); }
+  .status-waiting-admin { background: #fff7ed; color: #9a3412; border: 1px solid #fdba74; }
+  .status-waiting-technician { background: #eff6ff; color: #1d4ed8; border: 1px solid #93c5fd; }
+  .status-returned-admin { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
+  .status-awaiting-approval { background: #f5f3ff; color: #6d28d9; border: 1px solid #c4b5fd; }
   .status-faculty_forward { background: linear-gradient(135deg, #1d4ed8, #3b82f6); }
   .status-default { background: linear-gradient(135deg, #6b7280, #9ca3af); }
 

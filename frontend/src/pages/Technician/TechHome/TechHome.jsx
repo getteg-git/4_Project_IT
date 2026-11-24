@@ -16,14 +16,16 @@ import {
   Image as ImageIcon,
   LogOut,
   Save,
-  Trash2,
   UserRound,
   UserRoundPlus,
   Wrench,
   X
 } from "lucide-react";
 import useToast from "../../../hooks/useToast";
-import { getRepairStatusLabel } from "../../../utils/repairStatus.js";
+import {
+  getRepairStatusClass,
+  getRepairStatusLabel,
+} from "../../../utils/repairStatus.js";
 import SearchField from "../../../components/ui/SearchField";
 import Pagination from "../../../components/ui/Pagination";
 import { getPageItems, REPAIR_PAGE_SIZE } from "../../../components/ui/paginationUtils";
@@ -114,7 +116,7 @@ function TechHome() {
           String(repair.technician_id) === String(user.id) ||
           (
             teamMemberIds.has(String(repair.technician_id)) &&
-            ["รอซ่อม", "รับงานแล้ว", "กำลังซ่อม"].includes(repair.status)
+            ["รอช่างรับงาน", "รับงานแล้ว", "รออนุมัติ", "กำลังซ่อม"].includes(repair.status)
           )
         );
         setRepairs(visibleJobs);
@@ -203,36 +205,20 @@ function TechHome() {
   });
 
   const getStatusClass = (status) => {
-    switch (status) {
-      case "รอซ่อม":
-        return "status-waiting";
-
-      case "รับงานแล้ว":
-        return "status-pending";
-
-      case "กำลังซ่อม":
-        return "status-progress";
-
-      case "เสร็จเรียบร้อย":
-        return "status-completed";
-
-      case "ซ่อมไม่ได้":
-        return "status-failed";
-
-      default:
-        return "status-default";
-    }
+    return getRepairStatusClass(status);
   };
 
   const getTechnicianViewStatusLabel = (repair, isTeamJob) => {
     if (isTeamJob) {
       switch (repair.status) {
-        case "รอซ่อม":
+        case "รอช่างรับงาน":
           return "รอลูกทีมกดรับงาน";
         case "รับงานแล้ว":
           return "ลูกทีมรับงานแล้ว";
         case "กำลังซ่อม":
           return "ลูกทีมกำลังซ่อม";
+        case "รออนุมัติ":
+          return "ลูกทีมรออนุมัติงบ";
         default:
           break;
       }
@@ -300,7 +286,7 @@ function TechHome() {
     isAssignedToCurrentUser(repair) || isAssignedToHeadTeam(repair);
 
   const isPreAcceptanceRejection = (repair) =>
-    repair.status === "รอซ่อม" && !isAssignedToHeadTeam(repair);
+    repair.status === "รอช่างรับงาน" && !isAssignedToHeadTeam(repair);
 
   const isAdminCancelledRepair = (repair) =>
     repair.status === "ซ่อมไม่ได้" &&
@@ -310,7 +296,7 @@ function TechHome() {
     allRepairs.filter(
       (repair) =>
         String(repair.technician_id) === String(technicianId) &&
-        !["เสร็จเรียบร้อย", "เสร็จสิ้น", "ส่งซ่อมภายนอก", "ส่งซ่อมให้คณะ"].includes(
+        !["เสร็จเรียบร้อย", "เสร็จสิ้น", "ส่งซ่อมภายนอก", "ส่งซ่อมภายนอก / คณะ", "ส่งซ่อมให้คณะ", "ปิดงานก่อนครบขั้นตอน"].includes(
           repair.status
         ) &&
         !isAdminCancelledRepair(repair)
@@ -426,8 +412,18 @@ function TechHome() {
 
         fetchMyJobs(currentUser);
       } else {
+        const responseText = await response.text();
+        let errorMessage = "กรุณาลองใหม่อีกครั้ง";
+        if (responseText) {
+          try {
+            const errorData = JSON.parse(responseText);
+            errorMessage = errorData.error || errorData.message || errorMessage;
+          } catch {
+            errorMessage = responseText;
+          }
+        }
         toast.error("รับงานไม่สำเร็จ", {
-          description: "กรุณาลองใหม่อีกครั้ง",
+          description: errorMessage,
         });
       }
     } catch (error) {
@@ -556,7 +552,7 @@ function TechHome() {
       if (response.ok) {
         const data = await response.json();
 
-        if (isStartingRepair && data.status === "รอซ่อม") {
+        if (isStartingRepair && data.status === "รออนุมัติ") {
           toast.warning("ส่งงานให้ผู้ดูแลระบบพิจารณาแล้ว", {
             description: "ราคาประเมินเกินเกณฑ์ ระบบบันทึกราคาและส่งให้แอดมินอนุมัติก่อนเริ่มซ่อม",
           });
@@ -568,7 +564,7 @@ function TechHome() {
             setJobView("progress");
             setCurrentPage(1);
           }
-        } else if (data.status === "รอซ่อม") {
+        } else if (data.status === "รออนุมัติ") {
           toast.info("งานรอการอนุมัติ", {
             description: data.message || "ระบบส่งเรื่องกลับให้ผู้ดูแลพิจารณาแล้ว",
           });
@@ -804,8 +800,9 @@ function TechHome() {
 
   const activeRepairs = filteredRepairs.filter(
     (repair) =>
-      repair.status === "รอซ่อม" ||
-      repair.status === "รับงานแล้ว"
+      repair.status === "รอช่างรับงาน" ||
+      repair.status === "รับงานแล้ว" ||
+      repair.status === "รออนุมัติ"
   );
 
   const progressRepairs = filteredRepairs.filter(
@@ -814,8 +811,9 @@ function TechHome() {
 
   const completedRepairs = filteredRepairs.filter(
     (repair) =>
-      repair.status !== "รอซ่อม" &&
+      repair.status !== "รอช่างรับงาน" &&
       repair.status !== "รับงานแล้ว" &&
+      repair.status !== "รออนุมัติ" &&
       repair.status !== "กำลังซ่อม"
   );
 
@@ -825,6 +823,9 @@ function TechHome() {
       : jobView === "progress"
         ? progressRepairs
         : completedRepairs;
+  displayedRepairs.sort(
+    (first, second) => new Date(first.created_at).getTime() - new Date(second.created_at).getTime()
+  );
 
   const paginatedRepairs = getPageItems(
     displayedRepairs,
@@ -844,24 +845,30 @@ function TechHome() {
             `Ticket #${repair.id}`}
         </span>
 
-        <span
-          className={`status-badge ${getStatusClass(repair.status)} ${
-            isTeamJob ? "team-job-status" : ""
-          }`}
-        >
-          {getTechnicianViewStatusLabel(repair, isTeamJob)}
-        </span>
+        <div className="repair-card-badges">
+          <span
+            className={`status-badge ${getStatusClass(repair.status)} ${
+              isTeamJob ? "team-job-status" : ""
+            }`}
+          >
+            {getTechnicianViewStatusLabel(repair, isTeamJob)}
+          </span>
+          <span className={`repair-image-indicator ${repair.images?.length ? "has-images" : "no-images"}`}>
+            <ImageIcon size={15} aria-hidden="true" />
+            {repair.images?.length ? `มีรูปภาพ (${repair.images.length})` : "ไม่มีรูปภาพ"}
+          </span>
+        </div>
       </div>
 
       <h3 className="repair-title">
-        [{repair.problem_type}] {repair.location_name}
+        [{repair.other_problem_type || repair.problem_type}] {repair.other_location || repair.location_name}
       </h3>
 
       <div className="repair-details-text">
         <p className="repair-info">
           <strong>ชั้น / พิกัด:</strong>{" "}
           {repair.floor_name || "-"}{" "}
-          {formatRoom(repair.room_number)}
+          {formatRoom(repair.other_room || repair.room_number)}
         </p>
 
         {repair.equipment_name && (
@@ -885,7 +892,7 @@ function TechHome() {
               <strong>มอบหมายให้:</strong>{" "}
               {repair.technician_name || "ช่างในทีม"}
             </p>
-            {repair.status === "รอซ่อม" && (
+            {repair.status === "รอช่างรับงาน" && (
               <small>ลูกทีมต้องกดรับงานจากบัญชีของตนเองก่อนเริ่มดำเนินการ</small>
             )}
           </div>
@@ -915,7 +922,7 @@ function TechHome() {
             รายละเอียด
           </button>
 
-          {isOwner && currentUser?.is_head_technician && repair.status === "รอซ่อม" && (
+          {isOwner && currentUser?.is_head_technician && repair.status === "รอช่างรับงาน" && (
             <button
               className="btn-assign"
               type="button"
@@ -927,8 +934,7 @@ function TechHome() {
         </div>
       </div>
 
-      {isOwner && (repair.status === "รอซ่อม" ||
-        repair.status === "รับงานแล้ว") && (
+      {isOwner && ["รอช่างรับงาน", "รับงานแล้ว", "รออนุมัติ"].includes(repair.status) && (
         <div className="job-decision-row">
           {repair.status === "รับงานแล้ว" ? (
             <button
@@ -1284,7 +1290,7 @@ function TechHome() {
                   </p>
                 )}
 
-                {isAssignedToHeadTeam(selectedRepair) && selectedRepair.status === "รอซ่อม" && (
+                {isAssignedToHeadTeam(selectedRepair) && selectedRepair.status === "รอช่างรับงาน" && (
                   <p className="team-job-detail-note">
                     งานนี้รอให้ลูกทีมกดรับจากบัญชีของตนเอง หัวหน้าช่างไม่ต้องกดรับแทน
                   </p>
@@ -1292,12 +1298,12 @@ function TechHome() {
 
                 <p className="repair-info-item">
                   <strong>หมวดหมู่งาน:</strong>{" "}
-                  {selectedRepair.problem_type}
+                  {selectedRepair.other_problem_type || selectedRepair.problem_type}
                 </p>
 
                 <p className="repair-info-item">
                   <strong>สถานที่:</strong>{" "}
-                  {selectedRepair.location_name}
+                  {selectedRepair.other_location || selectedRepair.location_name}
                 </p>
 
                 <p className="repair-info-item">
@@ -1305,7 +1311,7 @@ function TechHome() {
                   {selectedRepair.floor_name ||
                     "-"}{" "}
                   {formatRoom(
-                    selectedRepair.room_number
+                    selectedRepair.other_room || selectedRepair.room_number
                   )}
                 </p>
 
@@ -1347,8 +1353,7 @@ function TechHome() {
             </div>
 
             {canReturnRepair(selectedRepair) &&
-              ["รอซ่อม", "รับงานแล้ว", "กำลังซ่อม"].includes(selectedRepair.status) &&
-              !(selectedRepair.status === "รอซ่อม" && selectedRepair.admin_note?.trim()) && (
+              ["รอช่างรับงาน", "รับงานแล้ว", "กำลังซ่อม"].includes(selectedRepair.status) && (
                 <div className="details-return-action">
                   <div>
                     <strong>
@@ -1625,6 +1630,7 @@ function TechHome() {
                   <option value="ไม่ถนัด">ไม่ถนัด / ไม่อยู่ในความเชี่ยวชาญ</option>
                   <option value="ส่งงานผิดประเภท">ส่งงานผิดประเภท</option>
                   <option value="ทำไม่ได้">ไม่สามารถดำเนินการได้</option>
+                  <option value="งานซ้ำ">งานซ้ำ</option>
                 </select>
               </div>
               <div className="input-group">
@@ -1657,7 +1663,7 @@ function TechHome() {
       {/* POPUP 2: แจ้งยอดซ่อมสะสมและเริ่มซ่อม */}
       {estimateModalOpen && (
         <div className="modal-overlay">
-          <div className="modal-box">
+          <div className="modal-box completion-modal-box">
             <button
               className="close-btn"
               type="button"
@@ -1738,7 +1744,7 @@ function TechHome() {
                             onClick={() => removeCompletionImage(index)}
                             aria-label={`ลบรูป ${file.name}`}
                           >
-                            <Trash2 size={16} aria-hidden="true" />
+                            <X size={16} aria-hidden="true" />
                           </button>
                         </div>
                       ))}
@@ -2070,7 +2076,7 @@ function TechHome() {
                           onClick={() => removeCompletionImage(index)}
                           aria-label={`ลบรูป ${file.name}`}
                         >
-                          <Trash2 size={16} aria-hidden="true" />
+                          <X size={16} aria-hidden="true" />
                         </button>
                       </div>
                     ))}

@@ -113,12 +113,15 @@ CREATE TABLE repairs (
     floor_id INT REFERENCES floors(id),
     room_id INT REFERENCES rooms(id),            
     equipment_id INT REFERENCES equipments(id),  
+    other_equipment VARCHAR(255),
     problem_type_id INT REFERENCES problem_types(id),
     other_problem_type VARCHAR(255),             
     description TEXT NOT NULL,
     technician_note TEXT, -- [จะถูกใช้เพื่อ] บังคับกรอกสรุปงานก่อนปิดจ๊อบ
-    admin_note TEXT,                             
-    status VARCHAR(50) DEFAULT 'รอซ่อม', 
+    admin_note TEXT,
+    return_note TEXT,
+    closure_note TEXT,
+    status VARCHAR(50) DEFAULT 'รอแอดมินจัดสรร',
     estimated_cost DECIMAL(10, 2) DEFAULT 0.00,  
     actual_cost DECIMAL(10, 2) DEFAULT 0.00,     
     accepted_at TIMESTAMP,                       
@@ -129,6 +132,9 @@ CREATE TABLE repairs (
 ALTER TABLE repairs ADD COLUMN IF NOT EXISTS reporter_type VARCHAR(50);
 ALTER TABLE repairs ADD COLUMN IF NOT EXISTS reporter_degree_level VARCHAR(100);
 ALTER TABLE repairs ADD COLUMN IF NOT EXISTS reporter_department VARCHAR(255);
+ALTER TABLE repairs ADD COLUMN IF NOT EXISTS other_equipment VARCHAR(255);
+ALTER TABLE repairs ADD COLUMN IF NOT EXISTS return_note TEXT;
+ALTER TABLE repairs ADD COLUMN IF NOT EXISTS closure_note TEXT;
 
 -- 6. ตารางเก็บรูปภาพ
 CREATE TABLE repair_images (

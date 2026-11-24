@@ -104,6 +104,7 @@ func TestTechnicianReturnReason(t *testing.T) {
 		{category: "ไม่ถนัด", want: "ไม่ถนัด", valid: true},
 		{category: "ส่งงานผิดประเภท", details: "ควรเป็นงานระบบไฟฟ้า", want: "ส่งงานผิดประเภท: ควรเป็นงานระบบไฟฟ้า", valid: true},
 		{category: "ทำไม่ได้", details: "ไม่มีเครื่องมือเฉพาะ", want: "ทำไม่ได้: ไม่มีเครื่องมือเฉพาะ", valid: true},
+		{category: "งานซ้ำ", want: "งานซ้ำ", valid: true},
 		{category: "", details: "เหตุผลอิสระ", valid: false},
 	}
 
@@ -115,18 +116,37 @@ func TestTechnicianReturnReason(t *testing.T) {
 	}
 }
 
+func TestCanCloseRepairEarly(t *testing.T) {
+	tests := []struct {
+		status string
+		want   bool
+	}{
+		{status: statusWaitingAdmin, want: true},
+		{status: statusReturnedToAdmin, want: true},
+		{status: "ซ่อมไม่ได้", want: true},
+		{status: "กำลังซ่อม", want: false},
+		{status: statusClosedEarly, want: false},
+	}
+
+	for _, test := range tests {
+		if got := canCloseRepairEarly(test.status); got != test.want {
+			t.Errorf("canCloseRepairEarly(%q) = %v, want %v", test.status, got, test.want)
+		}
+	}
+}
+
 func TestRepairReturnAction(t *testing.T) {
 	tests := []struct {
 		name        string
 		status      string
-		adminNote   string
 		isOwner     bool
 		wantAction  string
 		wantAllowed bool
 	}{
-		{name: "unaccepted job is rejected by owner", status: "รอซ่อม", isOwner: true, wantAction: "REJECTED_BEFORE_ACCEPT", wantAllowed: true},
-		{name: "head returns delegated unaccepted job", status: "รอซ่อม", wantAction: "RETURNED_TO_ADMIN", wantAllowed: true},
-		{name: "pending admin review cannot be returned", status: "รอซ่อม", adminNote: "รอแอดมินอนุมัติ", isOwner: true, wantAllowed: false},
+		{name: "unaccepted job is rejected by owner", status: statusWaitingTechnician, isOwner: true, wantAction: "REJECTED_BEFORE_ACCEPT", wantAllowed: true},
+		{name: "head returns delegated unaccepted job", status: statusWaitingTechnician, wantAction: "RETURNED_TO_ADMIN", wantAllowed: true},
+		{name: "pending admin approval cannot be returned", status: statusWaitingForApproval, isOwner: true, wantAllowed: false},
+		{name: "unassigned job cannot be returned by a technician", status: statusWaitingAdmin, isOwner: true, wantAllowed: false},
 		{name: "accepted job is returned", status: "รับงานแล้ว", isOwner: true, wantAction: "RETURNED_TO_ADMIN", wantAllowed: true},
 		{name: "in progress job is returned", status: "กำลังซ่อม", isOwner: true, wantAction: "RETURNED_TO_ADMIN", wantAllowed: true},
 		{name: "completed job cannot be returned", status: "เสร็จเรียบร้อย", isOwner: true, wantAllowed: false},
@@ -134,10 +154,10 @@ func TestRepairReturnAction(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			gotAction, gotAllowed := repairReturnAction(test.status, test.adminNote, test.isOwner)
+			gotAction, gotAllowed := repairReturnAction(test.status, test.isOwner)
 			if gotAction != test.wantAction || gotAllowed != test.wantAllowed {
-				t.Errorf("repairReturnAction(%q, %q, %v) = (%q, %v), want (%q, %v)",
-					test.status, test.adminNote, test.isOwner, gotAction, gotAllowed, test.wantAction, test.wantAllowed)
+				t.Errorf("repairReturnAction(%q, %v) = (%q, %v), want (%q, %v)",
+					test.status, test.isOwner, gotAction, gotAllowed, test.wantAction, test.wantAllowed)
 			}
 		})
 	}

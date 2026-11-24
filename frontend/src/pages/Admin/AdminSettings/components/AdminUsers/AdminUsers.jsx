@@ -76,14 +76,8 @@ function AdminUsers() {
     } else if (!allowEmptyPassword) {
       return "password ต้องมีความยาว 3-30 ตัวอักษร";
     }
-    if (role === "technician" && !departmentId) {
-      return "ช่างเทคนิคจำเป็นต้องเลือกสาขาวิชา";
-    }
     if (role === "technician" && specialties.length === 0) {
       return "ช่างเทคนิคต้องเลือกความถนัดอย่างน้อย 1 หมวดหมู่";
-    }
-    if (role === "technician" && specialties.length > 3) {
-      return "ช่างเทคนิคสามารถเลือกความถนัดได้สูงสุด 3 หมวดหมู่";
     }
     return null;
   };
@@ -235,9 +229,9 @@ function AdminUsers() {
     setUsername(user.username);
     setFullName(user.full_name || "");
     setEmail(user.email || "");
-    setDepartmentId(user.department_id || "");
+    setDepartmentId(user.department_id ? String(user.department_id) : user.role === "technician" ? "none" : "");
     setRole(user.role);
-    setIsHeadTechnician(user.is_head_technician || false);
+    setIsHeadTechnician(Boolean(user.is_head_technician && user.department_id));
     setSpecialties(user.specialties || []);
     setIsEditModalOpen(true);
   };
@@ -246,10 +240,6 @@ function AdminUsers() {
     if (specialties.includes(typeId)) {
       setSpecialties(specialties.filter((id) => id !== typeId));
     } else {
-      if (specialties.length >= 3) {
-        toast.warning("เลือกความถนัดได้สูงสุด 3 รายการ", { description: "ยกเลิกตัวเลือกเดิมก่อนเลือกหมวดหมู่เพิ่ม" });
-        return;
-      }
       setSpecialties([...specialties, typeId]);
     }
   };
@@ -271,7 +261,7 @@ function AdminUsers() {
           password, 
           full_name: fullName, 
           email,
-          department_id: departmentId ? parseInt(departmentId) : null,
+          department_id: departmentId && departmentId !== "none" ? parseInt(departmentId, 10) : null,
           is_head_technician: role === "technician" ? isHeadTechnician : false,
           role,
           specialties: role === "technician" ? specialties : []
@@ -312,7 +302,7 @@ function AdminUsers() {
           full_name: fullName,
           email,
           role,
-          department_id: departmentId ? parseInt(departmentId) : null,
+          department_id: departmentId && departmentId !== "none" ? parseInt(departmentId, 10) : null,
           is_head_technician: role === "technician" ? isHeadTechnician : false,
           specialties: role === "technician" ? specialties : []
         })
@@ -708,9 +698,16 @@ function AdminUsers() {
 
               {/* 🔥 เพิ่มฟิลด์สาขา */}
               <div className="input-group">
-                <label>สาขาวิชา / สังกัด {role === "technician" && <span className="required">*</span>}</label>
-                <select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} required={role === "technician"}>
-                  <option value="">{role === "technician" ? "-- โปรดเลือกสาขาวิชา --" : "-- ไม่บังคับสำหรับแอดมิน --"}</option>
+                <label>สาขาวิชา / สังกัด</label>
+                <select
+                  value={departmentId}
+                  onChange={(e) => {
+                    setDepartmentId(e.target.value);
+                    if (e.target.value === "none") setIsHeadTechnician(false);
+                  }}
+                >
+                  <option value="">{role === "technician" ? "-- เลือกสาขาวิชา หรือ ไม่มี --" : "-- ไม่บังคับสำหรับแอดมิน --"}</option>
+                  <option value="none">ไม่มี</option>
                   {departments.map(dept => (
                     <option key={dept.id} value={dept.id}>{dept.name}</option>
                   ))}
@@ -725,6 +722,7 @@ function AdminUsers() {
                         type="checkbox" 
                         checked={isHeadTechnician}
                         onChange={(e) => setIsHeadTechnician(e.target.checked)}
+                        disabled={!departmentId || departmentId === "none"}
                         style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                       />
                       <strong>ตั้งเป็นหัวหน้าช่าง (เพิ่มปุ่มมอบหมายงานให้ช่างในสาขา)</strong>
@@ -732,7 +730,7 @@ function AdminUsers() {
                   </div>
 
                   <div className="input-group">
-                    <label>หมวดหมู่งานซ่อมที่ถนัด (เลือกได้สูงสุด 3 หมวดหมู่) <span className="required">*</span></label>
+                    <label>หมวดหมู่งานซ่อมที่ถนัด (เลือกได้ทุกหมวดหมู่) <span className="required">*</span></label>
                     <div className="specialties-checkbox-grid">
                       {problemTypes.map((type) => (
                         <label className="checkbox-item-label" key={type.id}>
@@ -822,9 +820,16 @@ function AdminUsers() {
               </div>
 
               <div className="input-group">
-                <label>สาขาวิชา / สังกัด {role === "technician" && <span className="required">*</span>}</label>
-                <select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} required={role === "technician"}>
-                  <option value="">{role === "technician" ? "-- โปรดเลือกสาขาวิชา --" : "-- ไม่บังคับสำหรับแอดมิน --"}</option>
+                <label>สาขาวิชา / สังกัด</label>
+                <select
+                  value={departmentId}
+                  onChange={(e) => {
+                    setDepartmentId(e.target.value);
+                    if (e.target.value === "none") setIsHeadTechnician(false);
+                  }}
+                >
+                  <option value="">{role === "technician" ? "-- เลือกสาขาวิชา หรือ ไม่มี --" : "-- ไม่บังคับสำหรับแอดมิน --"}</option>
+                  <option value="none">ไม่มี</option>
                   {departments.map(dept => (
                     <option key={dept.id} value={dept.id}>{dept.name}</option>
                   ))}
@@ -839,6 +844,7 @@ function AdminUsers() {
                         type="checkbox" 
                         checked={isHeadTechnician}
                         onChange={(e) => setIsHeadTechnician(e.target.checked)}
+                        disabled={!departmentId || departmentId === "none"}
                         style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                       />
                       <strong>ตั้งเป็นหัวหน้าช่าง (เพิ่มปุ่มมอบหมายงานให้ช่างในสาขา)</strong>
@@ -846,7 +852,7 @@ function AdminUsers() {
                   </div>
 
                   <div className="input-group">
-                    <label>ปรับปรุงงานซ่อมที่ถนัด (สูงสุด 3 หมวดหมู่) <span className="required">*</span></label>
+                    <label>ปรับปรุงงานซ่อมที่ถนัด (เลือกได้ทุกหมวดหมู่) <span className="required">*</span></label>
                     <div className="specialties-checkbox-grid">
                       {problemTypes.map((type) => (
                         <label className="checkbox-item-label" key={type.id}>

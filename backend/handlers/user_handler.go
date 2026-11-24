@@ -79,14 +79,8 @@ func validateUserPayload(username, password, fullName, email, role string, depar
 		return fmt.Errorf("สิทธิ์ผู้ใช้ต้องเป็น admin หรือ technician")
 	}
 	if role == "technician" {
-		if departmentID == nil {
-			return fmt.Errorf("ช่างเทคนิคต้องเลือกสาขาวิชา")
-		}
 		if len(specialties) == 0 {
 			return fmt.Errorf("ช่างเทคนิคต้องมีความถนัดอย่างน้อย 1 หมวดหมู่")
-		}
-		if len(specialties) > 3 {
-			return fmt.Errorf("ช่างเทคนิคสามารถมีความถนัดได้สูงสุด 3 หมวดหมู่")
 		}
 		seen := make(map[int]bool)
 		for _, specialtyID := range specialties {
@@ -236,12 +230,6 @@ func CreateUser(c *gin.Context) {
 	}
 
 	if req.Role == "technician" && len(req.Specialties) > 0 {
-		if len(req.Specialties) > 3 {
-			tx.Rollback()
-			c.JSON(http.StatusBadRequest, gin.H{"error": "ช่าง 1 คนสามารถมีความถนัดได้สูงสุด 3 หมวดหมู่เท่านั้น"})
-			return
-		}
-
 		for _, problemTypeID := range req.Specialties {
 			_, err = tx.Exec(
 				"INSERT INTO technician_specialties (user_id, problem_type_id) VALUES ($1, $2)",
@@ -337,12 +325,6 @@ func UpdateUser(c *gin.Context) {
 	}
 
 	if req.Role == "technician" {
-		if len(req.Specialties) > 3 {
-			tx.Rollback()
-			c.JSON(http.StatusBadRequest, gin.H{"error": "ช่าง 1 คนสามารถมีความถนัดได้สูงสุด 3 หมวดหมู่เท่านั้น"})
-			return
-		}
-
 		for _, problemTypeID := range req.Specialties {
 			_, err = tx.Exec(
 				"INSERT INTO technician_specialties (user_id, problem_type_id) VALUES ($1, $2)",

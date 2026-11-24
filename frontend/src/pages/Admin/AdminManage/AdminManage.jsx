@@ -5,7 +5,6 @@ import RepairImageGallery from "../../../components/RepairImageGallery";
 import {
   AlertTriangle,
   Banknote,
-  Building2,
   CalendarDays,
   CircleCheck,
   CircleX,
@@ -13,6 +12,7 @@ import {
   Clock3,
   Eye,
   FileText,
+  Image as ImageIcon,
   Lightbulb,
   MessageSquareText,
   RotateCcw,
@@ -29,7 +29,10 @@ import { getPageItems, REPAIR_PAGE_SIZE } from "../../../components/ui/paginatio
 import RepairCardNotes from "../../../components/RepairCardNotes";
 import FilterBar from "../../../components/ui/FilterBar";
 import useToast from "../../../hooks/useToast";
-import { getRepairStatusLabel } from "../../../utils/repairStatus.js";
+import {
+  getRepairStatusClass,
+  getRepairStatusLabel,
+} from "../../../utils/repairStatus.js";
 import "./AdminManage.css";
 
 function AdminManage() {
@@ -60,11 +63,6 @@ function AdminManage() {
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [chosenTechId, setChosenTechId] = useState("");
   const [selectedTechnicianDetail, setSelectedTechnicianDetail] = useState(null);
-  const [isOutsourceOpen, setIsOutsourceOpen] = useState(false);
-  const [outsourceTarget, setOutsourceTarget] = useState(null);
-  const [outsourceDetails, setOutsourceDetails] = useState("");
-  const [outsourceDestination, setOutsourceDestination] = useState("external");
-  const [isOutsourceSubmitting, setIsOutsourceSubmitting] = useState(false);
 
   // States สำหรับหน้าต่างกรอกเหตุผลไม่อนุมัติ (Reject Modal)
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
@@ -74,6 +72,9 @@ function AdminManage() {
   const [revokeReason, setRevokeReason] = useState("");
   const [revokeTargetId, setRevokeTargetId] = useState(null);
   const [isRevoking, setIsRevoking] = useState(false);
+  const [earlyCloseTarget, setEarlyCloseTarget] = useState(null);
+  const [earlyCloseNote, setEarlyCloseNote] = useState("");
+  const [isClosingEarly, setIsClosingEarly] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -292,36 +293,28 @@ function AdminManage() {
     !isAdminCancelledRepair(repair);
 
   const isReviewRepair = (repair) =>
-    repair.status === "รอซ่อม" &&
-    repair.admin_note &&
-    repair.admin_note.trim() !== "";
+    repair.status === "รออนุมัติ" ||
+    (repair.status === "รอซ่อม" &&
+      repair.admin_note?.startsWith("แจ้งเตือน: ราคาประเมิน"));
 
   const needsBudgetApproval = (repair) =>
     isReviewRepair(repair) && Boolean(repair.technician_id);
 
   const unassignedRepairs = filteredRepairs.filter(
     (repair) =>
-      !isCompletedRepair(repair) &&
-      !isAdminCancelledRepair(repair) &&
-      repair.status !== "ส่งซ่อมภายนอก" &&
-      repair.status !== "ส่งซ่อมภายนอก / คณะ" &&
-      repair.status !== "ส่งซ่อมให้คณะ" &&
-      repair.status !== "ซ่อมไม่ได้" &&
-      repair.status !== "กำลังซ่อม" &&
-      !isReviewRepair(repair) &&
+      repair.status === "รอแอดมินจัดสรร" &&
+      !repair.technician_name
+  );
+
+  const returnedRepairs = filteredRepairs.filter(
+    (repair) =>
+      repair.status === "ส่งคืนแอดมิน" &&
       !repair.technician_name
   );
 
   const assignedRepairs = filteredRepairs.filter(
     (repair) =>
-      !isCompletedRepair(repair) &&
-      !isAdminCancelledRepair(repair) &&
-      repair.status !== "ส่งซ่อมภายนอก" &&
-      repair.status !== "ส่งซ่อมภายนอก / คณะ" &&
-      repair.status !== "ส่งซ่อมให้คณะ" &&
-      repair.status !== "ซ่อมไม่ได้" &&
-      repair.status !== "กำลังซ่อม" &&
-      !isReviewRepair(repair) &&
+      ["รอช่างรับงาน", "รับงานแล้ว"].includes(repair.status) &&
       Boolean(repair.technician_name)
   );
 
@@ -345,7 +338,8 @@ function AdminManage() {
   const completedRepairs = filteredRepairs.filter(
     (repair) =>
       isCompletedRepair(repair) ||
-      isAdminCancelledRepair(repair)
+      isAdminCancelledRepair(repair) ||
+      repair.status === "ปิดงานก่อนครบขั้นตอน"
   );
 
   const repairsToDisplay =
@@ -353,6 +347,8 @@ function AdminManage() {
       ? unassignedRepairs
       : assignmentView === "assigned"
         ? assignedRepairs
+        : assignmentView === "returned"
+          ? returnedRepairs
         : assignmentView === "review"
           ? reviewRepairs
           : assignmentView === "cannot-repair"
@@ -371,28 +367,11 @@ function AdminManage() {
     currentPage,
     REPAIR_PAGE_SIZE
   );
+  const canCloseEarly = (repair) =>
+    ["รอแอดมินจัดสรร", "ส่งคืนแอดมิน", "ซ่อมไม่ได้"].includes(repair.status);
 
   const getStatusClass = (status) => {
-    switch (status) {
-      case "รอซ่อม":
-        return "status-waiting";
-      case "รับงานแล้ว":
-        return "status-pending";
-      case "กำลังซ่อม":
-        return "status-progress";
-      case "ส่งซ่อมภายนอก":
-      case "ส่งซ่อมภายนอก / คณะ":
-      case "ส่งซ่อมให้คณะ":
-        return "status-outsourced";
-      case "เสร็จเรียบร้อย":
-        return "status-completed";
-      case "เสร็จสิ้น":
-        return "status-completed";
-      case "ซ่อมไม่ได้":
-        return "status-failed";
-      default:
-        return "status-default";
-    }
+    return getRepairStatusClass(status);
   };
 
   const formatDate = (dateString) => {
@@ -567,67 +546,6 @@ function AdminManage() {
   };
 
   // ==============================
-  // ส่งซ่อมภายนอก
-  // ==============================
-  const openOutsourceModal = (repair, destination = "external") => {
-    setOutsourceTarget(repair);
-    setOutsourceDetails("");
-    setOutsourceDestination(destination);
-    setIsOutsourceOpen(true);
-  };
-
-  const handleOutsourceSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!outsourceTarget || !outsourceDetails.trim()) return;
-
-    setIsOutsourceSubmitting(true);
-
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/repairs/${outsourceTarget.id}/outsource`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            details: outsourceDetails.trim(),
-            destination: outsourceDestination,
-            admin_id: 1,
-          }),
-        }
-      );
-
-      if (response.ok) {
-        const destinationName =
-          outsourceDestination === "faculty" ? "ทางคณะ" : "ภายนอก";
-        toast.success(`บันทึกส่งซ่อม${destinationName}แล้ว`, {
-          description: "ระบบย้ายงานไปยังรายการส่งซ่อมต่อแล้ว",
-        });
-
-        setIsOutsourceOpen(false);
-        fetchData();
-      } else {
-        const errorData = await response.json();
-
-        toast.error("บันทึกไม่สำเร็จ", {
-          description:
-            errorData.error || "กรุณาลองใหม่อีกครั้ง",
-        });
-      }
-    } catch (error) {
-      console.error("Outsource Repair Error:", error);
-
-      toast.error("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์", {
-        description: "กรุณาลองใหม่อีกครั้ง",
-      });
-    } finally {
-      setIsOutsourceSubmitting(false);
-    }
-  };
-
-  // ==============================
   // ดึงงานกลับ
   // ==============================
   const handleRevoke = (id) => {
@@ -790,6 +708,43 @@ function AdminManage() {
     }
   };
 
+  const openEarlyCloseModal = (repair) => {
+    setEarlyCloseTarget(repair);
+    setEarlyCloseNote("");
+  };
+
+  const submitEarlyClose = async (event) => {
+    event.preventDefault();
+    if (!earlyCloseTarget || !earlyCloseNote.trim()) return;
+
+    setIsClosingEarly(true);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/repairs/${earlyCloseTarget.id}/close-early`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ note: earlyCloseNote.trim() }),
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "ไม่สามารถปิดงานได้");
+
+      toast.success("ปิดงานก่อนครบขั้นตอนแล้ว", {
+        description: "บันทึกสถานะและหมายเหตุสำหรับผู้แจ้งเรียบร้อย",
+      });
+      setEarlyCloseTarget(null);
+      setEarlyCloseNote("");
+      fetchData();
+    } catch (error) {
+      toast.error("ปิดงานไม่สำเร็จ", {
+        description: error.message || "กรุณาลองใหม่อีกครั้ง",
+      });
+    } finally {
+      setIsClosingEarly(false);
+    }
+  };
+
   return (
     <div className={`admin-manage-container ${!isLoading && displayedRepairs.length === 0 ? "has-empty-repairs" : ""}`}>
       <div className="admin-wrapper">
@@ -887,12 +842,28 @@ function AdminManage() {
               setCurrentPage(1);
             }}
           >
-            ยังไม่มอบหมาย{" "}
+            รอแอดมินมอบหมาย{" "}
             <span
-              className={`assignment-count-badge ${unassignedRepairs.length > 1 ? "is-alert" : ""}`}
-              aria-label={`${unassignedRepairs.length} งานยังไม่มอบหมาย`}
+              className={`assignment-count-badge ${unassignedRepairs.length > 0 ? "is-alert" : ""}`}
+              aria-label={`${unassignedRepairs.length} งานรอแอดมินมอบหมาย`}
             >
               {unassignedRepairs.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            role="tab"
+            aria-selected={assignmentView === "returned"}
+            className={`${assignmentView === "returned" ? "is-active" : ""} ${returnedRepairs.length > 0 ? "has-pending-review" : ""}`}
+            onClick={() => {
+              setAssignmentView("returned");
+              setCurrentPage(1);
+            }}
+          >
+            ส่งคืนแอดมิน{" "}
+            <span className={`assignment-count-badge ${returnedRepairs.length > 0 ? "is-alert" : ""}`}>
+              {returnedRepairs.length}
             </span>
           </button>
 
@@ -911,7 +882,9 @@ function AdminManage() {
             }}
           >
             มอบหมายแล้ว{" "}
-            <span>{assignedRepairs.length}</span>
+            <span className={`assignment-count-badge ${assignedRepairs.length > 0 ? "is-alert" : ""}`} aria-label={`${assignedRepairs.length} งานที่มอบหมายแล้ว`}>
+              {assignedRepairs.length}
+            </span>
           </button>
 
           <button
@@ -924,9 +897,9 @@ function AdminManage() {
               setCurrentPage(1);
             }}
           >
-            พิจารณา{" "}
+            รอพิจารณา{" "}
             <span
-              className={`assignment-count-badge ${reviewRepairs.length > 1 ? "is-alert" : ""}`}
+              className={`assignment-count-badge ${reviewRepairs.length > 0 ? "is-alert" : ""}`}
               aria-label={`${reviewRepairs.length} งานรอพิจารณา`}
             >
               {reviewRepairs.length}
@@ -949,8 +922,10 @@ function AdminManage() {
               setCurrentPage(1);
             }}
           >
-            ช่างแจ้งซ่อมไม่ได้{" "}
-            <span>{repairFailureRepairs.length}</span>
+            ซ่อมไม่ได้{" "}
+            <span className={`assignment-count-badge ${repairFailureRepairs.length > 0 ? "is-alert" : ""}`} aria-label={`${repairFailureRepairs.length} งานซ่อมไม่ได้`}>
+              {repairFailureRepairs.length}
+            </span>
           </button>
 
           <button
@@ -970,7 +945,9 @@ function AdminManage() {
             }}
           >
             ส่งซ่อมต่อ{" "}
-            <span>{outsourcedRepairs.length}</span>
+            <span className={`assignment-count-badge ${outsourcedRepairs.length > 0 ? "is-alert" : ""}`} aria-label={`${outsourcedRepairs.length} งานส่งซ่อมต่อ`}>
+              {outsourcedRepairs.length}
+            </span>
           </button>
 
           <button
@@ -988,7 +965,9 @@ function AdminManage() {
             }}
           >
             กำลังซ่อม{" "}
-            <span>{progressRepairs.length}</span>
+            <span className={`assignment-count-badge ${progressRepairs.length > 0 ? "is-alert" : ""}`} aria-label={`${progressRepairs.length} งานกำลังซ่อม`}>
+              {progressRepairs.length}
+            </span>
           </button>
 
           <button
@@ -1008,7 +987,9 @@ function AdminManage() {
             }}
           >
             เสร็จแล้ว{" "}
-            <span>{completedRepairs.length}</span>
+            <span className={`assignment-count-badge ${completedRepairs.length > 0 ? "is-alert" : ""}`} aria-label={`${completedRepairs.length} งานเสร็จแล้ว`}>
+              {completedRepairs.length}
+            </span>
           </button>
         </div>
 
@@ -1029,25 +1010,31 @@ function AdminManage() {
                       `Ticket #${repair.id}`}
                   </span>
 
-                  <span
-                    className={`status-badge ${getStatusClass(
-                      repair.status
-                    )}`}
-                  >
-                    {getRepairStatusLabel(repair.status)}
-                  </span>
+                  <div className="repair-card-badges">
+                    <span
+                      className={`status-badge ${getStatusClass(
+                        repair.status
+                      )}`}
+                    >
+                      {getRepairStatusLabel(repair.status)}
+                    </span>
+                    <span className={`repair-image-indicator ${repair.images?.length ? "has-images" : "no-images"}`}>
+                      <ImageIcon size={15} aria-hidden="true" />
+                      {repair.images?.length ? `มีรูปภาพ (${repair.images.length})` : "ไม่มีรูปภาพ"}
+                    </span>
+                  </div>
                 </div>
 
                 <h3 className="repair-title">
-                  [{repair.problem_type}]{" "}
-                  {repair.location_name}
+                  [{repair.other_problem_type || repair.problem_type}]{" "}
+                  {repair.other_location || repair.location_name}
                 </h3>
 
                 <div className="repair-details-text">
                   <p className="repair-info">
                     <strong>ชั้น / พิกัด:</strong>{" "}
                     {repair.floor_name || "-"}{" "}
-                    {formatRoom(repair.room_number)}
+                    {formatRoom(repair.other_room || repair.room_number)}
                   </p>
 
                   {repair.equipment_name && (
@@ -1069,6 +1056,12 @@ function AdminManage() {
                   </p>
 
                   <RepairCardNotes repair={repair} />
+                  {repair.return_note && (
+                    <p className="repair-resolution-note"><strong>เหตุผลที่ส่งคืน:</strong> {repair.return_note}</p>
+                  )}
+                  {repair.closure_note && (
+                    <p className="repair-resolution-note"><strong>หมายเหตุปิดงานก่อนครบขั้นตอน:</strong> {repair.closure_note}</p>
+                  )}
                 </div>
 
                 {repair.technician_name && (
@@ -1147,7 +1140,7 @@ function AdminManage() {
                         <AlertTriangle size={17} aria-hidden="true" />{" "}
                         {repair.admin_note}
                       </p>
-                      {repair.status === "รอซ่อม" && !repair.technician_id ? (
+                      {repair.status === "รอแอดมินจัดสรร" && !repair.technician_id ? (
                         <p className="repair-info">
                           ยังไม่มีช่างที่รับผิดชอบ จึงยังไม่สามารถอนุมัติให้เริ่มซ่อมได้
                         </p>
@@ -1195,7 +1188,7 @@ function AdminManage() {
                       ดูรายละเอียด
                     </button>
 
-                    {repair.status === "รอซ่อม" &&
+                    {["รอแอดมินจัดสรร", "ส่งคืนแอดมิน"].includes(repair.status) &&
                       !repair.technician_name && (
                         <button
                           className="btn-assign"
@@ -1226,25 +1219,21 @@ function AdminManage() {
                           มอบหมายช่างคนอื่น
                         </button>
 
-                        <button
-                          className="btn-outsource"
-                          onClick={() => openOutsourceModal(repair, "faculty")}
-                        >
-                          <Building2 size={16} aria-hidden="true" />{" "}
-                          ส่งซ่อมให้คณะ
-                        </button>
-                        <button
-                          className="btn-outsource"
-                          onClick={() => openOutsourceModal(repair, "external")}
-                        >
-                          <Building2 size={16} aria-hidden="true" />{" "}
-                          ส่งซ่อมภายนอก
-                        </button>
                       </>
                     )}
 
+                    {canCloseEarly(repair) && (
+                      <button
+                        className="btn-close-early"
+                        type="button"
+                        onClick={() => openEarlyCloseModal(repair)}
+                      >
+                        <CircleCheck size={16} aria-hidden="true" /> ปิดงานก่อนครบขั้นตอน
+                      </button>
+                    )}
+
                     {repair.technician_id &&
-                      ["รอซ่อม", "รับงานแล้ว", "กำลังซ่อม"].includes(repair.status) &&
+                      ["รอช่างรับงาน", "รับงานแล้ว", "กำลังซ่อม"].includes(repair.status) &&
                       !isReviewRepair(repair) && (
                       <button
                         className="btn-revoke"
@@ -1267,9 +1256,11 @@ function AdminManage() {
             <div className="repair-empty-state">
               <p>
                 {assignmentView === "unassigned"
-                  ? "ไม่มีงานที่รอมอบหมาย"
-                  : assignmentView === "assigned"
-                    ? "ยังไม่มีงานที่มอบหมายแล้ว"
+                  ? "ไม่มีงานที่รอแอดมินมอบหมาย"
+                  : assignmentView === "returned"
+                    ? "ไม่มีงานที่ถูกส่งคืนจากช่าง"
+                    : assignmentView === "assigned"
+                      ? "ยังไม่มีงานที่มอบหมายแล้ว"
                     : assignmentView === "review"
                       ? "ไม่มีงานที่รอพิจารณา"
                       : assignmentView ===
@@ -1300,8 +1291,13 @@ function AdminManage() {
 
       {/* POPUP: ดูรายละเอียด */}
       {isDetailsOpen && selectedRepair && (
-        <div className="modal-overlay">
-          <div className="modal-box details-box">
+        <div
+          className="modal-overlay"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setIsDetailsOpen(false);
+          }}
+        >
+          <div className="modal-box details-box" role="dialog" aria-modal="true" aria-label="ข้อมูลการแจ้งซ่อมอย่างละเอียด">
             <button
               className="close-btn"
               type="button"
@@ -1807,104 +1803,6 @@ function AdminManage() {
         </div>
       )}
 
-      {isOutsourceOpen && outsourceTarget && (
-        <div className="modal-overlay">
-          <div className="modal-box">
-            <button
-              className="close-btn"
-              type="button"
-              onClick={() =>
-                setIsOutsourceOpen(false)
-              }
-              aria-label="ปิดหน้าต่าง"
-            >
-              <X aria-hidden="true" />
-            </button>
-
-            <h3 className="assign-modal-title">
-              <Building2
-                size={22}
-                aria-hidden="true"
-              />{" "}
-              บันทึกส่งซ่อมต่อ
-            </h3>
-
-            <p className="assign-modal-subtitle">
-              Ticket:{" "}
-              {outsourceTarget.ticket_number ||
-                `#${outsourceTarget.id}`}{" "}
-              | {outsourceTarget.problem_type}
-            </p>
-
-            <p className="outsource-context">
-              เลือกปลายทางส่งซ่อม งานจะถูกย้ายออกจากคิวช่างภายใน
-            </p>
-
-            <form onSubmit={handleOutsourceSubmit}>
-              <div className="input-group">
-                <label htmlFor="outsource-destination">
-                  ส่งซ่อมให้{" "}
-                  <span className="required">*</span>
-                </label>
-                <select
-                  id="outsource-destination"
-                  className="cost-input"
-                  value={outsourceDestination}
-                  onChange={(e) => setOutsourceDestination(e.target.value)}
-                >
-                  <option value="faculty">ทางคณะ</option>
-                  <option value="external">ภายนอก</option>
-                </select>
-              </div>
-
-              <div className="input-group">
-                <label>
-                  {outsourceDestination === "faculty"
-                    ? "หน่วยงานหรือรายละเอียดการส่งซ่อม"
-                    : "ชื่อผู้รับจ้างหรือรายละเอียดการส่งซ่อม"}{" "}
-                  <span className="required">*</span>
-                </label>
-
-                <textarea
-                  className="reject-textarea"
-                  placeholder={
-                    outsourceDestination === "faculty"
-                      ? "ระบุหน่วยงาน/ผู้รับผิดชอบและรายละเอียดที่ต้องติดตาม"
-                      : "ระบุชื่อร้าน/ช่างภายนอก และรายละเอียดที่ต้องติดตาม"
-                  }
-                  value={outsourceDetails}
-                  onChange={(e) =>
-                    setOutsourceDetails(
-                      e.target.value
-                    )
-                  }
-                  required
-                />
-              </div>
-
-              <div className="modal-actions assign-actions">
-                <button
-                  type="submit"
-                  className="btn-submit"
-                  disabled={
-                    isOutsourceSubmitting ||
-                    !outsourceDetails.trim()
-                  }
-                >
-                  <Building2
-                    size={18}
-                    aria-hidden="true"
-                  />{" "}
-                  {isOutsourceSubmitting
-                    ? "กำลังบันทึก..."
-                    : `ยืนยันส่งซ่อม${outsourceDestination === "faculty" ? "ให้คณะ" : "ภายนอก"}`}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {isRevokeModalOpen && (
         <div className="modal-overlay">
           <div className="modal-box revoke-modal-box">
@@ -2028,6 +1926,60 @@ function AdminManage() {
                     aria-hidden="true"
                   />{" "}
                   ยืนยันการไม่อนุมัติ
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {earlyCloseTarget && (
+        <div className="modal-overlay">
+          <div className="modal-box early-close-modal">
+            <button
+              className="close-btn"
+              type="button"
+              disabled={isClosingEarly}
+              onClick={() => setEarlyCloseTarget(null)}
+              aria-label="ปิดหน้าต่าง"
+            >
+              <X aria-hidden="true" />
+            </button>
+            <h3 className="assign-modal-title">ปิดงานก่อนครบขั้นตอน</h3>
+            <p className="assign-modal-subtitle">
+              Ticket: {earlyCloseTarget.ticket_number || `#${earlyCloseTarget.id}`}
+            </p>
+            <p>หมายเหตุนี้จะแสดงให้ผู้แจ้งเห็นในหน้าติดตามสถานะ</p>
+            <form onSubmit={submitEarlyClose}>
+              <div className="input-group">
+                <label htmlFor="early-close-note">
+                  หมายเหตุ <span className="required">*</span>
+                </label>
+                <textarea
+                  id="early-close-note"
+                  className="reject-textarea"
+                  value={earlyCloseNote}
+                  onChange={(event) => setEarlyCloseNote(event.target.value)}
+                  maxLength={2000}
+                  required
+                  placeholder="อธิบายเหตุผลที่ต้องปิดงานก่อนดำเนินการครบขั้นตอน"
+                />
+              </div>
+              <div className="modal-actions assign-actions">
+                <button
+                  type="button"
+                  className="btn-cancel"
+                  disabled={isClosingEarly}
+                  onClick={() => setEarlyCloseTarget(null)}
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  className="btn-close-early"
+                  disabled={isClosingEarly || !earlyCloseNote.trim()}
+                >
+                  {isClosingEarly ? "กำลังปิดงาน..." : "ยืนยันปิดงาน"}
                 </button>
               </div>
             </form>

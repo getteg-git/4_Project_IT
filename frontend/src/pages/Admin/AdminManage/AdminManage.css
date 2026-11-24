@@ -206,6 +206,11 @@
 .status-completed { background-color: var(--color-primary); }
 .status-failed { background-color: #e74c3c; }
 .status-outsourced { background-color: #2563eb; }
+.status-closed-early { background: #ede9fe; color: #5b21b6; border: 1px solid #c4b5fd; }
+.status-waiting-admin { background: #fff7ed; color: #9a3412; border: 1px solid #fdba74; }
+.status-waiting-technician { background: #eff6ff; color: #1d4ed8; border: 1px solid #93c5fd; }
+.status-returned-admin { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
+.status-awaiting-approval { background: #f5f3ff; color: #6d28d9; border: 1px solid #c4b5fd; }
 
 .repair-title {
   font-size: 1.3rem;
@@ -876,4 +881,102 @@
   color: #475569;
   background: #f8fbff;
   line-height: 1.45;
+}
+
+.admin-manage-container .modal-overlay {
+  z-index: 2000;
+  overflow-y: auto;
+}
+
+.admin-manage-container .modal-box {
+  box-sizing: border-box;
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.admin-manage-container .repair-card-badges,
+.tech-container .repair-card-badges,
+.tracking-container .repair-card-badges {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.admin-manage-container .repair-image-indicator,
+.tech-container .repair-image-indicator,
+.tracking-container .repair-image-indicator,
+.public-board-page .repair-image-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  padding: 4px 8px;
+  border: 1px solid #d9e3df;
+  border-radius: 999px;
+  color: #52635c;
+  background: #f6f8f7;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.admin-manage-container .repair-image-indicator.has-images,
+.tech-container .repair-image-indicator.has-images,
+.tracking-container .repair-image-indicator.has-images,
+.public-board-page .repair-image-indicator.has-images {
+  border-color: #9bd5bb;
+  color: #17684e;
+  background: #eaf8f0;
+}
+
+.admin-manage-container .repair-image-indicator.no-images,
+.tech-container .repair-image-indicator.no-images,
+.tracking-container .repair-image-indicator.no-images,
+.public-board-page .repair-image-indicator.no-images {
+  border-color: #d7dce0;
+  color: #59636b;
+  background: #f4f6f7;
+}
+
+.admin-manage-container .repair-resolution-note {
+  margin: 8px 0;
+  padding: 9px 11px;
+  border-left: 3px solid #5b8def;
+  border-radius: 4px;
+  color: #34445a;
+  background: #eff5ff;
+  white-space: pre-wrap;
+}
+
+.admin-manage-container .btn-close-early {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 9px 13px;
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  background: #7c3aed;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.admin-manage-container .btn-close-early:hover:not(:disabled) {
+  background: #6d28d9;
+}
+
+.admin-manage-container .btn-close-early:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.admin-manage-container .early-close-modal > p {
+  color: #52635c;
+  line-height: 1.5;
 }

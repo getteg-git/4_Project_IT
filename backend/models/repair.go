@@ -21,6 +21,7 @@ type Repair struct {
 	OtherRoom        *string `json:"other_room"`
 	EquipmentID      *int    `json:"equipment_id"`
 	EquipmentName    string  `json:"equipment_name,omitempty"`
+	OtherEquipment   *string `json:"other_equipment"`
 	AssetCode        string  `json:"asset_code,omitempty"`
 	ProblemTypeID    *int    `json:"problem_type_id"`
 	ProblemType      string  `json:"problem_type,omitempty"`
@@ -28,6 +29,8 @@ type Repair struct {
 	Description      string  `json:"description"`
 	TechnicianNote   *string `json:"technician_note"`
 	AdminNote        *string `json:"admin_note"`
+	ReturnNote       *string `json:"return_note"`
+	ClosureNote      *string `json:"closure_note"`
 	Status           string  `json:"status"`
 
 	// ฟิลด์ค่าใช้จ่าย

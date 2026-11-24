@@ -2,7 +2,7 @@ package models
 
 type DashboardOverview struct {
 	TotalRepairs int `json:"total_repairs"` // ยอดแจ้งซ่อมทั้งหมด
-	Pending      int `json:"pending"`       // รอซ่อม
+	Pending      int `json:"pending"`       // รอจัดสรร รับงาน หรือรออนุมัติ
 	InProgress   int `json:"in_progress"`   // กำลังซ่อม
 	CannotRepair int `json:"cannot_repair"` // 🔥 ซ่อมไม่ได้ (เพิ่มให้ครบ 4 สถานะเป๊ะๆ ตามลอจิก)
 	Completed    int `json:"completed"`     // เสร็จสิ้น / เสร็จเรียบร้อย

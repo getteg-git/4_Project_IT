@@ -27,6 +27,7 @@ type publicRepairCard struct {
 	RoomNumber       string    `json:"room_number"`
 	OtherRoom        string    `json:"other_room"`
 	EquipmentName    string    `json:"equipment_name"`
+	HasImages        bool      `json:"has_images"`
 	ProblemType      string    `json:"problem_type"`
 	OtherProblemType string    `json:"other_problem_type"`
 }
@@ -36,7 +37,8 @@ func GetPublicRepairBoard(c *gin.Context) {
 		SELECT r.id, COALESCE(r.ticket_number, ''), r.description, r.status, r.created_at,
 		       COALESCE(l.name, ''), COALESCE(r.other_location, ''),
 		       COALESCE(f.floor_name, ''), COALESCE(ro.room_number, ''),
-		       COALESCE(r.other_room, ''), COALESCE(eq.name, ''),
+		       COALESCE(r.other_room, ''), COALESCE(NULLIF(r.other_equipment, ''), eq.name, ''),
+		       EXISTS (SELECT 1 FROM repair_images ri WHERE ri.repair_id = r.id),
 		       COALESCE(pt.name, ''), COALESCE(r.other_problem_type, '')
 		FROM repairs r
 		LEFT JOIN locations l ON l.id = r.location_id
@@ -68,6 +70,7 @@ func GetPublicRepairBoard(c *gin.Context) {
 			&repair.RoomNumber,
 			&repair.OtherRoom,
 			&repair.EquipmentName,
+			&repair.HasImages,
 			&repair.ProblemType,
 			&repair.OtherProblemType,
 		); err != nil {
@@ -146,7 +149,7 @@ func getTrackedRepairByID(repairID, email string) (map[string]interface{}, error
 	var id int
 	var description, status, reporterEmail string
 	var ticketNumber, locationName, otherLocation, floorName, roomNumber, otherRoom *string
-	var equipmentName, problemType, otherProblemType, technicianName, technicianNote, adminNote *string
+	var equipmentName, otherEquipment, problemType, otherProblemType, technicianName, technicianNote, adminNote, closureNote *string
 	var assetCode *string
 	var reporterType, reporterDegreeLevel, reporterDepartment *string
 	var estimatedCost, actualCost float64
@@ -159,6 +162,7 @@ func getTrackedRepairByID(repairID, email string) (map[string]interface{}, error
 		       r.reporter_type, r.reporter_degree_level, r.reporter_department,
 		       r.technician_note, r.admin_note, r.created_at, r.estimated_cost, r.actual_cost,
 		       r.accepted_at, r.completed_at, r.other_location, r.other_room, r.other_problem_type,
+		       r.other_equipment, r.closure_note,
 		       r.department_id, l.name, f.floor_name, ro.room_number, eq.name, eq.asset_code,
 		       pt.name, u.full_name
 		FROM repairs r
@@ -174,6 +178,7 @@ func getTrackedRepairByID(repairID, email string) (map[string]interface{}, error
 		&reporterType, &reporterDegreeLevel, &reporterDepartment,
 		&technicianNote, &adminNote, &createdAt, &estimatedCost, &actualCost,
 		&acceptedAt, &completedAt, &otherLocation, &otherRoom, &otherProblemType,
+		&otherEquipment, &closureNote,
 		&departmentID, &locationName, &floorName, &roomNumber, &equipmentName,
 		&assetCode, &problemType, &technicianName,
 	)
@@ -205,6 +210,10 @@ func getTrackedRepairByID(repairID, email string) (map[string]interface{}, error
 		return nil, err
 	}
 
+	if customName := stringValue(otherEquipment); customName != "" {
+		equipmentName = otherEquipment
+	}
+
 	return map[string]interface{}{
 		"id":                    id,
 		"ticket_number":         stringValue(ticketNumber),
@@ -217,6 +226,7 @@ func getTrackedRepairByID(repairID, email string) (map[string]interface{}, error
 		"department_id":         departmentID,
 		"technician_note":       stringValue(technicianNote),
 		"admin_note":            stringValue(adminNote),
+		"closure_note":          stringValue(closureNote),
 		"technician_name":       stringValue(technicianName),
 		"location_name":         stringValue(locationName),
 		"other_location":        stringValue(otherLocation),
@@ -224,6 +234,7 @@ func getTrackedRepairByID(repairID, email string) (map[string]interface{}, error
 		"room_number":           stringValue(roomNumber),
 		"other_room":            stringValue(otherRoom),
 		"equipment_name":        stringValue(equipmentName),
+		"other_equipment":       stringValue(otherEquipment),
 		"asset_code":            stringValue(assetCode),
 		"problem_type":          stringValue(problemType),
 		"other_problem_type":    stringValue(otherProblemType),

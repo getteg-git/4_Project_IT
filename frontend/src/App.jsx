@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import UserHome from "./pages/User/UserHome/UserHome";
 import CreateRepair from "./pages/User/CreateRepair/CreateRepair";
-import MyRepairs from "./pages/User/MyRepairs/MyRepairs";
 import TechHome from "./pages/Technician/TechHome/TechHome";
 import AdminDashboard from "./pages/Admin/AdminDashboard/AdminDashboard"; 
 import AdminManage from "./pages/Admin/AdminManage/AdminManage";
@@ -19,7 +18,7 @@ function App() {
 
         {/* ฝั่งผู้ใช้งานทั่วไป */}
         <Route path="/repair/create" element={<CreateRepair />} />
-        <Route path="/repair/history" element={<MyRepairs />} />
+        <Route path="/repair/history" element={<PublicRepairBoard />} />
         <Route path="/repair/board" element={<PublicRepairBoard />} />
 
         {/* ฝั่งแอดมิน */}

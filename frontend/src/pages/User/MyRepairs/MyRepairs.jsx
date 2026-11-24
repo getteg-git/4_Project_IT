@@ -1,12 +1,18 @@
 import { API_BASE_URL, apiFetch as fetch } from "../../../api/baseUrl.js";
 import React, { useState } from "react";
-import { CalendarDays, CircleX, Eye, FileText, Mail, UserRound, Wrench, X, ClipboardCheck, Clock } from "lucide-react";
+import { CalendarDays, CircleX, Eye, FileText, Image as ImageIcon, Mail, UserRound, Wrench, X, ClipboardCheck, Clock } from "lucide-react";
 import AppBreadcrumb from "../../../components/AppBreadcrumb";
 import RepairImageGallery from "../../../components/RepairImageGallery";
 import BackButton from "../../../components/ui/BackButton";
+import FilterBar from "../../../components/ui/FilterBar";
+import Pagination from "../../../components/ui/Pagination";
+import SearchField from "../../../components/ui/SearchField";
 import RepairCardNotes from "../../../components/RepairCardNotes";
 import RepairTimelineModal from "../Timeline/RepairTimelineModal";
-import { getRepairStatusLabel } from "../../../utils/repairStatus.js";
+import {
+  getRepairStatusClass,
+  getRepairStatusLabel,
+} from "../../../utils/repairStatus.js";
 import "./MyRepairs.css";
 
 function MyRepairs() {
@@ -15,6 +21,13 @@ function MyRepairs() {
   const [searchError, setSearchError] = useState("");
   const [repairs, setRepairs] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [locationFilter, setLocationFilter] = useState("");
+  const [floorFilter, setFloorFilter] = useState("");
+  const [roomFilter, setRoomFilter] = useState("");
+  const [problemFilter, setProblemFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [selectedRepair, setSelectedRepair] = useState(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -40,6 +53,8 @@ function MyRepairs() {
     setSelectedRepair(null);
     setIsDetailsOpen(false);
     setIsTimelineOpen(false);
+    setCurrentPage(1);
+    resetFilters();
     try {
       const query = new URLSearchParams({ email });
       const response = await fetch(`${API_BASE_URL}/api/repairs/track?${query}`);
@@ -57,23 +72,55 @@ function MyRepairs() {
     }
   };
 
-  const filteredRepairs = repairs;
-  const paginatedRepairs = repairs;
-  const getStatusClass = (status) => {
-    switch (status) {
-      case "รอซ่อม": return "status-waiting";
-      case "รับงานแล้ว": return "status-pending";
-      case "กำลังซ่อม": return "status-progress";
-      case "เสร็จเรียบร้อย": return "status-completed";
-      case "เสร็จสิ้น": return "status-completed";
-      case "ซ่อมไม่ได้": return "status-failed";
-      case "ส่งซ่อมภายนอก": return "status-outsourced";
-      case "ส่งซ่อมภายนอก / คณะ": return "status-outsourced";
-      case "ส่งซ่อมให้คณะ": return "status-faculty";
-      default: return "status-default";
-    }
+  const getUniqueValues = (values) => [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, "th"));
+  const locationOptions = getUniqueValues(repairs.map((repair) => repair.other_location || repair.location_name));
+  const floorOptions = getUniqueValues(
+    repairs
+      .filter((repair) => !locationFilter || (repair.other_location || repair.location_name) === locationFilter)
+      .map((repair) => repair.floor_name)
+  );
+  const roomOptions = getUniqueValues(
+    repairs
+      .filter((repair) =>
+        (!locationFilter || (repair.other_location || repair.location_name) === locationFilter) &&
+        (!floorFilter || repair.floor_name === floorFilter)
+      )
+      .map((repair) => repair.other_room || repair.room_number)
+  );
+  const problemOptions = getUniqueValues(repairs.map((repair) => repair.other_problem_type || repair.problem_type));
+  const statusOptions = getUniqueValues(repairs.map((repair) => getRepairStatusLabel(repair.status)));
+  const normalizedSearch = searchTerm.trim().toLocaleLowerCase();
+  const filteredRepairs = repairs.filter((repair) => {
+    const location = repair.other_location || repair.location_name || "";
+    const room = repair.other_room || repair.room_number || "";
+    const problem = repair.other_problem_type || repair.problem_type || "";
+    if (locationFilter && location !== locationFilter) return false;
+    if (floorFilter && repair.floor_name !== floorFilter) return false;
+    if (roomFilter && room !== roomFilter) return false;
+    if (problemFilter && problem !== problemFilter) return false;
+    if (statusFilter && getRepairStatusLabel(repair.status) !== statusFilter) return false;
+    if (!normalizedSearch) return true;
+    return [
+      repair.ticket_number,
+      repair.description,
+      location,
+      repair.floor_name,
+      room,
+      problem,
+      repair.status,
+    ].some((value) => String(value || "").toLocaleLowerCase().includes(normalizedSearch));
+  });
+  const pageSize = 10;
+  const paginatedRepairs = filteredRepairs.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const resetFilters = () => {
+    setLocationFilter("");
+    setFloorFilter("");
+    setRoomFilter("");
+    setProblemFilter("");
+    setStatusFilter("");
+    setSearchTerm("");
+    setCurrentPage(1);
   };
-
   const formatDate = (dateString) => {
     const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
     return new Date(dateString).toLocaleDateString('th-TH', options);
@@ -93,6 +140,8 @@ function MyRepairs() {
       if (handoffDetails?.trim()) {
         notes.push({ label: "รายละเอียดการส่งซ่อมต่อ", value: handoffDetails.trim() });
       }
+    } else if (repair.status === "ปิดงานก่อนครบขั้นตอน" && repair.closure_note?.trim()) {
+      notes.push({ label: "หมายเหตุปิดงานก่อนครบขั้นตอน", value: repair.closure_note.trim() });
     }
     return notes;
   };
@@ -147,6 +196,81 @@ function MyRepairs() {
           </form>
         </section>
 
+        {trackingCredentials && (
+          <section className="tracking-controls" aria-label="ค้นหาและกรองรายการแจ้งซ่อม">
+            <SearchField
+              id="my-repairs-search"
+              label="ค้นหารายการ"
+              placeholder="หมายเลข Ticket สถานที่ ห้อง หรือรายละเอียด"
+              value={searchTerm}
+              onChange={(value) => {
+                setSearchTerm(value);
+                setCurrentPage(1);
+              }}
+            />
+            <FilterBar
+              filters={[
+                {
+                  id: "location",
+                  label: "อาคาร / สถานที่",
+                  value: locationFilter,
+                  options: locationOptions,
+                  onChange: (value) => {
+                    setLocationFilter(value);
+                    setFloorFilter("");
+                    setRoomFilter("");
+                    setCurrentPage(1);
+                  },
+                },
+                {
+                  id: "floor",
+                  label: "ชั้น",
+                  value: floorFilter,
+                  options: floorOptions,
+                  onChange: (value) => {
+                    setFloorFilter(value);
+                    setRoomFilter("");
+                    setCurrentPage(1);
+                  },
+                },
+                {
+                  id: "room",
+                  label: "ห้อง",
+                  value: roomFilter,
+                  options: roomOptions,
+                  onChange: (value) => {
+                    setRoomFilter(value);
+                    setCurrentPage(1);
+                  },
+                },
+                {
+                  id: "problem",
+                  label: "ประเภทงาน",
+                  value: problemFilter,
+                  options: problemOptions,
+                  onChange: (value) => {
+                    setProblemFilter(value);
+                    setCurrentPage(1);
+                  },
+                },
+                {
+                  id: "status",
+                  label: "สถานะ",
+                  value: statusFilter,
+                  options: statusOptions,
+                  onChange: (value) => {
+                    setStatusFilter(value);
+                    setCurrentPage(1);
+                  },
+                },
+              ]}
+            />
+            <button type="button" className="tracking-filter-reset" onClick={resetFilters}>
+              ล้างการค้นหาและตัวกรอง
+            </button>
+          </section>
+        )}
+
         <div className="repair-list">
           {isLoading ? (
             <div className="loading-state">กำลังค้นหารายการแจ้งซ่อม...</div>
@@ -160,9 +284,15 @@ function MyRepairs() {
                 <div className="repair-item-card" key={repair.id}>
                   <div className="card-top">
                     <span className="repair-id">{repair.ticket_number || `Ticket #${repair.id}`}</span>
-                    <span className={`status-badge ${getStatusClass(repair.status)}`}>
-                      {getRepairStatusLabel(repair.status)}
-                    </span>
+                    <div className="repair-card-badges">
+                      <span className={`status-badge ${getRepairStatusClass(repair.status)}`}>
+                        {getRepairStatusLabel(repair.status)}
+                      </span>
+                      <span className={`repair-image-indicator ${repair.images?.length ? "has-images" : "no-images"}`}>
+                        <ImageIcon size={15} aria-hidden="true" />
+                        {repair.images?.length ? `มีรูปภาพ (${repair.images.length})` : "ไม่มีรูปภาพ"}
+                      </span>
+                    </div>
                   </div>
 
                   <h3 className="repair-title">[{displayProblemType}] {displayLocation}</h3>
@@ -230,10 +360,23 @@ function MyRepairs() {
             })
           ) : (
             <div className="no-results">
-              <p><CircleX size={18} aria-hidden="true" /> กรอกอีเมลที่ใช้แจ้งซ่อมเพื่อค้นหารายการของคุณ</p>
+              <p>
+                <CircleX size={18} aria-hidden="true" />
+                {trackingCredentials
+                  ? "ไม่พบรายการที่ตรงกับคำค้นหาหรือตัวกรอง"
+                  : "กรอกอีเมลที่ใช้แจ้งซ่อมเพื่อค้นหารายการของคุณ"}
+              </p>
             </div>
           )}
         </div>
+        {trackingCredentials && (
+          <Pagination
+            currentPage={currentPage}
+            totalItems={filteredRepairs.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+          />
+        )}
 
       </div>
 
@@ -256,7 +399,7 @@ function MyRepairs() {
               />
 
               <div className="info-grid">
-                <p><strong>สถานะปัจจุบัน:</strong> <span className={`status-badge ${getStatusClass(selectedRepair.status)}`}>{getRepairStatusLabel(selectedRepair.status)}</span></p>
+                <p><strong>สถานะปัจจุบัน:</strong> <span className={`status-badge ${getRepairStatusClass(selectedRepair.status)}`}>{getRepairStatusLabel(selectedRepair.status)}</span></p>
                 <p><strong>หมวดหมู่งาน:</strong> {selectedRepair.other_problem_type || selectedRepair.problem_type}</p>
                 <p><strong>สถานที่:</strong> {selectedRepair.other_location || selectedRepair.location_name}</p>
                 <p>
@@ -292,7 +435,7 @@ function MyRepairs() {
                 extraNotes={getOutcomeNotes(selectedRepair)}
               />
 
-              {selectedRepair.status !== "รอซ่อม" && (
+              {!["รอแอดมินจัดสรร", "ส่งคืนแอดมิน"].includes(selectedRepair.status) && (
                 <div className="tech-info-box">
                   <p><strong><UserRound size={17} aria-hidden="true" /> ช่างผู้รับผิดชอบ:</strong> {selectedRepair.technician_name || "อยู่ระหว่างดำเนินการ"}</p>
                   {(selectedRepair.status === "เสร็จเรียบร้อย" || selectedRepair.status === "เสร็จสิ้น") && (

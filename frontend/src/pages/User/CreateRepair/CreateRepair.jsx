@@ -1,7 +1,7 @@
 import { API_BASE_URL, apiFetch as fetch } from "../../../api/baseUrl.js";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Camera, CheckCircle2, Image as ImageIcon, LoaderCircle, Send } from 'lucide-react';
+import { Camera, CheckCircle2, Image as ImageIcon, LoaderCircle, Send, X } from 'lucide-react';
 import AppBreadcrumb from "../../../components/AppBreadcrumb";
 import BackButton from "../../../components/ui/BackButton";
 import useToast from "../../../hooks/useToast";
@@ -25,6 +25,7 @@ function CreateRepair() {
   const [room, setRoom] = useState("");
   const [customRoomName, setCustomRoomName] = useState(""); // 🔥 [เพิ่มใหม่] State เก็บชื่อห้องที่ผู้ใช้พิมพ์เองกรณีเลือก "อื่นๆ"
   const [equipment, setEquipment] = useState("");
+  const [otherEquipment, setOtherEquipment] = useState("");
   const [customLocationName, setCustomLocationName] = useState("");
   const [problemType, setProblemType] = useState("");
   const [customProblemName, setCustomProblemName] = useState("");
@@ -68,7 +69,7 @@ function CreateRepair() {
   };
 
   const normalizeEquipmentName = (name) =>
-    name.replace(/\s*\(\s*\d[^)]*\)/g, "").replace(/\s+/g, " ").trim();
+    name.replace(/\s*\(\s*(?:\d|[A-Z]\s)[^)]*\)/g, "").replace(/\s+/g, " ").trim();
 
   const uniqueEquipments = [...new Map(
     equipments
@@ -128,6 +129,7 @@ function CreateRepair() {
     setCustomRoomName("");
     setEquipments([]);
     setEquipment("");
+    setOtherEquipment("");
 
     if (!location || isOtherLocation()) {
       setFloors([]);
@@ -158,6 +160,7 @@ function CreateRepair() {
     setCustomRoomName("");
     setEquipments([]);
     setEquipment("");
+    setOtherEquipment("");
 
     if (!floor) {
       setRooms([]);
@@ -183,6 +186,7 @@ function CreateRepair() {
 
   useEffect(() => {
     setEquipment("");
+    setOtherEquipment("");
 
     if (!room || isOtherRoom()) {
       setEquipments([]);
@@ -223,6 +227,7 @@ function CreateRepair() {
     if (location && !isOtherLocation() && isFloorDataLoaded && floors.length === 0 && !customRoomName.trim()) nextErrors.customRoom = "กรุณาระบุห้องหรือจุดเกิดเหตุ";
     if (floor && !room) nextErrors.room = "กรุณาเลือกห้องหรือจุดเกิดเหตุ";
     if (isOtherRoom() && !customRoomName.trim()) nextErrors.customRoom = "กรุณาระบุชื่อห้องหรือจุดเกิดเหตุเพิ่มเติม";
+    if (equipment === "other" && !otherEquipment.trim()) nextErrors.otherEquipment = "กรุณาระบุชื่ออุปกรณ์";
     if (!problemType) nextErrors.problemType = "กรุณาเลือกหมวดหมู่งานซ่อม";
     if (isOtherProblem() && !customProblemName.trim()) nextErrors.customProblem = "กรุณาระบุหมวดหมู่งานซ่อมอื่น ๆ";
     if (!details.trim()) nextErrors.details = "กรุณาอธิบายรายละเอียดของปัญหา";
@@ -265,7 +270,11 @@ function CreateRepair() {
         formData.append("other_room", customRoomName);
       } else {
         formData.append("room_id", room);
-        if (equipment) formData.append("equipment_id", equipment);
+        if (equipment === "other") {
+          formData.append("other_equipment", otherEquipment.trim());
+        } else if (equipment) {
+          formData.append("equipment_id", equipment);
+        }
       }
     } else if (isFloorDataLoaded && !floorLoadError && customRoomName.trim()) {
       formData.append("other_room", customRoomName.trim());
@@ -291,7 +300,7 @@ function CreateRepair() {
           description: "คุณสามารถติดตามสถานะงานได้จากหน้ารายการแจ้งซ่อม",
         });
 
-        navigate("/repair/history", { replace: true });
+        navigate("/repair/board", { replace: true });
       } else {
         const errorData = await response.json();
         toast.error("ส่งรายการไม่สำเร็จ", {
@@ -311,6 +320,12 @@ function CreateRepair() {
     if (e.target.files && e.target.files[0]) {
       setImage(e.target.files[0]);
     }
+  };
+
+  const handleImageRemove = () => {
+    setImage(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
   };
 
   return (
@@ -536,12 +551,38 @@ function CreateRepair() {
                       {room && !isOtherRoom() && (
                         <div className="form-group slide-down">
                           <label>อุปกรณ์ที่ชำรุด (ไม่บังคับ)</label>
-                          <select value={equipment} onChange={(e) => setEquipment(e.target.value)}>
+                          <select
+                            value={equipment}
+                            onChange={(e) => {
+                              setEquipment(e.target.value);
+                              setValidationErrors((current) => ({ ...current, otherEquipment: undefined }));
+                              if (e.target.value !== "other") setOtherEquipment("");
+                            }}
+                          >
                             <option value="">-- ไม่ระบุ / ซ่อมโครงสร้างห้อง --</option>
                             {uniqueEquipments.map((eq) => (
                               <option key={eq.id} value={eq.id}>{eq.displayName}</option>
                             ))}
+                            <option value="other">อื่นๆ</option>
                           </select>
+                        </div>
+                      )}
+
+                      {room && !isOtherRoom() && equipment === "other" && (
+                        <div className="form-group slide-down">
+                          <label>ระบุชื่ออุปกรณ์ <span className="required">*</span></label>
+                          <input
+                            type="text"
+                            value={otherEquipment}
+                            maxLength={255}
+                            onChange={(e) => {
+                              setOtherEquipment(e.target.value);
+                              setValidationErrors((current) => ({ ...current, otherEquipment: undefined }));
+                            }}
+                            placeholder="เช่น โปรเจคเตอร์ติดผนัง"
+                            aria-invalid={Boolean(validationErrors.otherEquipment)}
+                          />
+                          {validationErrors.otherEquipment && <p className="field-error">{validationErrors.otherEquipment}</p>}
                         </div>
                       )}
                     </>
@@ -622,7 +663,13 @@ function CreateRepair() {
                 </div>
 
                 {image && (
-                  <p className="file-name-preview"><CheckCircle2 size={17} aria-hidden="true" /> ไฟล์ที่เลือก: {image.name}</p>
+                  <p className="file-name-preview">
+                    <CheckCircle2 size={17} aria-hidden="true" />
+                    <span>ไฟล์ที่เลือก: {image.name}</span>
+                    <button type="button" onClick={handleImageRemove} aria-label="นำรูปที่เลือกออก">
+                      <X size={17} aria-hidden="true" />
+                    </button>
+                  </p>
                 )}
 
                 <input

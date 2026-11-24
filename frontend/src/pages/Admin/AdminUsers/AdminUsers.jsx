@@ -112,17 +112,11 @@ function AdminUsers() {
     setIsViewOpen(true);
   };
 
-  // จัดการกับการเพิ่ม/ลดความถนัดของช่างเทคนิค (ห้ามเกิน 3 รายการ)
+  // จัดการกับการเพิ่ม/ลดความถนัดของช่างเทคนิค
   const handleSpecialtyChange = (typeId) => {
     if (specialties.includes(typeId)) {
       setSpecialties(specialties.filter((id) => id !== typeId));
     } else {
-      if (specialties.length >= 3) {
-        toast.warning("เลือกหมวดหมู่ได้สูงสุด 3 รายการ", {
-          description: "ช่าง 1 คนสามารถเลือกหมวดหมู่งานที่ถนัดได้ไม่เกิน 3 หมวดหมู่",
-        });
-        return;
-      }
       setSpecialties([...specialties, typeId]);
     }
   };
@@ -381,7 +375,7 @@ function AdminUsers() {
               {/* แสดงโซนระบุความถนัดเมื่อสิทธิ์ที่เลือกเป็นช่างเทคนิค */}
               {role === "technician" && (
                 <div className="input-group">
-                  <label>หมวดหมู่งานซ่อมที่ถนัด (เลือกได้สูงสุด 3 หมวดหมู่) <span className="required">*</span></label>
+                  <label>หมวดหมู่งานซ่อมที่ถนัด (เลือกได้ทุกหมวดหมู่) <span className="required">*</span></label>
                   <div className="specialties-checkbox-grid">
                     {problemTypes.map((type) => (
                       <label className="checkbox-item-label" key={type.id}>
@@ -463,7 +457,7 @@ function AdminUsers() {
               {/* แก้ไขความถนัดของช่างเทคนิค */}
               {role === "technician" && (
                 <div className="input-group">
-                  <label>ปรับปรุงงานซ่อมที่ถนัด (สูงสุด 3 หมวดหมู่) <span className="required">*</span></label>
+                  <label>ปรับปรุงงานซ่อมที่ถนัด (เลือกได้ทุกหมวดหมู่) <span className="required">*</span></label>
                   <div className="specialties-checkbox-grid">
                     {problemTypes.map((type) => (
                       <label className="checkbox-item-label" key={type.id}>

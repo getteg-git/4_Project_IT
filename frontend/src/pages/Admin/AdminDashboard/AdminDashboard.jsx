@@ -62,7 +62,9 @@ function AdminDashboard() {
   // Logic การคำนวณสถิติ 4 สถานะหลัก
   // ==========================================
   const totalRepairs = filteredRepairs.length;
-  const pendingCount = filteredRepairs.filter(r => r.status === "รอซ่อม" || r.status === "รับงานแล้ว").length;
+  const pendingCount = filteredRepairs.filter(r =>
+    ["รอแอดมินจัดสรร", "รอช่างรับงาน", "ส่งคืนแอดมิน", "รออนุมัติ", "รับงานแล้ว"].includes(r.status)
+  ).length;
   const progressCount = filteredRepairs.filter(r => r.status === "กำลังซ่อม").length;
   const cannotRepairCount = filteredRepairs.filter(r => ["ซ่อมไม่ได้", "ส่งซ่อมภายนอก", "ส่งซ่อมภายนอก / คณะ", "ส่งซ่อมให้คณะ"].includes(r.status)).length;
   const completedCount = filteredRepairs.filter(r => r.status === "เสร็จเรียบร้อย" || r.status === "เสร็จสิ้น").length;
@@ -115,12 +117,17 @@ function AdminDashboard() {
   const mttrDays = calculateAverageRepairTime(filteredRepairs);
 
   const warningRepairs = filteredRepairs.filter(r => {
-    return r.status === "รอซ่อม" && r.admin_note && r.admin_note !== "";
+    return r.status === "รออนุมัติ" ||
+      (r.status === "รอซ่อม" && r.admin_note?.startsWith("แจ้งเตือน: ราคาประเมิน"));
   });
   const paginatedWarningRepairs = getPageItems(warningRepairs, warningPage, REPAIR_PAGE_SIZE);
 
   const statusChartData = [
-    { name: "รอรับงาน / รับงานแล้ว", value: pendingCount, color: "#f39c12" },
+    { name: "รอแอดมินจัดสรร", value: filteredRepairs.filter(r => r.status === "รอแอดมินจัดสรร").length, color: "#f59e0b" },
+    { name: "รอช่างรับงาน", value: filteredRepairs.filter(r => r.status === "รอช่างรับงาน").length, color: "#2563eb" },
+    { name: "ส่งคืนแอดมิน", value: filteredRepairs.filter(r => r.status === "ส่งคืนแอดมิน").length, color: "#dc2626" },
+    { name: "รออนุมัติงบประมาณ", value: warningRepairs.length, color: "#7c3aed" },
+    { name: "รับงานแล้ว", value: filteredRepairs.filter(r => r.status === "รับงานแล้ว").length, color: "#0ea5e9" },
     { name: "กำลังดำเนินการซ่อม", value: progressCount, color: "#2980b9" },
     { name: "ซ่อมไม่ได้/ส่งภายนอก", value: cannotRepairCount, color: "#e74c3c" },
     { name: "ดำเนินเสร็จสิ้น", value: completedCount, color: "#007A53" }
@@ -203,7 +210,7 @@ function AdminDashboard() {
         <>
           <div className="summary-cards-grid">
             <div className="summary-card total"><h3>รวมทั้งหมด</h3><div className="number">{totalRepairs}</div><span>รายการ</span></div>
-            <div className="summary-card pending"><h3>รอรับงาน/เข้าหน้างาน</h3><div className="number">{pendingCount}</div><span>รายการ</span></div>
+            <div className="summary-card pending"><h3>รอดำเนินการ</h3><div className="number">{pendingCount}</div><span>รายการ</span></div>
             <div className="summary-card progress"><h3>กำลังซ่อม</h3><div className="number">{progressCount}</div><span>ดำเนินการ</span></div>
 
             <div className="summary-card mttr">

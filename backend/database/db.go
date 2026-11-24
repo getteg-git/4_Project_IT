@@ -81,7 +81,10 @@ func ConnectDB() error {
 		ALTER TABLE repairs
 			ADD COLUMN IF NOT EXISTS reporter_type VARCHAR(50),
 			ADD COLUMN IF NOT EXISTS reporter_degree_level VARCHAR(100),
-			ADD COLUMN IF NOT EXISTS reporter_department VARCHAR(255)
+			ADD COLUMN IF NOT EXISTS reporter_department VARCHAR(255),
+			ADD COLUMN IF NOT EXISTS other_equipment VARCHAR(255),
+			ADD COLUMN IF NOT EXISTS return_note TEXT,
+			ADD COLUMN IF NOT EXISTS closure_note TEXT
 	`)
 	if err != nil {
 		return fmt.Errorf("failed to migrate repair reporter details: %w", err)
@@ -193,6 +196,31 @@ func ConnectDB() error {
 		return fmt.Errorf("failed to count repairs with stale revoke notes: %w", err)
 	} else if affected > 0 {
 		log.Printf("cleared stale review notes from %d revoked repairs", affected)
+	}
+
+	_, err = db.Exec(`
+		UPDATE repairs r
+		SET status = CASE
+			WHEN r.technician_id IS NOT NULL
+			     AND COALESCE(r.admin_note, '') LIKE 'แจ้งเตือน: ราคาประเมิน%'
+				THEN 'รออนุมัติ'
+			WHEN r.technician_id IS NULL
+			     AND (
+					SELECT latest.action
+					FROM repair_logs latest
+					WHERE latest.repair_id = r.id
+					ORDER BY latest.id DESC
+					LIMIT 1
+				 ) IN ('RETURNED_TO_ADMIN', 'REJECTED_BEFORE_ACCEPT')
+				THEN 'ส่งคืนแอดมิน'
+			WHEN r.technician_id IS NOT NULL
+				THEN 'รอช่างรับงาน'
+			ELSE 'รอแอดมินจัดสรร'
+		END
+		WHERE r.status IN ('รอซ่อม', 'รอรับงาน')
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to migrate pending repair statuses: %w", err)
 	}
 
 	DB = db

@@ -72,6 +72,7 @@ func SetupRoutes(r *gin.Engine) {
 
 			admin.PUT("/repairs/:id/revoke", repairHandler.RevokeRepair)
 			admin.PUT("/repairs/:id/cancel", repairHandler.CancelRepairByAdmin)
+			admin.PUT("/repairs/:id/close-early", repairHandler.CloseRepairEarly)
 			admin.PUT("/repairs/:id/outsource", repairHandler.OutsourceRepair)
 			admin.PUT("/repairs/:id/approve", repairHandler.ApproveRepairThreshold)
 

@@ -150,11 +150,13 @@
 .status-progress { background-color: #2980b9; }
 .status-completed { background-color: var(--color-primary); }
 .status-failed { background-color: #e74c3c; }
+.status-closed-early { background: #ede9fe; color: #5b21b6; border: 1px solid #c4b5fd; }
+.status-waiting-admin { background: #fff7ed; color: #9a3412; border: 1px solid #fdba74; }
+.status-waiting-technician { background: #eff6ff; color: #1d4ed8; border: 1px solid #93c5fd; }
+.status-returned-admin { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
+.status-awaiting-approval { background: #f5f3ff; color: #6d28d9; border: 1px solid #c4b5fd; }
 .team-job-status {
   max-width: 62%;
-  color: #075985;
-  background-color: #e0f2fe;
-  border: 1px solid #7dd3fc;
   line-height: 1.3;
   text-align: center;
   white-space: normal;
@@ -280,18 +282,24 @@
   display: flex; justify-content: center; align-items: center;
   z-index: 1000; backdrop-filter: blur(4px);
   padding: 20px; box-sizing: border-box;
+  overflow-y: auto;
 }
 
 .modal-box {
   background: white;
+  box-sizing: border-box;
   width: 100%; max-width: 500px;
   padding: 35px; border-radius: 12px;
   position: relative;
   box-shadow: 0 10px 30px rgba(0,0,0,0.2);
   border-top: 6px solid var(--color-primary);
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
-.details-box { max-width: 600px; max-height: 90vh; overflow-y: auto; }
+.details-box { max-width: 600px; }
 .details-return-action {
   display: flex;
   align-items: center;
@@ -657,8 +665,8 @@
 }
 
 .tech-container .modal-box:not(.details-box).completion-modal-box {
-  max-height: 90vh;
-  overflow-y: auto;
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
 }
 
 .tech-container .action-buttons .btn-assign {
@@ -1030,4 +1038,39 @@
     grid-template-columns: 1fr;
   }
 
+}
+
+.tech-container .repair-card-badges {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.tech-container .repair-image-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  padding: 4px 8px;
+  border: 1px solid #d9e3df;
+  border-radius: 999px;
+  color: #52635c;
+  background: #f6f8f7;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tech-container .repair-image-indicator.has-images {
+  border-color: #9bd5bb;
+  color: #17684e;
+  background: #eaf8f0;
+}
+
+.tech-container .repair-image-indicator.no-images {
+  border-color: #d7dce0;
+  color: #59636b;
+  background: #f4f6f7;
 }
