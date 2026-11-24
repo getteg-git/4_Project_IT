@@ -1,5 +1,6 @@
 import { API_BASE_URL, apiFetch as fetch } from "../../../api/baseUrl.js";
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import RepairImageGallery from "../../../components/RepairImageGallery";
 import {
@@ -1290,14 +1291,15 @@ function AdminManage() {
       </div>
 
       {/* POPUP: ดูรายละเอียด */}
-      {isDetailsOpen && selectedRepair && (
-        <div
-          className="modal-overlay"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) setIsDetailsOpen(false);
-          }}
-        >
-          <div className="modal-box details-box" role="dialog" aria-modal="true" aria-label="ข้อมูลการแจ้งซ่อมอย่างละเอียด">
+      {isDetailsOpen && selectedRepair && createPortal(
+        <div className="admin-manage-container admin-manage-modal-root">
+          <div
+            className="modal-overlay"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) setIsDetailsOpen(false);
+            }}
+          >
+            <div className="modal-box details-box" role="dialog" aria-modal="true" aria-label="ข้อมูลการแจ้งซ่อมอย่างละเอียด">
             <button
               className="close-btn"
               type="button"
@@ -1309,10 +1311,6 @@ function AdminManage() {
 
             <div
               className="modal-header-center"
-              style={{
-                textAlign: "center",
-                marginBottom: "20px",
-              }}
             >
               <h3 className="assign-modal-title">
                 <FileText
@@ -1494,8 +1492,10 @@ function AdminManage() {
                 </div>
               )}
             </div>
+            </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* POPUP: มอบหมายงาน */}
