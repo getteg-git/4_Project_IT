@@ -76,6 +76,10 @@ function AdminManage() {
   const [earlyCloseTarget, setEarlyCloseTarget] = useState(null);
   const [earlyCloseNote, setEarlyCloseNote] = useState("");
   const [isClosingEarly, setIsClosingEarly] = useState(false);
+  const [outsourceTarget, setOutsourceTarget] = useState(null);
+  const [outsourceDestination, setOutsourceDestination] = useState("");
+  const [outsourceDetails, setOutsourceDetails] = useState("");
+  const [isOutsourcing, setIsOutsourcing] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -746,6 +750,48 @@ function AdminManage() {
     }
   };
 
+  const openOutsourceModal = (repair) => {
+    setOutsourceTarget(repair);
+    setOutsourceDestination("");
+    setOutsourceDetails("");
+  };
+
+  const submitOutsource = async (event) => {
+    event.preventDefault();
+    if (!outsourceTarget || !outsourceDestination || !outsourceDetails.trim()) return;
+
+    setIsOutsourcing(true);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/repairs/${outsourceTarget.id}/outsource`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            destination: outsourceDestination,
+            details: outsourceDetails.trim(),
+          }),
+        }
+      );
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "ไม่สามารถบันทึกการส่งซ่อมต่อได้");
+
+      toast.success("ส่งซ่อมต่อเรียบร้อย", {
+        description: "ย้ายรายการไปยังแท็บส่งซ่อมต่อและบันทึกหมายเหตุแล้ว",
+      });
+      setOutsourceTarget(null);
+      setOutsourceDestination("");
+      setOutsourceDetails("");
+      await fetchData();
+    } catch (error) {
+      toast.error("ส่งซ่อมต่อไม่สำเร็จ", {
+        description: error.message || "กรุณาลองใหม่อีกครั้ง",
+      });
+    } finally {
+      setIsOutsourcing(false);
+    }
+  };
+
   return (
     <div className={`admin-manage-container ${!isLoading && displayedRepairs.length === 0 ? "has-empty-repairs" : ""}`}>
       <div className="admin-wrapper">
@@ -1219,7 +1265,13 @@ function AdminManage() {
                           />{" "}
                           มอบหมายช่างคนอื่น
                         </button>
-
+                        <button
+                          className="btn-outsource"
+                          type="button"
+                          onClick={() => openOutsourceModal(repair)}
+                        >
+                          <Wrench size={16} aria-hidden="true" /> ส่งซ่อมต่อ
+                        </button>
                       </>
                     )}
 
@@ -1980,6 +2032,79 @@ function AdminManage() {
                   disabled={isClosingEarly || !earlyCloseNote.trim()}
                 >
                   {isClosingEarly ? "กำลังปิดงาน..." : "ยืนยันปิดงาน"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {outsourceTarget && (
+        <div className="modal-overlay">
+          <div className="modal-box outsource-modal" role="dialog" aria-modal="true" aria-labelledby="outsource-modal-title">
+            <button
+              className="close-btn"
+              type="button"
+              disabled={isOutsourcing}
+              onClick={() => setOutsourceTarget(null)}
+              aria-label="ปิดหน้าต่าง"
+            >
+              <X aria-hidden="true" />
+            </button>
+            <h3 id="outsource-modal-title" className="assign-modal-title">
+              <Wrench size={22} aria-hidden="true" /> ส่งซ่อมต่อ
+            </h3>
+            <p className="assign-modal-subtitle">
+              Ticket: {outsourceTarget.ticket_number || `#${outsourceTarget.id}`}
+            </p>
+            <p className="outsource-context">
+              เลือกปลายทางและระบุหมายเหตุ ระบบจะบันทึกสถานะพร้อมแจ้งผู้แจ้งตามช่องทางที่ตั้งค่าไว้
+            </p>
+            <form onSubmit={submitOutsource}>
+              <div className="input-group">
+                <label htmlFor="outsource-destination">
+                  ปลายทางการซ่อม <span className="required">*</span>
+                </label>
+                <select
+                  id="outsource-destination"
+                  value={outsourceDestination}
+                  onChange={(event) => setOutsourceDestination(event.target.value)}
+                  required
+                >
+                  <option value="">-- เลือกปลายทาง --</option>
+                  <option value="faculty">ส่งซ่อมให้คณะ</option>
+                  <option value="external">ส่งซ่อมภายนอก</option>
+                </select>
+              </div>
+              <div className="input-group">
+                <label htmlFor="outsource-details">
+                  หมายเหตุ <span className="required">*</span>
+                </label>
+                <textarea
+                  id="outsource-details"
+                  className="reject-textarea"
+                  value={outsourceDetails}
+                  onChange={(event) => setOutsourceDetails(event.target.value)}
+                  maxLength={2000}
+                  required
+                  placeholder="ระบุเหตุผลหรือรายละเอียดการส่งซ่อมต่อ"
+                />
+              </div>
+              <div className="modal-actions assign-actions">
+                <button
+                  type="button"
+                  className="btn-cancel"
+                  disabled={isOutsourcing}
+                  onClick={() => setOutsourceTarget(null)}
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  className="btn-outsource"
+                  disabled={isOutsourcing || !outsourceDestination || !outsourceDetails.trim()}
+                >
+                  {isOutsourcing ? "กำลังบันทึก..." : "ยืนยันส่งซ่อมต่อ"}
                 </button>
               </div>
             </form>

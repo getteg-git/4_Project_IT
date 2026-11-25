@@ -1645,11 +1645,22 @@ func canCloseRepairEarly(status string) bool {
 }
 
 // OutsourceRepair บันทึกการส่งงานที่ช่างซ่อมไม่ได้ให้คณะหรือผู้รับจ้างภายนอก
+func outsourceStatus(destination string) (string, string, bool) {
+	switch strings.TrimSpace(destination) {
+	case "faculty":
+		return "ส่งซ่อมให้คณะ", "ให้คณะ", true
+	case "external":
+		return "ส่งซ่อมภายนอก", "ภายนอก", true
+	default:
+		return "", "", false
+	}
+}
+
 func OutsourceRepair(c *gin.Context) {
 	repairID := c.Param("id")
 	type OutsourceRequest struct {
 		Details     string `json:"details" binding:"required"`
-		Destination string `json:"destination"`
+		Destination string `json:"destination" binding:"required"`
 	}
 
 	var req OutsourceRequest
@@ -1658,12 +1669,8 @@ func OutsourceRepair(c *gin.Context) {
 		return
 	}
 
-	statusLabel := "ส่งซ่อมภายนอก / คณะ"
-	destinationLabel := "ภายนอก"
-	if req.Destination == "faculty" {
-		statusLabel = "ส่งซ่อมให้คณะ"
-		destinationLabel = "ให้คณะ"
-	} else if req.Destination != "" && req.Destination != "external" {
+	statusLabel, destinationLabel, validDestination := outsourceStatus(req.Destination)
+	if !validDestination {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "ประเภทการส่งซ่อมไม่ถูกต้อง"})
 		return
 	}

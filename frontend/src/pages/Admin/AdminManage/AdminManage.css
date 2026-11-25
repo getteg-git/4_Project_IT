@@ -980,3 +980,28 @@
   color: #52635c;
   line-height: 1.5;
 }
+
+.admin-manage-container .outsource-modal {
+  width: min(100%, 640px);
+}
+
+.admin-manage-container .outsource-modal .outsource-context {
+  color: #52635c;
+  line-height: 1.5;
+}
+
+.admin-manage-container .outsource-modal .assign-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.admin-manage-container .outsource-modal .assign-actions button {
+  min-height: 44px;
+  padding: 10px 16px;
+}
+
+.admin-manage-container .outsource-modal .btn-outsource:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}

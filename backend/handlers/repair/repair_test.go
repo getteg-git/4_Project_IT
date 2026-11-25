@@ -135,6 +135,28 @@ func TestCanCloseRepairEarly(t *testing.T) {
 	}
 }
 
+func TestOutsourceStatusRequiresValidDestination(t *testing.T) {
+	tests := []struct {
+		destination string
+		wantStatus  string
+		wantLabel   string
+		wantValid   bool
+	}{
+		{destination: "faculty", wantStatus: "ส่งซ่อมให้คณะ", wantLabel: "ให้คณะ", wantValid: true},
+		{destination: "external", wantStatus: "ส่งซ่อมภายนอก", wantLabel: "ภายนอก", wantValid: true},
+		{destination: "", wantValid: false},
+		{destination: "unknown", wantValid: false},
+	}
+
+	for _, test := range tests {
+		status, label, valid := outsourceStatus(test.destination)
+		if status != test.wantStatus || label != test.wantLabel || valid != test.wantValid {
+			t.Errorf("outsourceStatus(%q) = (%q, %q, %v), want (%q, %q, %v)",
+				test.destination, status, label, valid, test.wantStatus, test.wantLabel, test.wantValid)
+		}
+	}
+}
+
 func TestRepairReturnAction(t *testing.T) {
 	tests := []struct {
 		name        string
